@@ -1,0 +1,187 @@
+#+TITLE: Microchip development tools Nix Overlay
+#+AUTHOR: Cormac Cannon
+#+LANGUAGE: en
+
+
+# EXPORT SETUP
+
+# 1. Ensure exports include both source block contents and any results
+#+PROPERTY: header-args :exports both
+
+# 2. Suppress author in title, and prevent ^ and _ from initiating super and subscript....
+#     N.B. can still use the braced forms -- i.e. 'bla^{super}_{sub}'
+#+OPTIONS: author:nil ^:nil
+
+# Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
+#+STARTUP:: latexpreview
+
+A Nix overlay for microchip development -- intended for use in per-project environment flakes and/or home-manager configuration.
+
+* Table of Contents                                         :TOC_2_gh:noexport:
+- [[#overview][Overview]]
+- [[#usage][Usage]]
+- [[#outstanding-tasks][Outstanding tasks]]
+  - [[#rework-to-allow-the-compiler-versions-to-be-included-as-a-parameter-rather-than-hardcoded][Rework to allow the compiler version(s) to be included as a parameter rather than hardcoded]]
+  - [[#rework-pkgsdefaultnix-to-include-pkgsxc16defaultnix][Rework pkgs/default.nix to include pkgs/xc16/default.nix]]
+  - [[#figure-out-how-to-use-this-with-a-microchip-compiler-license][Figure out how to use this with a microchip compiler license]]
+  - [[#investigate-building-xc16-compiler-from-source][Investigate building xc16 compiler from source]]
+  - [[#investigatesquash-fontconfig-error-on-launching-mplab-x][Investigate/squash FontConfig error on launching mplab-x]]
+  - [[#investigate--fix-the-noisy-permission-errors-during-build][Investigate / fix the noisy permission errors during build]]
+
+* Overview
+The packages included here are primarily the work of https://github.com/nyadiia, in a merge request raised against nixpkgs here:
+[[https://github.com/NixOS/nixpkgs/pull/301317]]
+
+I've refactored them a bit to accommodate my own immediate needs and packaged as a flake for instant gratification.
+
+The xc16 package has been refactored to put most of nyadiia's work into a shared common.nix, and pass the version and installer archive hash in as parameters. So adding a new compiler version just requires creating a new file containing the version number and hash in [[./pkgs/xc16]].
+
+See the example below for xc16 v1.61 (from [[./pkgs/xc16/1.61.nix]]):
+
+#+begin_src nix
+import ./common.nix {
+  version = "1.61";
+  hash = "sha256-Wi0vhJWt+WiNq41daf7e7tJeJmt3/M3t2TJbkJQTNEg=";
+}
+#+end_src
+
+And then add a new line to [[./pkgs/default.nix]]:
+
+#+begin_src nix
+   xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { };
+#+end_src
+
+* Usage
+
+The microchip compilers and mplab-x are dynamically linked binaries, requiring them to wrapped in an fhsEnv to be used on NixOS anyway.
+The compiler packages are unwrapped -- installing via the mplab-x package wraps mplab-x and the compiler(s) in an fhsEnv so they all function as intended. I haven't tested with microchip programmers etc. as yet, as my dev flow for current microchip projects doesn't require them (hex image programming via a bootloader, and debugging via log trace rather than ICD).
+
+Here's a sample flake illustrating use from a microchip project. This installs mplab-x, xc16 and
+... (this overlay is hard-coded to x86_64-linux for now, so the forEachSupportedSystem stuff is aspirational )...
+#+begin_src nix
+  {
+    description = "A Nix-flake-based ceedling (c+ruby) environment";
+    #N.B. microchip compiler not nixpkg-ed, so assuming installed via system package manager
+    #N.B. ruby dependencies controlled via Gemfile, bundler and bundix pfte
+
+    inputs = {
+      nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
+      microchip.url = "github:cormacc/nix-microchip";
+    };
+
+    outputs = { self, nixpkgs, microchip }:
+      let
+        supportedSystems = [ "x86_64-linux" "aarch64-linux" "x86_64-darwin" "aarch64-darwin" ];
+        forEachSupportedSystem = f: nixpkgs.lib.genAttrs supportedSystems (system: f {
+          pkgs = import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+            overlays = [
+              microchip.overlays.default
+            ];
+          };
+        });
+      in
+      {
+        devShells = forEachSupportedSystem ({ pkgs }: {
+          default = pkgs.mkShell {
+              buildInputs = with pkgs; [
+                mplab-x #build dependencies - incorporates xc16 v1.61
+                cmake clang-tools #editor support (emacs/lsp)
+              ];
+            };
+        });
+      };
+  }
+#+end_src
+
+
+* Outstanding tasks
+
+** TODO Rework to allow the compiler version(s) to be included as a parameter rather than hardcoded
+Can probably do this at project level using a local overlay to override the default? Though would be nice to support multiple versions in the one devshell (e.g. for a multi-component build, or to facilitate comparisons)
+
+** TODO Rework pkgs/default.nix to include pkgs/xc16/default.nix
+My nix-fu is weak. But my inner anal retentive is strong.
+On the other hand, life is short...
+
+I want pkgs/default.nix to look something like this...
+
+#+begin_src nix
+
+  pkgs : rec {
+     import ./xc16 { };
+     import ./xc32 { };
+     import ./mplab-x { }
+  }
+#+end_src
+
+where pkgs/xc16/default.nix looks something like this
+#+begin_src nix
+pkgs : rec {
+   xc16_2_10 = pkgs.callPackage ./2.10.nix { };
+   xc16_1_61 = pkgs.callPackage ./1.61.nix { };
+   xc16 = xc16_2_10; #i.e. default to latest
+}
+#+end_src
+
+However my initial attempts have failed and pkgs/default.nix currently looks like this:
+
+#+begin_src nix
+pkgs : rec {
+   xc16_2_10 = pkgs.callPackage ./xc16/2.10.nix { };
+   xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { };
+   xc16 = xc16_1_61; #i.e. default to the version we're using for current production builds
+   mplab-x-unwrapped = pkgs.callPackage ./mplab-x-unwrapped { };
+   mplab-x = pkgs.callPackage ./mplab-x { };
+}
+#+end_src
+
+
+
+** TODO Figure out how to use this with a microchip compiler license
+
+** TODO Investigate building xc16 compiler from source
+Sidestepping the license integration issues referenced above.
+
+This is likely too much effort... though there's some prior art for xc32 here:
+https://github.com/ElectricRCAircraftGuy/Microchip_XC32_Compiler
+
+** TODO Investigate/squash FontConfig error on launching mplab-x
+See the following when launching mplab-x:
+#+begin_example
+Fontconfig error: Cannot load default config file: No such file: (null)
+Fontconfig error: Cannot load default config file: No such file: (null)
+#+end_example
+
+Likely something that can be resolved easily by an additional symlink in the fhsEnv setup? Or via some other means.
+
+
+** TODO Investigate / fix the noisy permission errors during build
+Building from mplab-x works fine in my limited testing, though I see some noisy error message along the following lines in the build console...
+#+begin_example
+Error getting handle for device 0: Access denied (insufficient permissions)
+Error getting handle for device 1: Access denied (insufficient permissions)
+Error getting handle for device 2: Access denied (insufficient permissions)
+Error getting handle for device 3: Access denied (insufficient permissions)
+Error getting handle for device 5: Access denied (insufficient permissions)
+Error getting handle for device 6: Access denied (insufficient permissions)
+Error getting handle for device 7: Access denied (insufficient permissions)
+Error getting handle for device 8: Access denied (insufficient permissions)
+Error getting handle for device 9: Access denied (insufficient permissions)
+Error getting handle for device 10: Access denied (insufficient permissions)
+Error getting handle for device 11: Access denied (insufficient permissions)
+Error getting handle for device 12: Access denied (insufficient permissions)
+Error getting handle for device 13: Access denied (insufficient permissions)
+Error getting handle for device 14: Access denied (insufficient permissions)
+Error getting handle for device 15: Access denied (insufficient permissions)
+Error getting handle for device 16: Access denied (insufficient permissions)
+Error getting handle for device 17: Access denied (insufficient permissions)
+Error getting handle for device 18: Access denied (insufficient permissions)
+Error getting handle for device 19: Access denied (insufficient permissions)
+Error getting handle for device 20: Access denied (insufficient permissions)
+Error getting handle for device 21: Access denied (insufficient permissions)
+Error getting handle for device 22: Access denied (insufficient permissions)
+Error getting handle for device 23: Access denied (insufficient permissions)
+Error getting handle for device 24: Access denied (insufficient permissions)
+#+end_example
