@@ -85,12 +85,15 @@ let
       rt="$XDG_RUNTIME_DIR/mplab-x"
       mkdir -p "$rt"
       mount -t tmpfs mplab-x-wrapper "$rt"
+      echo "mplab-x-unwrapped: ${mplab-x-unwrapped}"
 
       # Make and populate the overlay subdirectory.
       mkdir -p "$rt/overlay/opt/microchip"
       rsync -rlp ${fhsEnv.fhsenv}/             "$rt/overlay/"
       rsync -rlp ${mplab-x-unwrapped}/etc/     "$rt/overlay/etc/"
-      rsync -rlp ${mplab-x-unwrapped}/lib/udev "$rt/overlay/lib/udev/"
+      # FIXME: This line has started causing issues, but is likely required for programmer support
+      # mkdir -p "$rt/overlay/lib/udev"
+      # rsync -rlp ${mplab-x-unwrapped}/lib/udev/ "$rt/overlay/lib/udev/"
       ln -s "$HOME"                            "$rt/overlay/root"
       for f in ${mplab-x-unwrapped}/opt/microchip/*; do
         ln -s "$f" "$rt/overlay/opt/microchip/"
