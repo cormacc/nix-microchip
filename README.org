@@ -20,44 +20,44 @@ A Nix overlay for microchip development -- intended for use in per-project envir
 * Table of Contents                                         :TOC_2_gh:noexport:
 - [[#overview][Overview]]
 - [[#usage][Usage]]
-- [[#outstanding-tasks][Outstanding tasks]]
-  - [[#rework-to-allow-the-compiler-versions-to-be-included-as-a-parameter-rather-than-hardcoded][Rework to allow the compiler version(s) to be included as a parameter rather than hardcoded]]
-  - [[#rework-pkgsdefaultnix-to-include-pkgsxc16defaultnix][Rework pkgs/default.nix to include pkgs/xc16/default.nix]]
-  - [[#figure-out-how-to-use-this-with-a-microchip-compiler-license][Figure out how to use this with a microchip compiler license]]
+- [[#adding-packages][Adding packages]]
+  - [[#xc16][XC16]]
+  - [[#mplab-x][MPLAB-X]]
+  - [[#xc8-xc32-xc-dsc-etc][XC8, XC32, XC-DSC etc.]]
+- [[#improvement-opportunities][Improvement opportunities]]
+  - [[#material--quality-of-life-improvements][Material / quality of life improvements]]
+  - [[#pedantic--to-satisfy-my-inner-anal-retentive][Pedantic / to satisfy my inner anal retentive]]
   - [[#investigate-building-xc16-compiler-from-source][Investigate building xc16 compiler from source]]
-  - [[#investigatesquash-fontconfig-error-on-launching-mplab-x][Investigate/squash FontConfig error on launching mplab-x]]
   - [[#investigate--fix-the-noisy-permission-errors-during-build][Investigate / fix the noisy permission errors during build]]
 
 * Overview
+This provides a Nix package for Microchip PIC24/dsPIC33 development, comprising the MPLAB-X IDE and an associated installation of the XC16 compiler. It should be readily adaptable to provide similar packages for XC8 and/or XC32.
+
 The packages included here are primarily the work of https://github.com/nyadiia, in a merge request raised against nixpkgs here:
 [[https://github.com/NixOS/nixpkgs/pull/301317]]
 
-I've refactored them a bit to accommodate my own immediate needs and packaged as a flake for instant gratification.
+I've refactored them a bit and packaged as a flake for instant gratification.
 
-The xc16 package has been refactored to put most of nyadiia's work into a shared common.nix, and pass the version and installer archive hash in as parameters. So adding a new compiler version just requires creating a new file containing the version number and hash in [[./pkgs/xc16]].
+Currently this provides packages for the following, to meet my own immediate needs:
+- xc16 v1.61
+- xc16 v2.10
+- mplab-x v6.15
+- mplab-x v6.20
 
-See the example below for xc16 v1.61 (from [[./pkgs/xc16/1.61.nix]]):
+Adding additional versions is trivial -- see instructions in the section [[Adding packages]].
 
-#+begin_src nix
-import ./common.nix {
-  version = "1.61";
-  hash = "sha256-Wi0vhJWt+WiNq41daf7e7tJeJmt3/M3t2TJbkJQTNEg=";
-}
-#+end_src
-
-And then add a new line to [[./pkgs/default.nix]]:
-
-#+begin_src nix
-   xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { };
-#+end_src
+Pull requests adding additional packages and/or addressing any of the [[Improvement opportunities]] listed below (or others I haven't considered) welcome.
 
 * Usage
 
 The microchip compilers and mplab-x are dynamically linked binaries, requiring them to wrapped in an fhsEnv to be used on NixOS anyway.
 The compiler packages are unwrapped -- installing via the mplab-x package wraps mplab-x and the compiler(s) in an fhsEnv so they all function as intended. I haven't tested with microchip programmers etc. as yet, as my dev flow for current microchip projects doesn't require them (hex image programming via a bootloader, and debugging via log trace rather than ICD).
 
-Here's a sample flake illustrating use from a microchip project. This installs mplab-x, xc16 and
+Here's a sample flake illustrating use from a microchip project. This installs MPLAB-X and XC16 in a bubble-wrapped environment.
 ... (this overlay is hard-coded to x86_64-linux for now, so the forEachSupportedSystem stuff is aspirational )...
+
+N.B. I'm using nixpkgs-unstable, as that's what I'm tracking for NixOS on my dev machines. Because of the wrapping you'll want to use a nixpkgs version with the same(?ish?) version of libc as your OS -- otherwise this'll fail to run. I.e. you may need to pass a different nixpkgs via inherit for compatibility with your own OS.
+
 #+begin_src nix
   {
     description = "A Nix-flake-based ceedling (c+ruby) environment";
@@ -95,13 +95,73 @@ Here's a sample flake illustrating use from a microchip project. This installs m
   }
 #+end_src
 
+* Adding packages
 
-* Outstanding tasks
+** XC16
 
-** TODO Rework to allow the compiler version(s) to be included as a parameter rather than hardcoded
+The xc16 package has been refactored to put most of nyadiia's work into a shared common.nix, and pass the version and installer archive hash in as parameters. So adding a new compiler version just requires creating a new file containing the version number and hash in [[./pkgs/xc16]].
+
+See the example below for xc16 v1.61 (from [[./pkgs/xc16/1.61.nix]]):
+
+#+begin_src nix
+import ./common.nix {
+  version = "1.61";
+  hash = "sha256-Wi0vhJWt+WiNq41daf7e7tJeJmt3/M3t2TJbkJQTNEg=";
+}
+#+end_src
+
+And then add a new line to [[./pkgs/default.nix]]:
+
+#+begin_src nix
+   xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { };
+#+end_src
+
+** MPLAB-X
+
+The mplab-x-unwrapped has been refactored in a similar manner to xc16. I.e. adding a new version should just require creating a new file containing the version number and hash in [[./pkgs/mplab-x-unwrapped/]].
+
+See the example below for MPLAB-X v6.20 (from [[./pkgs/mplab-x-unwrapped/6.20.nix]]):
+#+begin_src nix
+import ./common.nix {
+  version = "6.20";
+  hash = "sha256-zs77CsuKFUCGYwUiv4ZZLm8HZLskxm3zP8HoGMUHdWA=";
+}
+#+end_src
+
+
+And then add a new line to [[./pkgs/default.nix]]:
+
+#+begin_src nix
+   mplab-x-unwrapped_6_20 = pkgs.callPackage ./mplab-x-unwrapped/6.20.nix { };
+#+end_src
+
+
+** XC8, XC32, XC-DSC etc.
+
+Adding packages for the other Microchip compilers should (I believe) be as simple as copying the XC16 subtree and making some minor adaptations. Another github user, =Fuwn=, has forked this repo and already done so for XC32 v4.40 -- [[https://github.com/Fuwn/nix-microchip][here]].
+
+
+* Improvement opportunities
+
+** Material / quality of life improvements
+
+*** TODO Rework to allow the compilers and version(s) to be included as a parameter rather than hardcoded
+Currently I've setup mplab-x to
+
 Can probably do this at project level using a local overlay to override the default? Though would be nice to support multiple versions in the one devshell (e.g. for a multi-component build, or to facilitate comparisons)
 
-** TODO Rework pkgs/default.nix to include pkgs/xc16/default.nix
+*** TODO Figure out how to use this with a microchip compiler license
+
+*** TODO Add XC8, XC32, XC-DSC
+
+*** TODO (Maybe) Allow XC compilers to be installed independently of MPLAB-X
+Currently I (and most others working on Microchip projects?) rely on MPLAB-X for some aspects of build configuration. However it must be possible to do without -- and pulling MPLAB-X out of the mix would make this flake more suitable for per-project dev flake use using direnv, which is my preferred flow.
+
+Currently I'm installing this as part of my home-manager owned environment rather than per-project, purely because MPLAB-X is such a heavyweight dependency.
+
+** Pedantic / to satisfy my inner anal retentive
+
+*** TODO Rework pkgs/default.nix to include pkgs/xc16/default.nix
 My nix-fu is weak. But my inner anal retentive is strong.
 On the other hand, life is short...
 
@@ -137,24 +197,11 @@ pkgs : rec {
 }
 #+end_src
 
-
-
-** TODO Figure out how to use this with a microchip compiler license
-
 ** TODO Investigate building xc16 compiler from source
 Sidestepping the license integration issues referenced above.
 
 This is likely too much effort... though there's some prior art for xc32 here:
 https://github.com/ElectricRCAircraftGuy/Microchip_XC32_Compiler
-
-** TODO Investigate/squash FontConfig error on launching mplab-x
-See the following when launching mplab-x:
-#+begin_example
-Fontconfig error: Cannot load default config file: No such file: (null)
-Fontconfig error: Cannot load default config file: No such file: (null)
-#+end_example
-
-Likely something that can be resolved easily by an additional symlink in the fhsEnv setup? Or via some other means.
 
 
 ** TODO Investigate / fix the noisy permission errors during build

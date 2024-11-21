@@ -15,4 +15,16 @@ pkgs : rec {
    mplab-x-unwrapped = mplab-x-unwrapped_6_20;
    #FIXME: Rework this to pass an xc16 version as a parameter to mplab-x package rather than abusing the default..
    mplab-x = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16; };
+
+   # mplab-xc16_1_61 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16_1_61; };
+   # mplab-xc16_2_10 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16_2_10; };
+   # mplab-xc16 = mplab-xc16_2_10;
+
+   #If adding support for additional microchip compilers, could adopt a pattern like the following
+   # mplab-xc8 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc8; };
+   mplab-xc16 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16; };
+   # mplab-xc32 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc32; };
+   # mplab-xc-dsc = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc-dsc; };
+
+   # Or better yet, pass the full list of required compilers in via inherit...
 }
