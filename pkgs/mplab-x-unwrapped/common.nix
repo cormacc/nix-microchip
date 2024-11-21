@@ -1,3 +1,5 @@
+{ version, hash }:
+
 { lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, glibc, rsync }:
 
 let
@@ -9,16 +11,12 @@ let
 in
 stdenvNoCC.mkDerivation rec {
   pname = "mplab-x-unwrapped";
-  # version = "6.15";
-  version = "6.20";
+  inherit version;
 
   src = fetchurl {
     url =
       "https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/MPLABX-v${version}-linux-installer.tar";
-    # v6.15
-    # hash = "sha256-ZiiijuCC4cOfJ5MdMDZ+LyUAzqIJDLTN93nKoZtpTGE=";
-    # v6.20
-    hash = "sha256-zs77CsuKFUCGYwUiv4ZZLm8HZLskxm3zP8HoGMUHdWA=";
+    inherit hash;
     # The Microchip server requires this Referer to allow the download.
     curlOptsList = [
       "--referer"

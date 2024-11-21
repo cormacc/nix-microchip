@@ -18,10 +18,6 @@ in stdenvNoCC.mkDerivation rec {
       "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v${version}-full-install-linux64-installer.run";
     # N.B. Nix uses a 32-bit hash encoding. Use 'nix hash path <filename>' to generate
     inherit hash;
-    # v1.61
-    # hash = "sha256-Wi0vhJWt+WiNq41daf7e7tJeJmt3/M3t2TJbkJQTNEg=";
-    # v2.10
-    # hash = "sha256-1k1ec5Hshi1N0Wk2G2aAtyX4lgQ1EhcJtF6xpK/hXcg=";
   };
 
   nativeBuildInputs = [ bubblewrap rsync ];
