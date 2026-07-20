@@ -1,0 +1,109 @@
+#+TITLE: nix-microchip task backlog
+#+LINK: task file:TASKS.org::#%s
+#+LINK: archive file:TASKS.archive.org::#%s
+#+LINK: plan file:design/log/%s
+#+LINK: proj file:%s
+#+SETUPFILE: ./TASKS.local.org
+#+SETUPFILE: ./TASKS.setup.org
+#+ARCHIVE: TASKS.archive.org::* From %s
+
+* Context
+This org-mode task backlog is intended to be used by humans and/or coding agents in combination with the org-tasks skill/CLI tool.
+See https://github.com/cormacc/dotagents for more info.
+
+* Improvements
+** TODO Rework to allow the compilers and version(s) to be included as a parameter rather than hardcoded
+:PROPERTIES:
+:CUSTOM_ID: 693fe26e-3d2f-4a49-8a0a-db4a4e9235e1
+:CREATED: [2026-07-20 Mon 14:57]
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+:END:
+Can probably do this at project level using a local overlay to override the default? Though would be nice to support multiple versions in the one devshell (e.g. for a multi-component build, or to facilitate comparisons)
+
+** TODO Figure out how to use this with a microchip compiler license
+:PROPERTIES:
+:CUSTOM_ID: bf2b3f81-47c0-498c-ac95-453f4b765be3
+:CREATED: [2026-07-20 Mon 14:57]
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+:END:
+
+** TODO Add XC8, XC32, XC-DSC
+:PROPERTIES:
+:CUSTOM_ID: c8cf3426-e406-46c1-801c-cbe964815a50
+:CREATED: [2026-07-20 Mon 14:57]
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+:END:
+
+** TODO (Maybe) Allow XC compilers to be installed independently of MPLAB-X
+:PROPERTIES:
+:CUSTOM_ID: e00f895e-c44f-4d1d-ac26-c65ac8000f09
+:CREATED: [2026-07-20 Mon 14:57]
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+:END:
+Currently I (and most others working on Microchip projects?) rely on MPLAB-X for some aspects of build configuration. However it must be possible to do without -- and pulling MPLAB-X out of the mix would make this flake more suitable for per-project dev flake use using direnv, which is my preferred flow.
+
+Currently I'm installing this as part of my home-manager owned environment rather than per-project, purely because MPLAB-X is such a heavyweight dependency.
+
+** TODO Rework pkgs/default.nix to include pkgs/xc16/default.nix
+:PROPERTIES:
+:CUSTOM_ID: 6d028c0b-3df5-4aed-b297-0cf8c8cc7634
+:CREATED: [2026-07-20 Mon 14:57]
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+:END:
+My nix-fu is weak. But my inner anal retentive is strong.
+On the other hand, life is short...
+
+I want pkgs/default.nix to look something like this...
+
+#+begin_src nix
+
+pkgs : rec {
+   import ./xc16 { };
+   import ./xc32 { };
+   import ./mplab-x { }
+}
+#+end_src
+
+where pkgs/xc16/default.nix looks something like this
+#+begin_src nix
+pkgs : rec {
+   xc16_2_10 = pkgs.callPackage ./2.10.nix { };
+   xc16_1_61 = pkgs.callPackage ./1.61.nix { };
+   xc16 = xc16_2_10; #i.e. default to latest
+}
+#+end_src
+
+However my initial attempts have failed and pkgs/default.nix currently looks like this:
+
+#+begin_src nix
+pkgs : rec {
+   xc16_2_10 = pkgs.callPackage ./xc16/2.10.nix { };
+   xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { };
+   xc16 = xc16_1_61; #i.e. default to the version we're using for current production builds
+   mplab-x-unwrapped = pkgs.callPackage ./mplab-x-unwrapped { };
+   mplab-x = pkgs.callPackage ./mplab-x { };
+}
+#+end_src
+
+** TODO Investigate building xc16 compiler from source
+:PROPERTIES:
+:CUSTOM_ID: bda0b14d-9f34-463c-a2fe-4f0ae3f74a24
+:CREATED: [2026-07-20 Mon 14:57]
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+:END:
+Sidestepping the license integration issues referenced above.
+
+This is likely too much effort... though there's some prior art for xc32 here:
+https://github.com/ElectricRCAircraftGuy/Microchip_XC32_Compiler

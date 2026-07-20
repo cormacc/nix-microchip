@@ -1,0 +1,34 @@
+* Fixes
+** DONE Investigate / fix the noisy permission errors during build
+Explained and addressed -- see [[#udev-rules][Udev rules]]. MPLAB-X probes every USB device while scanning for hardware tools, and each probe fails unless the host has udev rules granting access. Original notes below:
+
+Building from mplab-x works fine in my limited testing, though I see some noisy error message along the following lines in the build console...
+#+begin_example
+Error getting handle for device 0: Access denied (insufficient permissions)
+Error getting handle for device 1: Access denied (insufficient permissions)
+Error getting handle for device 2: Access denied (insufficient permissions)
+Error getting handle for device 3: Access denied (insufficient permissions)
+Error getting handle for device 5: Access denied (insufficient permissions)
+Error getting handle for device 6: Access denied (insufficient permissions)
+Error getting handle for device 7: Access denied (insufficient permissions)
+Error getting handle for device 8: Access denied (insufficient permissions)
+Error getting handle for device 9: Access denied (insufficient permissions)
+Error getting handle for device 10: Access denied (insufficient permissions)
+Error getting handle for device 11: Access denied (insufficient permissions)
+Error getting handle for device 12: Access denied (insufficient permissions)
+Error getting handle for device 13: Access denied (insufficient permissions)
+Error getting handle for device 14: Access denied (insufficient permissions)
+Error getting handle for device 15: Access denied (insufficient permissions)
+Error getting handle for device 16: Access denied (insufficient permissions)
+Error getting handle for device 17: Access denied (insufficient permissions)
+Error getting handle for device 18: Access denied (insufficient permissions)
+Error getting handle for device 19: Access denied (insufficient permissions)
+Error getting handle for device 20: Access denied (insufficient permissions)
+Error getting handle for device 21: Access denied (insufficient permissions)
+Error getting handle for device 22: Access denied (insufficient permissions)
+Error getting handle for device 23: Access denied (insufficient permissions)
+Error getting handle for device 24: Access denied (insufficient permissions)
+#+end_example
+
+
+Fixed by https://github.com/cormacc/nix-microchip/pull/3

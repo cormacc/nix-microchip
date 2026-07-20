@@ -27,10 +27,6 @@ A Nix overlay for microchip development -- intended for use in per-project envir
   - [[#xc8][XC8]]
   - [[#xc32-xc-dsc-etc][XC32, XC-DSC etc.]]
 - [[#improvement-opportunities][Improvement opportunities]]
-  - [[#material--quality-of-life-improvements][Material / quality of life improvements]]
-  - [[#pedantic--to-satisfy-my-inner-anal-retentive][Pedantic / to satisfy my inner anal retentive]]
-  - [[#investigate-building-xc16-compiler-from-source][Investigate building xc16 compiler from source]]
-  - [[#investigate--fix-the-noisy-permission-errors-during-build][Investigate / fix the noisy permission errors during build]]
 
 * Overview
 This provides a Nix package for Microchip PIC24/dsPIC33 development, comprising the MPLAB-X IDE and an associated installation of the XC16 compiler. It should be readily adaptable to provide similar packages for XC8 and/or XC32.
@@ -52,7 +48,7 @@ Currently this provides packages for the following, to meet my own immediate nee
 
 Adding additional versions is trivial -- see instructions in the section [[Adding packages]].
 
-Pull requests adding additional packages and/or addressing any of the [[Improvement opportunities]] listed below (or others I haven't considered) welcome.
+Pull requests adding additional packages and/or addressing any of the [[./TASKS.org][project tasks]] (or others I haven't considered) welcome.
 
 * Usage
 
@@ -183,95 +179,4 @@ Adding packages for the other Microchip compilers should (I believe) be as simpl
 
 
 * Improvement opportunities
-
-** Material / quality of life improvements
-
-*** TODO Rework to allow the compilers and version(s) to be included as a parameter rather than hardcoded
-Currently I've setup mplab-x to
-
-Can probably do this at project level using a local overlay to override the default? Though would be nice to support multiple versions in the one devshell (e.g. for a multi-component build, or to facilitate comparisons)
-
-*** TODO Figure out how to use this with a microchip compiler license
-
-*** TODO Add XC8, XC32, XC-DSC
-
-*** TODO (Maybe) Allow XC compilers to be installed independently of MPLAB-X
-Currently I (and most others working on Microchip projects?) rely on MPLAB-X for some aspects of build configuration. However it must be possible to do without -- and pulling MPLAB-X out of the mix would make this flake more suitable for per-project dev flake use using direnv, which is my preferred flow.
-
-Currently I'm installing this as part of my home-manager owned environment rather than per-project, purely because MPLAB-X is such a heavyweight dependency.
-
-** Pedantic / to satisfy my inner anal retentive
-
-*** TODO Rework pkgs/default.nix to include pkgs/xc16/default.nix
-My nix-fu is weak. But my inner anal retentive is strong.
-On the other hand, life is short...
-
-I want pkgs/default.nix to look something like this...
-
-#+begin_src nix
-
-  pkgs : rec {
-     import ./xc16 { };
-     import ./xc32 { };
-     import ./mplab-x { }
-  }
-#+end_src
-
-where pkgs/xc16/default.nix looks something like this
-#+begin_src nix
-pkgs : rec {
-   xc16_2_10 = pkgs.callPackage ./2.10.nix { };
-   xc16_1_61 = pkgs.callPackage ./1.61.nix { };
-   xc16 = xc16_2_10; #i.e. default to latest
-}
-#+end_src
-
-However my initial attempts have failed and pkgs/default.nix currently looks like this:
-
-#+begin_src nix
-pkgs : rec {
-   xc16_2_10 = pkgs.callPackage ./xc16/2.10.nix { };
-   xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { };
-   xc16 = xc16_1_61; #i.e. default to the version we're using for current production builds
-   mplab-x-unwrapped = pkgs.callPackage ./mplab-x-unwrapped { };
-   mplab-x = pkgs.callPackage ./mplab-x { };
-}
-#+end_src
-
-** TODO Investigate building xc16 compiler from source
-Sidestepping the license integration issues referenced above.
-
-This is likely too much effort... though there's some prior art for xc32 here:
-https://github.com/ElectricRCAircraftGuy/Microchip_XC32_Compiler
-
-
-** DONE Investigate / fix the noisy permission errors during build
-Explained and addressed -- see [[#udev-rules][Udev rules]]. MPLAB-X probes every USB device while scanning for hardware tools, and each probe fails unless the host has udev rules granting access. Original notes below:
-
-Building from mplab-x works fine in my limited testing, though I see some noisy error message along the following lines in the build console...
-#+begin_example
-Error getting handle for device 0: Access denied (insufficient permissions)
-Error getting handle for device 1: Access denied (insufficient permissions)
-Error getting handle for device 2: Access denied (insufficient permissions)
-Error getting handle for device 3: Access denied (insufficient permissions)
-Error getting handle for device 5: Access denied (insufficient permissions)
-Error getting handle for device 6: Access denied (insufficient permissions)
-Error getting handle for device 7: Access denied (insufficient permissions)
-Error getting handle for device 8: Access denied (insufficient permissions)
-Error getting handle for device 9: Access denied (insufficient permissions)
-Error getting handle for device 10: Access denied (insufficient permissions)
-Error getting handle for device 11: Access denied (insufficient permissions)
-Error getting handle for device 12: Access denied (insufficient permissions)
-Error getting handle for device 13: Access denied (insufficient permissions)
-Error getting handle for device 14: Access denied (insufficient permissions)
-Error getting handle for device 15: Access denied (insufficient permissions)
-Error getting handle for device 16: Access denied (insufficient permissions)
-Error getting handle for device 17: Access denied (insufficient permissions)
-Error getting handle for device 18: Access denied (insufficient permissions)
-Error getting handle for device 19: Access denied (insufficient permissions)
-Error getting handle for device 20: Access denied (insufficient permissions)
-Error getting handle for device 21: Access denied (insufficient permissions)
-Error getting handle for device 22: Access denied (insufficient permissions)
-Error getting handle for device 23: Access denied (insufficient permissions)
-Error getting handle for device 24: Access denied (insufficient permissions)
-#+end_example
+See [[./TASKS.org]]
