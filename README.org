@@ -20,10 +20,12 @@ A Nix overlay for microchip development -- intended for use in per-project envir
 * Table of Contents                                         :TOC_2_gh:noexport:
 - [[#overview][Overview]]
 - [[#usage][Usage]]
+  - [[#udev-rules][Udev rules]]
 - [[#adding-packages][Adding packages]]
   - [[#xc16][XC16]]
   - [[#mplab-x][MPLAB-X]]
-  - [[#xc8-xc32-xc-dsc-etc][XC8, XC32, XC-DSC etc.]]
+  - [[#xc8][XC8]]
+  - [[#xc32-xc-dsc-etc][XC32, XC-DSC etc.]]
 - [[#improvement-opportunities][Improvement opportunities]]
   - [[#material--quality-of-life-improvements][Material / quality of life improvements]]
   - [[#pedantic--to-satisfy-my-inner-anal-retentive][Pedantic / to satisfy my inner anal retentive]]
@@ -41,8 +43,12 @@ I've refactored them a bit and packaged as a flake for instant gratification.
 Currently this provides packages for the following, to meet my own immediate needs:
 - xc16 v1.61
 - xc16 v2.10
+- xc8 v2.50
+- xc8 v3.10
+- xc8 v4.00
 - mplab-x v6.15
 - mplab-x v6.20
+- mplab-x v6.30
 
 Adding additional versions is trivial -- see instructions in the section [[Adding packages]].
 
@@ -95,6 +101,35 @@ N.B. I'm using nixpkgs-unstable, as that's what I'm tracking for NixOS on my dev
   }
 #+end_src
 
+** Udev rules
+
+MPLAB-X enumerates hardware tools (PICkit, ICD, SNAP etc.) by trying to open every USB device on the bus. Without udev rules granting access, every attempt fails and the build console fills with noise like:
+
+#+begin_example
+Error getting handle for device 0: Access denied (insufficient permissions)
+#+end_example
+
+These messages are harmless if you program via a bootloader -- builds work fine regardless. They only matter if you want to use a hardware programmer/debugger, which will not be usable until the rules are installed.
+
+The =mplab-x-unwrapped= package ships Microchip's udev rules in =lib/udev/rules.d=, but udev runs on the host -- outside the bubble-wrapped environment -- so they must be installed at system level. On NixOS:
+
+#+begin_src nix
+  services.udev.packages = [ pkgs.mplab-x-unwrapped ]; # with the overlay applied
+  # or, without the overlay:
+  # services.udev.packages = [ microchip.packages.x86_64-linux.mplab-x-unwrapped ];
+#+end_src
+
+...then rebuild and replug the device (or run =sudo udevadm control --reload-rules && sudo udevadm trigger=).
+
+On other distros, copy the rules into =/etc/udev/rules.d/= instead:
+
+#+begin_src sh
+  sudo cp $(nix build .#mplab-x-unwrapped --print-out-paths)/lib/udev/rules.d/* /etc/udev/rules.d/
+  sudo udevadm control --reload-rules && sudo udevadm trigger
+#+end_src
+
+The rules grant world read/write (=MODE="666"=) on Microchip/Atmel/J-Link USB devices, so no group membership is required.
+
 * Adding packages
 
 ** XC16
@@ -136,9 +171,15 @@ And then add a new line to [[./pkgs/default.nix]]:
 #+end_src
 
 
-** XC8, XC32, XC-DSC etc.
+** XC8
 
-Adding packages for the other Microchip compilers should (I believe) be as simple as copying the XC16 subtree and making some minor adaptations. Another github user, =Fuwn=, has forked this repo and already done so for XC32 v4.40 -- [[https://github.com/Fuwn/nix-microchip][here]].
+XC8 is packaged in the same manner as XC16 -- adding a new version just requires a new version/hash file in [[./pkgs/xc8]] and a line in [[./pkgs/default.nix]].
+
+The =mplab-x= package bundles XC16 only. Use the =mplab-xc8= package for an MPLAB-X wrapped with XC8 instead, or override the =xc8= / =xc16= parameters of the mplab-x package to bundle any combination.
+
+** XC32, XC-DSC etc.
+
+Adding packages for the other Microchip compilers should (I believe) be as simple as copying the XC16 or XC8 subtree and making some minor adaptations. Another github user, =Fuwn=, has forked this repo and already done so for XC32 v4.40 -- [[https://github.com/Fuwn/nix-microchip][here]].
 
 
 * Improvement opportunities
@@ -204,7 +245,9 @@ This is likely too much effort... though there's some prior art for xc32 here:
 https://github.com/ElectricRCAircraftGuy/Microchip_XC32_Compiler
 
 
-** TODO Investigate / fix the noisy permission errors during build
+** DONE Investigate / fix the noisy permission errors during build
+Explained and addressed -- see [[#udev-rules][Udev rules]]. MPLAB-X probes every USB device while scanning for hardware tools, and each probe fails unless the host has udev rules granting access. Original notes below:
+
 Building from mplab-x works fine in my limited testing, though I see some noisy error message along the following lines in the build console...
 #+begin_example
 Error getting handle for device 0: Access denied (insufficient permissions)

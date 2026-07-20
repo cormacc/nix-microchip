@@ -15,7 +15,17 @@
 , gtk3
 , gtk-engine-murrine
 , libdrm
+, libx11
+, libxcb
+, libxcomposite
+, libxdamage
+, libxext
+, libxfixes
+, libxi
 , libxkbcommon
+, libxrandr
+, libxrender
+, libxtst
 , libusb1
 , libxslt
 , mesa
@@ -26,9 +36,8 @@
 , rsync
 , systemdLibs
 , writeShellApplication
-, xorg
-# , microchip-xc8
-, xc16
+, xc8 ? null
+, xc16 ? null
 # , microchip-xc32
 # , microchip-xc-dsc
 }:
@@ -58,24 +67,22 @@ let
       nss
       pango
       systemdLibs
-      xorg.libX11
-      xorg.libXcomposite
-      xorg.libXdamage
-      xorg.libXext
-      xorg.libXfixes
-      xorg.libXi
-      xorg.libXrandr
-      xorg.libXrender
-      xorg.libXtst
-      xorg.libxcb
+      libx11
+      libxcb
+      libxcomposite
+      libxdamage
+      libxext
+      libxfixes
+      libxi
+      libxrandr
+      libxrender
+      libxtst
     ];
   };
 
   stage2 = writeShellApplication {
     name = "mplab_ide-wrapper";
     runtimeInputs = [ execline fuse-overlayfs rsync ];
-    # mkdir "$rt/overlay/opt/microchip/xc8"
-    # ln -s ${microchip-xc8} "$rt/overlay/opt/microchip/xc8/v${microchip-xc8.version}"
     # mkdir "$rt/overlay/opt/microchip/xc32"
     # ln -s ${microchip-xc32} "$rt/overlay/opt/microchip/xc32/v${microchip-xc32.version}"
     # mkdir "$rt/overlay/opt/microchip/xc-dsc"
@@ -100,8 +107,14 @@ let
       done
 
 
-      mkdir "$rt/overlay/opt/microchip/xc16"
-      ln -s ${xc16} "$rt/overlay/opt/microchip/xc16/v${xc16.version}"
+      ${lib.optionalString (xc16 != null) ''
+        mkdir "$rt/overlay/opt/microchip/xc16"
+        ln -s ${xc16} "$rt/overlay/opt/microchip/xc16/v${xc16.version}"
+      ''}
+      ${lib.optionalString (xc8 != null) ''
+        mkdir "$rt/overlay/opt/microchip/xc8"
+        ln -s ${xc8} "$rt/overlay/opt/microchip/xc8/v${xc8.version}"
+      ''}
 
       # Make and mount (with FUSE) the newroot subdirectory.
       mkdir "$rt/newroot"
@@ -113,6 +126,10 @@ let
       mount --rbind /home "$rt/newroot/home"
       mount --rbind /proc "$rt/newroot/proc"
       mount --rbind /run  "$rt/newroot/run"
+      # N.B. /sys must be a real sysfs mount: fuse-overlayfs cannot traverse it as
+      # a lower layer, and without it libusb enumerates no USB devices, so MPLAB
+      # never sees programmers/debuggers (PICkit, ICD, ...).
+      mount --rbind /sys  "$rt/newroot/sys"
       mount --rbind /tmp  "$rt/newroot/tmp"
       mount --rbind /var  "$rt/newroot/var"
 

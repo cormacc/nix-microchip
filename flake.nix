@@ -14,7 +14,8 @@
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
   };
 
-  outputs = inputs@{ nixpkgs, self, ... }:
+  outputs =
+    inputs@{ nixpkgs, self, ... }:
     let
       # Supported systems for your flake packages, shell, etc.
       system = "x86_64-linux";
@@ -36,7 +37,10 @@
       #     inherit system;
       #     config.allowUnfree = true;
       #   };
-    in {
+    in
+    {
+      formatter.${system} = pkgs.nixfmt;
+
       # Your custom packages
       # Accessible through 'nix build', 'nix shell', etc
       # packages = forAllSystems (system: import ./pkgs { pkgs = pkgsForSystem system; });
