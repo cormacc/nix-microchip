@@ -13,7 +13,6 @@
 , glibc
 , gtk2
 , gtk3
-, gtk-engine-murrine
 , libdrm
 , libx11
 , libxcb
@@ -57,7 +56,6 @@ let
       glibc
       gtk2
       gtk3
-      gtk-engine-murrine
       libdrm
       libxkbcommon
       libxslt
