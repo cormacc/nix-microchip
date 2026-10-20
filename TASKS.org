@@ -24,28 +24,6 @@ See https://github.com/cormacc/dotagents for more info.
 If the update is routine, we could potentially schedule a task to pickup and add new compiler versions.
 
 
-** TODO Rework to allow the compilers and version(s) to be included as a parameter rather than hardcoded
-:PROPERTIES:
-:CUSTOM_ID: 693fe26e-3d2f-4a49-8a0a-db4a4e9235e1
-:CREATED: [2026-07-20 Mon 14:57]
-:END:
-:LOGBOOK:
-- Created [2026-07-20 Mon 14:57]
-:END:
-Can probably do this at project level using a local overlay to override the default? Though would be nice to support multiple versions in the one devshell (e.g. for a multi-component build, or to facilitate comparisons)
-
-** TODO (Maybe) Allow XC compilers to be installed independently of MPLAB-X
-:PROPERTIES:
-:CUSTOM_ID: e00f895e-c44f-4d1d-ac26-c65ac8000f09
-:CREATED: [2026-07-20 Mon 14:57]
-:END:
-:LOGBOOK:
-- Created [2026-07-20 Mon 14:57]
-:END:
-Currently I (and most others working on Microchip projects?) rely on MPLAB-X for some aspects of build configuration. However it must be possible to do without -- and pulling MPLAB-X out of the mix would make this flake more suitable for per-project dev flake use using direnv, which is my preferred flow.
-
-Currently I'm installing this as part of my home-manager owned environment rather than per-project, purely because MPLAB-X is such a heavyweight dependency.
-
 ** TODO Investigate USB access-denied noise from licensed xclm
 :PROPERTIES:
 :CUSTOM_ID: 067f6545-8d89-4de1-9441-31cce94db262
@@ -55,3 +33,33 @@ Currently I'm installing this as part of my home-manager owned environment rathe
 - Created [2026-10-20 Tue 12:44]
 :END:
 With the microchip-xclm-license package wired in (task bf2b3f81), xclm and xc16-gcc print `Error getting handle for device N: Access denied (insufficient permissions)` on stderr inside the mplab-x environment; the unpatched compiler does not (measured by worker 06017c14, see design/log/2026-xclm-license.org * Implementation). Exit status is 0. Unverified hypothesis: RLM probes USB for a licence dongle once a licence directory resolves, and the archived "noisy permission errors" fix (udev rules, README Udev rules) applies. Check whether the udev rules suppress it, or whether an xclm.conf setting disables the dongle scan (xc8 3.10 xclm.conf has a Dongle element).
+
+** TODO Reduce per-call overhead of the mplab-x CLI wrappers
+:PROPERTIES:
+:CUSTOM_ID: c5363e06-ee58-4439-b609-9c3de1b47b3e
+:CREATED: [2026-10-20 Tue 17:02]
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 17:02]
+:END:
+Each wrapped compiler call (e.g. xc16-gcc via mplab-x-run) took approximately 0.8 s (measured 2026-10-20, xc16 1.61): 0.52 s for the first program on the new fuse-overlayfs mount, 0.11 s for the rsync of the FHS rootfs, the remainder for mounts. Ten calls inside one environment took 0.9 s in total. After stage2 bind-mounted /nix (task dd8c0710), a wrapped call took approximately 0.37 s and mplab-x-run true 0.38 s, so the set-up is now the main cost. Possible approach: build the CLI root with bind mounts (bwrap) instead of fuse-overlayfs. Any new sandbox must keep the PRO licence: a default buildFHSEnv wrapper made xclm fail with "UID 0 not supported" (see task e00f895e).
+
+** TODO Fix nix flake check: overlay argument names
+:PROPERTIES:
+:CUSTOM_ID: d1547c9b-5b14-4ab8-88e3-963d4d3d78a7
+:CREATED: [2026-10-20 Tue 17:02]
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 17:02]
+:END:
+nix flake check --no-build fails with "overlay does not take an argument named 'final'" (measured 2026-10-20 at HEAD a13ccfe and with the working tree). flake.nix defines overlays.default as self: super: ...; the flake checker expects final: prev:.
+
+** TODO Verify MPLAB-X GUI compiler discovery
+:PROPERTIES:
+:CUSTOM_ID: c6910100-a36e-47a2-86fd-d32f12917001
+:CREATED: [2026-10-20 Tue 23:21]
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 23:21]
+:END:
+Run MPLAB-X 6.35 from a project devshell with compilers = [ xc16_1_61 xc16_1_21 ]; confirm both versions are selectable and the existing firmware projects build with their chosen compiler. CLI compilation, linking, hex conversion and licence checks passed for both versions; the GUI has not been checked visually. Use nixpkgs compatible with the host: the flake-pinned glibc differs from this machine. Headless startup against host nixpkgs reached DISPLAY is not set.

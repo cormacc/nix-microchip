@@ -5,6 +5,7 @@ pkgs : rec {
    microchip-xclm-license = pkgs.callPackage ./xclm-license { };
    xc16_2_10 = pkgs.callPackage ./xc16/2.10.nix { inherit microchip-xclm-license; };
    xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { inherit microchip-xclm-license; };
+   xc16_1_21 = pkgs.callPackage ./xc16/1.21.nix { inherit microchip-xclm-license; };
    # xc16 = xc16_2_10; #i.e. default to latest version we've bothered to package
    xc16 = xc16_1_61; #i.e. default to the version we're using for current production builds
    xc8_4_00 = pkgs.callPackage ./xc8/4.00.nix { inherit microchip-xclm-license; };
@@ -22,18 +23,11 @@ pkgs : rec {
    mplab-x-unwrapped_6_20 = pkgs.callPackage ./mplab-x-unwrapped/6.20.nix { };
    mplab-x-unwrapped_6_15 = pkgs.callPackage ./mplab-x-unwrapped/6.15.nix { };
    mplab-x-unwrapped = mplab-x-unwrapped_6_30;
-   #FIXME: Rework this to pass an xc16 version as a parameter to mplab-x package rather than abusing the default..
+   # Projects choose compilers with e.g. mplab-x.override { compilers = [ xc16_1_61 xc16_2_10 ]; }.
+   # The single-compiler arguments stay so that existing overrides such as { xc16 = ...; } still work.
    mplab-x = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16; };
-
-   # mplab-xc16_1_61 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16_1_61; };
-   # mplab-xc16_2_10 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16_2_10; };
-   # mplab-xc16 = mplab-xc16_2_10;
-
-   #If adding support for additional microchip compilers, could adopt a pattern like the following
    mplab-xc8 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc8; };
    mplab-xc16 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16; };
    mplab-xc32 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc32; };
    mplab-xc-dsc = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc-dsc; };
-
-   # Or better yet, pass the full list of required compilers in via inherit...
 }

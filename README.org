@@ -20,6 +20,7 @@ A Nix overlay for microchip development -- intended for use in per-project envir
 * Table of Contents                                         :TOC_2_gh:noexport:
 - [[#overview][Overview]]
 - [[#usage][Usage]]
+  - [[#command-line-use][Command-line use]]
   - [[#udev-rules][Udev rules]]
   - [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]]
 - [[#adding-packages][Adding packages]]
@@ -39,6 +40,7 @@ The packages included here are primarily the work of https://github.com/nyadiia,
 I've refactored them a bit and packaged as a flake for instant gratification.
 
 Currently this provides packages for the following, to meet my own immediate needs:
+- xc16 v1.21
 - xc16 v1.61
 - xc16 v2.10
 - xc8 v2.50
@@ -104,6 +106,35 @@ N.B. I'm using nixpkgs-unstable, as that's what I'm tracking for NixOS on my dev
   }
 #+end_src
 
+** Command-line use
+
+The =mplab-x= package also supplies these commands:
+- =mplab-x-run <command> [args...]= runs a command inside the MPLAB-X environment. In this environment, each compiler is at =/opt/microchip/<compiler>/v<version>=, where MPLAB-X expects it.
+- One wrapper for each executable of the default compiler, e.g. =xc16-gcc=, =xc16-bin2hex= and =xclm=. Each wrapper runs its executable through =mplab-x-run=.
+
+The compilers must run unmodified in this environment. A compiler that is patched to run directly on NixOS (=autoPatchelfHook=) detects the change and runs in Free mode. See [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]].
+
+Use the =compilers= argument to select the compilers. Two or more versions of one compiler can coexist. The first compiler of each family in the list is the default on the command line:
+
+#+begin_src nix
+  packages = [
+    (pkgs.mplab-x.override { compilers = with pkgs; [ xc16_1_61 xc16_2_10 ]; })
+  ];
+#+end_src
+
+With this devshell, MPLAB-X can use both versions, =xc16-gcc= runs v1.61, and =mplab-x-run /opt/microchip/xc16/v2.10/bin/xc16-gcc= runs v2.10.
+
+When =compilers= is not set, the =xc8=, =xc16=, =xc32= and =xc-dsc= arguments supply the list, so an override such as =mplab-x.override { xc16 = pkgs.xc16_2_10; }= continues to work. When =compilers= is set, the package ignores these arguments.
+
+Each call sets up the environment again. With xc16 1.61, each wrapped call took approximately 0.4 s (measured 2026-10-20). For a build that calls the compiler many times, run the whole build in one environment, e.g. =mplab-x-run make=. Inside the environment, the wrappers run the compiler directly; ten calls took 0.5 s in total, including the set-up.
+
+The environment includes 32-bit glibc and libstdc++, for XC16 before 1.50 (32-bit) and for =sim30= (32-bit in every XC16 version).
+
+Limits:
+- The environment needs unprivileged user namespaces and FUSE. The Nix build sandbox does not supply =/dev/fuse=, so a Nix derivation cannot build firmware with these commands.
+- The licensed compilers print =Error getting handle for device N: Access denied (insufficient permissions)= on stderr. The exit status is not affected. [[./TASKS.org]] tracks the investigation.
+- XC8 3.10 and later, XC32 and XC-DSC 4.00 need a device pack (=-mdfp=). This overlay does not package device packs.
+
 ** Udev rules
 
 MPLAB-X enumerates hardware tools (PICkit, ICD, SNAP etc.) by trying to open every USB device on the bus. Without udev rules granting access, every attempt fails and the build console fills with noise like:
@@ -137,12 +168,13 @@ The rules grant world read/write (=MODE="666"=) on Microchip/Atmel/J-Link USB de
 
 Microchip states that previously paid MPLAB XC PRO versions are free (https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers), and issues the licence from the "software products" section of myMicrochip (https://www.microchipdirect.com/software-products). Without a licence the compilers run in Free mode, which limits the optimisation levels.
 
-The licence is shipped as the =microchip-xclm-license= package (=pkgs/xclm-license/=). Its =microchip.lic= is the licence block that Microchip's =linux.sh= installer writes into =/opt/microchip/xclm/license/=. It lists seven permanent features with =hostid=ANY=: =swxc8-pro=, =swxc16-pro=, =swxc32-cpp=, =swxc8-fs=, =swxc16-fs=, =swxc32-fs= and =swanaly-ts=. Of these, the packaged compilers use =swxc8-pro= (XC8 2.50 and 3.10), =swxc16-pro= (XC16 1.61 and 2.10, and XC-DSC 3.31) and =swxc32-cpp= (XC32 5.10). The file has no XC-DSC feature.
+The licence is shipped as the =microchip-xclm-license= package (=pkgs/xclm-license/=). Its =microchip.lic= is the licence block that Microchip's =linux.sh= installer writes into =/opt/microchip/xclm/license/=. It lists seven permanent features with =hostid=ANY=: =swxc8-pro=, =swxc16-pro=, =swxc32-cpp=, =swxc8-fs=, =swxc16-fs=, =swxc32-fs= and =swanaly-ts=. Of these, the packaged compilers use =swxc8-pro= (XC8 2.50 and 3.10), =swxc16-pro= (XC16 1.21, 1.61 and 2.10, and XC-DSC 3.31) and =swxc32-cpp= (XC32 5.10). The file has no XC-DSC feature.
 
 Each XC8, XC16, XC32 5.10 and XC-DSC 3.31 package rewrites the =xclm:path= attribute in its =etc/xclm.conf= to the store path of =microchip-xclm-license=. The compilers then run in PRO mode without any manual licence step, with or without the =mplab-x= wrapper.
 
 Which packaged versions enforce licensing (checked with the probes below):
 - xc16 1.61 and xc16 2.10: yes.
+- xc16 1.21: yes. =xclm -status= lists the node-locked licences (e.g. =Product:swxc16-pro Version:1.0 Key:swxc16-pro-permanent=) and has no =Mode: PRO= line, so use the =-O3= probe. Without the licence, =-O3= prints =Options have been disabled due to restricted license= and =Visit http://www.microchip.com/ to purchase a new key.=; with it, nothing.
 - xc8 2.50 and xc8 3.10: yes.
 - xc8 4.00: no. It ships no =xclm= and no =etc/xclm.conf=, so there is nothing to patch, and =-O3= gives no licence diagnostic.
 - xc-dsc 3.31: yes, and it uses the =swxc16-pro= feature. The installer needs =--LicenseType FreeMode --netservername localhost=. With only =swxc16-pro= in the licence directory, =-O3= and =-Os= print no diagnostic. With no licence, or with any other single feature of the file, they print =Options have been disabled due to restricted license= and =Visit https://www.microchip.com/compilers to purchase a new key.=. =xclm -status= shows no =xc-dsc= product line, so use the compile probe for this compiler. =-O0= to =-O2= print nothing in either mode.
@@ -150,7 +182,7 @@ Which packaged versions enforce licensing (checked with the probes below):
 - xc32 5.10: yes, and it uses the =swxc32-cpp= feature (=swxc32-pro-permanent=). The installer needs =--LicenseType FreeMode --netservername localhost=. =xclm -status= shows =Product: xc32 ... Mode: cpp Key: swxc32-pro-permanent=; the mode is =cpp=, not =PRO=. Without the licence, =-O3= prints =Compiler option (Optimization level > 2) ignored because this feature requires the MPLAB XC32 PRO compiler=, and =-Os= prints the same with =(Optimize for size)=. Each is followed by a note to visit http://www.microchip.com/MPLABXCcompilers. With the licence, they print nothing.
 - xc32 5.19 and xc32 6.00: no. Neither installs =xclm= or =etc/xclm.conf=, the installers have no licence options, and the compiler lists its licence options (=-mskip-license-check= and others) as obsolete. =-O3= and =-Os= give no licence diagnostic. No Free-mode build of these versions was available as a negative control. Microchip documents that v6.00 and later need no key, and 5.19 is the XC32 Functional Safety release. The XC32 6.00 release notes list no release between 5.10 and 5.19.
 
-To check that a compiler runs in PRO mode, use either probe. The compilers are dynamically linked, so run them inside the =mplab-x= environment or an equivalent FHS environment.
+To check that a compiler runs in PRO mode, use either probe. The compilers are dynamically linked, so run them inside the =mplab-x= environment (e.g. with =mplab-x-run= or the command-line wrappers) or an equivalent FHS environment.
 - =xclm -status=: for a licensed compiler, the output includes a line for its own product with =Mode: PRO=, for example =Product: xc16 ... Mode: PRO Key: swxc16-pro-permanent=. In Free mode the output has no such line.
 - An =-O3= compile: in Free mode, =xc16-gcc= prints =Options have been disabled due to restricted license=. In Free mode, =xc8-cc= (2.50 and 3.10) prints the advisory =(2051) the current license does not permit the selected optimization level, using optimization level 2=. The xc8 advisory does not change the exit status (0), so search the output for =(2051)=. =xc8-cc= 3.10 and 4.00 also need a device pack (=-mdfp=). =xc-dsc-gcc= 3.31 prints the same two lines as =xc16-gcc= for =-O3= and =-Os=, and =xc32-gcc= (5.10 prints the diagnostics quoted above) and =xc-dsc-gcc= 4.00 need a device pack (=-mdfp=) too.
 
@@ -179,6 +211,8 @@ And then add a new line to [[./pkgs/default.nix]]:
    xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { inherit microchip-xclm-license; };
 #+end_src
 
+XC16 before 1.50 is 32-bit. For these versions, [[./pkgs/xc16/common.nix]] fetches =xc16-v<version>-linux-installer.run.tar= from the DeviceDoc location, installs with 32-bit glibc, and does not give the =--LicenseType= option, which these installers do not have. This is verified for 1.21 only.
+
 Pass =microchip-xclm-license= explicitly: both =packages= and =overlays.default= in [[./flake.nix]] give =pkgs/default.nix= a nixpkgs set without this flake's packages, so =callPackage= cannot find it in =pkgs=. See [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]].
 
 ** MPLAB-X
@@ -205,7 +239,7 @@ And then add a new line to [[./pkgs/default.nix]]:
 
 XC8 is packaged in the same manner as XC16 -- adding a new version just requires a new version/hash file in [[./pkgs/xc8]] and a line in [[./pkgs/default.nix]] that passes ={ inherit microchip-xclm-license; }=, as for XC16.
 
-The =mplab-x= package bundles XC16 only. Use the =mplab-xc8= package for an MPLAB-X wrapped with XC8 instead, or override the =xc8= / =xc16= / =xc32= / =xc-dsc= parameters of the mplab-x package to bundle any combination.
+The =mplab-x= package bundles XC16 only. Use the =mplab-xc8= package for an MPLAB-X wrapped with XC8 instead, or set the =compilers= argument of the mplab-x package to bundle any combination. See [[#command-line-use][Command-line use]].
 
 ** XC32, XC-DSC etc.
 

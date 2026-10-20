@@ -124,3 +124,67 @@ CLOSED: [2026-10-20 Tue 16:08]
 - State "DONE" from "STARTED" [2026-10-20 Tue 16:08]
 :END:
 XC8 2.50/3.10/4.00 landed earlier (PR #3). Added XC32 5.10, 5.19, 6.00 and XC-DSC 3.31, 4.00, with =mplab-xc32= and =mplab-xc-dsc= wrappers. Licensing, measured 2026-10-20 against an unpatched-=xclm.conf= control: XC32 5.10 enforces it (=swxc32-cpp=); XC32 5.19/6.00 and XC-DSC 4.00 ship no licence manager; XC-DSC 3.31 enforces it and accepts =swxc16-pro=. The 6.00 release notes list no XC32 release between 5.10 and 5.19. Per-version results are in README.org "Compiler licence (PRO optimisations)".
+
+** CANCELLED Rework to allow the compilers and version(s) to be included as a parameter rather than hardcoded
+CLOSED: [2026-10-20 Tue 16:38]
+:PROPERTIES:
+:CUSTOM_ID: 693fe26e-3d2f-4a49-8a0a-db4a4e9235e1
+:CREATED: [2026-07-20 Mon 14:57]
+:ARCHIVED: [2026-10-20 Tue 16:38]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+- State "CANCELLED" from "TODO" [2026-10-20 Tue 16:38]
+:END:
+Can probably do this at project level using a local overlay to override the default? Though would be nice to support multiple versions in the one devshell (e.g. for a multi-component build, or to facilitate comparisons)
+
+Cancelled: merged into [[archive:e00f895e-c44f-4d1d-ac26-c65ac8000f09]].
+
+** DONE Support multiple compiler versions in mplab-x and expose the default compiler on the CLI
+CLOSED: [2026-10-20 Tue 23:21]
+:PROPERTIES:
+:CUSTOM_ID: e00f895e-c44f-4d1d-ac26-c65ac8000f09
+:CREATED: [2026-07-20 Mon 14:57]
+:STARTED: [2026-10-20 Tue 16:45]
+:ARCHIVED: [2026-10-20 Tue 23:21]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+- State "STARTED" from "TODO" [2026-10-20 Tue 16:45]
+- State "DONE" from "STARTED" [2026-10-20 Tue 23:21]
+:END:
+Per-project devshells select compilers with mplab-x.override { compilers = [ xc16_1_61 xc16_1_21 ]; }. MPLAB-X receives all listed versions at /opt/microchip/<family>/v<version>. The first version of each family supplies the unversioned CLI commands. The single-compiler overrides remain compatible when compilers is null. Task 693fe26e was merged here.
+
+pkgs/mplab-x/default.nix shares the existing MPLAB-X environment between mplab_ide and mplab-x-run <command> [args...]. The generated compiler wrappers reuse it; nested calls run directly. The compilers stay unmodified to preserve licensing. The runtime includes 32-bit libraries, a /nix bind mount (avoids FUSE inode overflow for 32-bit programs), and a writable bind of a working directory outside the usual mounted trees. Only the IDE gets /lib on LD_LIBRARY_PATH. README.org (* Usage ** Command-line use) documents the contract and limits.
+
+Verification (2026-10-20): xc16 1.61 default and xc16 1.21 explicit path compile, link and produce hex files with no -O3 licence warning; empty-licence control for 1.21 prints the warning. xc16 1.61 xclm reports PRO mode. Failed compiles preserve exit 255. Eight parallel compiles, nested wrappers, legacy overrides and no XDG_RUNTIME_DIR passed. All five mplab-x* attributes built.
+
+Limits and follow-ups:
+- GUI compiler discovery is not visually verified: [[task:c6910100-a36e-47a2-86fd-d32f12917001]]. Headless startup against host nixpkgs reached DISPLAY is not set; the flake's older glibc conflicts with host tools, as documented in README * Usage.
+- A wrapped compiler call takes about 0.4 s; ten calls within one environment take about 0.5 s. Prefer mplab-x-run make. Further optimisation: [[task:c5363e06-ee58-4439-b609-9c3de1b47b3e]].
+- FUSE and user namespaces are required; the tested Nix build sandbox has no /dev/fuse. Device packs are not packaged. A compiler-only environment is outside this change.
+- ELF patching with autoPatchelfHook caused xc16 1.61 to report an attempted licence-manager override; default buildFHSEnv made xclm report UID 0 not supported. Both fell back to Free mode. Reusing the MPLAB-X environment preserves PRO mode.
+
+** DONE Package xc16 1.21
+CLOSED: [2026-10-20 Tue 17:48]
+:PROPERTIES:
+:CUSTOM_ID: dd8c0710-2d00-42b6-bcde-0c1f23248f22
+:CREATED: [2026-10-20 Tue 16:38]
+:STARTED: [2026-10-20 Tue 17:12]
+:ARCHIVED: [2026-10-20 Tue 17:48]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 16:38]
+- State "STARTED" from "TODO" [2026-10-20 Tue 17:12]
+- State "DONE" from "STARTED" [2026-10-20 Tue 17:48]
+:END:
+The production MBT CD firmware flake builds its bootloader firmware with xc16 1.21.
+
+Done 2026-10-20 (pkgs/xc16/1.21.nix, pkgs/xc16/common.nix, pkgs/mplab-x/default.nix, README.org):
+- The installer is https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.21-linux-installer.run.tar, a 32-bit .run in a .tar. It needs --netservername and has no --LicenseType. common.nix selects this path for versions before 1.50; the 64-bit store paths (1.61, 2.10) are unchanged.
+- The compiler is 32-bit and needs only glibc. The mplab-x FHS environment has multiArch (32-bit glibc and libstdc++) and LD_LIBRARY_PATH=/lib32, which also makes sim30 run.
+- Through fuse-overlayfs, /nix files have inode numbers above 2^32, so the 32-bit driver's stat() failed and it did not find cc1. stage2 bind-mounts /nix.
+- Verified: -O3 compile, link and xc16-bin2hex through mplab-x-run; no licence warning. Control: with an empty licence directory, -O3 prints "Options have been disabled due to restricted license".

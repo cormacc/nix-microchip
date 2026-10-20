@@ -3,17 +3,28 @@
 { lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, glibc, rsync, microchip-xclm-license }:
 
 let
-  fhsEnv = buildFHSEnv {
+  # XC16 1.50 is the first 64-bit release (Microchip MPLAB Ecosystem Downloads Archive). Older
+  # installers are 32-bit, so the install environment needs 32-bit glibc.
+  is32bit = lib.versionOlder version "1.50";
+
+  fhsEnv = buildFHSEnv ({
     name = "mplab-x-build-fhs-env";
     targetPkgs = pkgs: [ fakeroot glibc ];
-  };
+  } // lib.optionalAttrs is32bit {
+    multiArch = true;
+    multiPkgs = pkgs: [ pkgs.glibc ];
+  });
 
 in stdenvNoCC.mkDerivation rec {
   # See https://www.microchip.com/en-us/tools-resources/archives/mplab-ecosystem for microchip installer back-catalogue
   # pname = "microchip-xc16-unwrapped";
   pname = "xc16";
   inherit version;
-  src = fetchurl {
+  src = if is32bit then fetchurl {
+    # The 32-bit installers are a .run inside a .tar (verified for 1.21).
+    url = "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v${version}-linux-installer.run.tar";
+    inherit hash;
+  } else fetchurl {
     # Microchip serves each installer from only one of these locations (2.10: aemDocuments; 1.61: DeviceDoc).
     # fetchurl tries them in order, so one list covers every version.
     urls = [
@@ -29,11 +40,15 @@ in stdenvNoCC.mkDerivation rec {
   unpackPhase = ''
     runHook preUnpack
 
-    install $src installer.run
+    ${if is32bit then "tar xf $src -O > installer.run && chmod +x installer.run" else "install $src installer.run"}
 
     runHook postUnpack
   '';
-  installPhase = ''
+  # The 32-bit installers have no --LicenseType option. The edit keeps the 64-bit installPhase
+  # (and so its store paths) unchanged.
+  installPhase = (if is32bit then
+    lib.replaceStrings [ "  --LicenseType FreeMode \\\n" ] [ "" ]
+  else lib.id) ''
     runHook preInstall
 
     rsync -a ${fhsEnv.fhsenv}/ chroot/
