@@ -14,8 +14,12 @@ in stdenvNoCC.mkDerivation rec {
   pname = "xc16";
   inherit version;
   src = fetchurl {
-    url =
-      "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v${version}-full-install-linux64-installer.run";
+    # Microchip serves each installer from only one of these locations (2.10: aemDocuments; 1.61: DeviceDoc).
+    # fetchurl tries them in order, so one list covers every version.
+    urls = [
+      "https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc16-v${version}-full-install-linux64-installer.run"
+      "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v${version}-full-install-linux64-installer.run"
+    ];
     # N.B. Nix uses a 32-bit hash encoding. Use 'nix hash path <filename>' to generate
     inherit hash;
   };
