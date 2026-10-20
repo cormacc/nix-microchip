@@ -3,10 +3,6 @@
 
 pkgs : rec {
    microchip-xclm-license = pkgs.callPackage ./xclm-license { };
-   # FIXME: Want to do something like the below, though preferably in a one-liner, without having to 'inherit... ' afterwards...
-   #        Revisit if my nix-fu progresses
-   # xc16-versions = import ./xc16 { };
-   # inherit (xc16-versions) xc16 xc16_1_61 xc16_2_10;
    xc16_2_10 = pkgs.callPackage ./xc16/2.10.nix { inherit microchip-xclm-license; };
    xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { inherit microchip-xclm-license; };
    # xc16 = xc16_2_10; #i.e. default to latest version we've bothered to package

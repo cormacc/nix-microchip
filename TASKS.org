@@ -43,49 +43,6 @@ Currently I (and most others working on Microchip projects?) rely on MPLAB-X for
 
 Currently I'm installing this as part of my home-manager owned environment rather than per-project, purely because MPLAB-X is such a heavyweight dependency.
 
-** TODO Rework pkgs/default.nix to include pkgs/xc16/default.nix
-:PROPERTIES:
-:CUSTOM_ID: 6d028c0b-3df5-4aed-b297-0cf8c8cc7634
-:CREATED: [2026-07-20 Mon 14:57]
-:END:
-:LOGBOOK:
-- Created [2026-07-20 Mon 14:57]
-:END:
-My nix-fu is weak. But my inner anal retentive is strong.
-On the other hand, life is short...
-
-I want pkgs/default.nix to look something like this...
-
-#+begin_src nix
-
-pkgs : rec {
-   import ./xc16 { };
-   import ./xc32 { };
-   import ./mplab-x { }
-}
-#+end_src
-
-where pkgs/xc16/default.nix looks something like this
-#+begin_src nix
-pkgs : rec {
-   xc16_2_10 = pkgs.callPackage ./2.10.nix { };
-   xc16_1_61 = pkgs.callPackage ./1.61.nix { };
-   xc16 = xc16_2_10; #i.e. default to latest
-}
-#+end_src
-
-However my initial attempts have failed and pkgs/default.nix currently looks like this:
-
-#+begin_src nix
-pkgs : rec {
-   xc16_2_10 = pkgs.callPackage ./xc16/2.10.nix { };
-   xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { };
-   xc16 = xc16_1_61; #i.e. default to the version we're using for current production builds
-   mplab-x-unwrapped = pkgs.callPackage ./mplab-x-unwrapped { };
-   mplab-x = pkgs.callPackage ./mplab-x { };
-}
-#+end_src
-
 ** TODO Investigate USB access-denied noise from licensed xclm
 :PROPERTIES:
 :CUSTOM_ID: 067f6545-8d89-4de1-9441-31cce94db262

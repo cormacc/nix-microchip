@@ -81,3 +81,30 @@ CLOSED: [2026-10-20 Tue 12:58]
 The fetchurl URL in pkgs/xc16/common.nix (https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v<version>-full-install-linux64-installer.run) redirects to www.microchip.com/filehandler and returns 403 for 2.10 (measured 2026-10-20; 1.61 still returns 206). The same file, with the pinned hash, is served at https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc16-v2.10-full-install-linux64-installer.run. A fresh machine cannot build xc16_2_10 until the URL is updated.
 
 Resolved: `fetchurl` uses `urls` with the aemDocuments URL first and the DeviceDoc URL as fallback (1.61 returns 403 at aemDocuments). `nix build .#xc16_{1_61,2_10}.src --rebuild` re-fetched both and matched the pinned hashes (2026-10-20).
+
+** CANCELLED Rework pkgs/default.nix to include pkgs/xc16/default.nix
+CLOSED: [2026-10-20 Tue 13:10]
+:PROPERTIES:
+:CUSTOM_ID: 6d028c0b-3df5-4aed-b297-0cf8c8cc7634
+:CREATED: [2026-07-20 Mon 14:57]
+:ARCHIVED: [2026-10-20 Tue 13:10]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+- State "CANCELLED" from "TODO" [2026-10-20 Tue 13:10]
+:END:
+Goal: split =pkgs/default.nix= into per-compiler files, e.g. =import ./xc16 …=, with each version list and default in =pkgs/<compiler>/default.nix=.
+
+Why earlier attempts failed (diagnosed 2026-10-20):
+- =rec { import ./xc16 { }; }= is a syntax error. An attribute set accepts only =name = value;= bindings; sets combine with =//=.
+- =import ./xc16 { }= passed ={}= as =pkgs= to =pkgs/xc16/default.nix=, so =pkgs.callPackage= did not exist.
+- The sub-files need sibling packages (=microchip-xclm-license=, =xc16=, =xc8=, =mplab-x-unwrapped=). Neither flake output gives =pkgs/default.nix= a nixpkgs set that contains them.
+
+Options considered:
+- Local fixed point with =lib.callPackageWith (pkgs // self)=: removes the repeated =inherit=, but fills =mplab-x='s optional =xc8= / =xc16= arguments from scope, so each wrapper needs an explicit =null=.
+- =lib.makeScope pkgs.newScope=: adds =callPackage=, =newScope=, =overrideScope= and =packages= to the result, which both flake outputs must filter.
+- Version lists from =builtins.readDir=: adding a version needs only a new file, at the cost of cleverness.
+- Overlay-first (=pkgs.extend self.overlays.default=): belongs with task 693fe26e.
+
+Cancelled: the flat =pkgs/default.nix= stays. The unused =pkgs/xc16/default.nix= and the FIXME with its commented-out import were removed; all derivation paths are unchanged.
