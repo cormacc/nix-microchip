@@ -22,15 +22,6 @@ See https://github.com/cormacc/dotagents for more info.
 :END:
 Can probably do this at project level using a local overlay to override the default? Though would be nice to support multiple versions in the one devshell (e.g. for a multi-component build, or to facilitate comparisons)
 
-** TODO Figure out how to use this with a microchip compiler license
-:PROPERTIES:
-:CUSTOM_ID: bf2b3f81-47c0-498c-ac95-453f4b765be3
-:CREATED: [2026-07-20 Mon 14:57]
-:END:
-:LOGBOOK:
-- Created [2026-07-20 Mon 14:57]
-:END:
-
 ** TODO Add XC8, XC32, XC-DSC
 :PROPERTIES:
 :CUSTOM_ID: c8cf3426-e406-46c1-801c-cbe964815a50
@@ -95,15 +86,12 @@ pkgs : rec {
 }
 #+end_src
 
-** TODO Investigate building xc16 compiler from source
+** TODO Investigate USB access-denied noise from licensed xclm
 :PROPERTIES:
-:CUSTOM_ID: bda0b14d-9f34-463c-a2fe-4f0ae3f74a24
-:CREATED: [2026-07-20 Mon 14:57]
+:CUSTOM_ID: 067f6545-8d89-4de1-9441-31cce94db262
+:CREATED: [2026-10-20 Tue 12:44]
 :END:
 :LOGBOOK:
-- Created [2026-07-20 Mon 14:57]
+- Created [2026-10-20 Tue 12:44]
 :END:
-Sidestepping the license integration issues referenced above.
-
-This is likely too much effort... though there's some prior art for xc32 here:
-https://github.com/ElectricRCAircraftGuy/Microchip_XC32_Compiler
+With the microchip-xclm-license package wired in (task bf2b3f81), xclm and xc16-gcc print `Error getting handle for device N: Access denied (insufficient permissions)` on stderr inside the mplab-x environment; the unpatched compiler does not (measured by worker 06017c14, see design/log/2026-xclm-license.org * Implementation). Exit status is 0. Unverified hypothesis: RLM probes USB for a licence dongle once a licence directory resolves, and the archived "noisy permission errors" fix (udev rules, README Udev rules) applies. Check whether the udev rules suppress it, or whether an xclm.conf setting disables the dongle scan (xc8 3.10 xclm.conf has a Dongle element).

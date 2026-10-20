@@ -1,0 +1,195 @@
+#+TITLE: Integrate legacy compiler license file
+#+DATE: 2026-10-20 Tue
+#+PARENT: [[archive:bf2b3f81-47c0-498c-ac95-453f4b765be3][Integrate legacy compiler license file]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Accepted
+#+SPEC: [[proj:README.org]]
+
+* Intent
+Compilers packaged by this flake run in PRO mode (advanced optimisations) with no manual licence step, by shipping Microchip's free legacy-compiler licence as a Nix package and pointing each compiler's own `xclm` configuration at it. The mechanism must not depend on the MPLAB-X wrapper, so that future unwrapped use of the compilers on the host gets PRO mode for free.
+
+* Summary
+*Level:* production · *Tests:* smoke · *Docs:* README
+
+Microchip states that all previously paid MPLAB XC PRO versions are free, and issues a licence from the myMicrochip "software products" section. The artefact (`universal_license.zip` → `linux.sh`) is a script that writes one RLM-format file into `/opt/microchip/xclm/license/`: seven `permanent uncounted hostid=ANY` features (`swxc8-pro`, `swxc16-pro`, `swxc32-cpp`, `swxc8-fs`, `swxc16-fs`, `swxc32-fs`, `swanaly-ts`), no host binding, no network call. Each packaged compiler that ships a licence manager (xc16 1.61/2.10, xc8 2.50/3.10) has `etc/xclm.conf`, read by `bin/xclm` via `../etc/`; the `xclm:path` attribute of its `xclm:LicenseDirectory` element is a plain path. xc8 4.00 ships no licence manager and does not enforce licensing. This change commits the licence text as the package `microchip-xclm-license` and rewrites `xclm:path` in the xc16 and xc8 derivations to the licence package's store path.
+
+** Scope
+*** In scope
+- `microchip-xclm-license` package in `pkgs/xclm-license/` carrying the licence text verbatim.
+- `pkgs/xc16/common.nix` and `pkgs/xc8/common.nix` patch `etc/xclm.conf` when present.
+- `pkgs/default.nix` wires the licence package into every xc16/xc8 `callPackage` call and exports it.
+- `README.org`: provenance, what the licence unlocks, the verification probes, how to replace a reissued file.
+- Empirical confirmation of which packaged versions enforce licensing (xc16 1.61/2.10, xc8 2.50/3.10/4.00).
+*** Out of scope
+- Host-level installation for unwrapped compiler use (a tmpfiles symlink or NixOS/home-manager module). Enabled by this design; separate future task.
+- XC32 / XC-DSC packaging (task c8cf3426). The licence already carries their features.
+- A shared helper for the `xclm.conf` patch; two call sites stay inline.
+- Automated flake `checks` for PRO mode.
+
+** Acceptance
+Verified 2026-10-20 by plan-task probes, parent re-probes, and two independent reviews (both APPROVED). Evidence is in `* Implementation` and `* Validation`.
+*** Core functionality
+- [X] `nix build .#microchip-xclm-license` produces an output whose root directory contains `microchip.lic`, byte-identical to the block `linux.sh` writes.
+- [X] `nix build .#xc16_1_61` output's `etc/xclm.conf` has `xclm:path` set to the `microchip-xclm-license` store path.
+- [X] `xclm -status` for each packaged compiler that enforces licensing reports `Mode: PRO` for its own product.
+- [X] `xc16-gcc -O3` on a test file does not print `Options have been disabled due to restricted license`.
+- [X] Each packaged xc8 version that enforces licensing compiles with `-O3` without its Free-mode diagnostic.
+- [X] The `mplab-x` wrapper is unchanged and the probe passes inside its environment.
+- [X] `README.org` documents provenance, unlocked features, the probes, and the reissue procedure.
+*** Edge cases
+- [X] A compiler whose output has no `etc/xclm.conf` builds successfully with no patch applied.
+- [X] Replacing a reissued licence touches only `pkgs/xclm-license/microchip.lic`.
+*** Anti-criteria
+- [X] Must not: write to `/opt`, `$HOME`, or any host path at build or run time.
+- [X] Must not: add a NixOS or home-manager module.
+- [X] Must not: change the mount/overlay logic in `pkgs/mplab-x/default.nix`.
+- [X] Must not: embed the licence text in Nix string literals; the `.lic` file stays a plain file.
+
+** Decisions
+- Commit the licence text to this public repository :: The stated goal is zero manual steps for every consumer. Microchip publishes PRO as free for all; the file is `hostid=ANY` with a fixed `issued=` date. Whether it is account-traceable is unverified; the user accepts this.
+  Rejected:
+  - `requireFile` with a pinned hash: one manual store-add per machine; breaks for new users when Microchip reissues.
+  - Package argument defaulting to `null`: keeps the repo clean but leaves Free mode as the default.
+- Reference the licence package from `xclm.conf` (store-path dependency) rather than copying it into each compiler output :: One copy in the store; the compiler closure carries the licence. Portability of a compiler tree outside Nix is a non-goal for a Nix shop.
+  Rejected:
+  - Copy into `$out/etc/xclm/license/`: self-contained tree, but duplicates the file per compiler for no Nix-side benefit.
+  - Materialise `/opt/microchip/xclm/license/` in the `mplab-x` overlay: wrapper-only; conflicts with future unwrapped use.
+  - `RLM_LICENSE` environment variable: works (measured) but needs per-binary wrappers; MPLAB-X invokes compiler binaries directly.
+- Patch by prefix with `substituteInPlace --replace-fail` :: Replace `xclm:path="/opt/microchip/xclm/license` only, leaving the version-specific suffix (`/"` in xc16 1.61, `"` in xc16 2.10 and xc8) intact; `xclm` normalises the trailing slash. `--replace-fail` makes a changed layout fail the build instead of shipping Free mode silently.
+- Pass `microchip-xclm-license` explicitly in `pkgs/default.nix` :: Both `packages` and `overlays.default` call `pkgs/default.nix` with a nixpkgs set that lacks this flake's packages, so `callPackage` cannot resolve the argument by itself. README "Adding packages" shows the explicit form.
+
+** Shipped
+- ADDED `pkgs/xclm-license/default.nix`, `pkgs/xclm-license/microchip.lic`: package `microchip-xclm-license` (flake `packages` and `overlays.default`).
+- MODIFIED `pkgs/xc16/common.nix`, `pkgs/xc8/common.nix`: new `microchip-xclm-license` argument; guarded `--replace-fail` rewrite of `etc/xclm.conf` after the installer runs.
+- MODIFIED `pkgs/default.nix`: exports the licence package; passes it to `xc16_1_61`, `xc16_2_10`, `xc8_2_50`, `xc8_3_10`, `xc8_4_00`.
+- MODIFIED `README.org`: new `** Compiler licence (PRO optimisations)` under `* Usage`; "Adding packages" snippets for XC16/XC8 pass the licence argument.
+
+** Gotchas
+- `xclm` and the compilers cannot run from the store directly (dynamic linking); run probes under bwrap with the `mplab-x-build-fhs-env` rootfs (see `* Validation`) or inside the `mplab-x` wrapper.
+- The xc8 Free-mode signal is advisory `(2051)` with exit status 0, so a build that falls back to Free mode still succeeds; search the output for `(2051)`.
+- xc8 3.10 and 4.00 ship no device support; an `xc8-cc` probe needs `-mdfp` with a downloaded device pack.
+- `RLM_LICENSE` pointed at an empty directory does not restore Free mode, so it is not a usable negative control; use an unpatched build.
+- The `mplab-x` wrapper has no entry point that runs an arbitrary command; the smoke test used a scratch copy of `stage2` with only its final `chroot` line replaced.
+- `xclm -status` emits `sh: line 1: mount: command not found` under bwrap; harmless.
+
+** Risks
+- Licence may be account-traceable: accepted; the licence is an isolated package, so withdrawal or a switch to a user-supplied override is a one-file change.
+- Microchip may reissue or revoke `hostid=ANY`: consumers drop to Free mode silently. No automated detector; README documents the probes.
+- xc8 3.10 `xclm -status` shows `HPA Expiry: 26-aug-2027` on licensed entries although the `.lic` says `permanent`. Effect after that date is unverified; re-probe after 2027-08-26.
+- A third copy of the `xclm.conf` patch snippet appears when XC32/XC-DSC land: extract a helper at that point.
+
+** Follow-ups
+- Host-level licence directory for unwrapped compiler use: `L+ /opt/microchip/xclm/license - - - - ${microchip-xclm-license}` via `systemd.tmpfiles.rules`, or equivalent. Create when task e00f895e is planned.
+- task fa712f8a (DONE): the xc16 2.10 installer URL returned 403; fixed by listing the `aemDocuments` and `DeviceDoc` URLs.
+- task 067f6545: licensed `xclm` and `xc16-gcc` print `Error getting handle for device N: Access denied` on stderr inside the `mplab-x` environment; the unpatched compiler does not.
+
+* Plan
+** DONE Add microchip-xclm-license package
+CLOSED: [2026-10-20 Tue 12:15]
+:PROPERTIES:
+:CUSTOM_ID: 1b5fbbfd-ffd5-4326-bbd4-214d2ce997eb
+:CREATED: [2026-10-20 Tue 12:09]
+:STARTED: [2026-10-20 Tue 12:14]
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 12:09]
+- State "STARTED" from "TODO" [2026-10-20 Tue 12:14]
+- State "DONE" from "STARTED" [2026-10-20 Tue 12:15]
+:END:
+`microchip.lic` byte-identical to the two `linux.sh` heredoc bodies (30 lines); output contains only `microchip.lic`; exported by `packages` and `overlays.default`.
+
+** DONE Point xc16 xclm.conf at the licence package
+CLOSED: [2026-10-20 Tue 12:26]
+:PROPERTIES:
+:CUSTOM_ID: af295f6a-75d7-4256-8319-28bbcddd3fcb
+:CREATED: [2026-10-20 Tue 12:09]
+:BLOCKED-BY: task:1b5fbbfd-ffd5-4326-bbd4-214d2ce997eb
+:STARTED: [2026-10-20 Tue 12:20]
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 12:09]
+- State "STARTED" from "TODO" [2026-10-20 Tue 12:20]
+- State "DONE" from "STARTED" [2026-10-20 Tue 12:26]
+:END:
+xc16 1.61 and 2.10: `xclm:path` is the licence store path, `Mode: PRO`, `-O3` without the restricted-licence warning; unpatched controls show the warning; guard and `--replace-fail` failure path proven on a replica.
+
+** DONE Point xc8 xclm.conf at the licence package
+CLOSED: [2026-10-20 Tue 12:32]
+:PROPERTIES:
+:CUSTOM_ID: 7ad03448-146c-43ee-bc3f-8e4f712a2a40
+:CREATED: [2026-10-20 Tue 12:09]
+:BLOCKED-BY: task:1b5fbbfd-ffd5-4326-bbd4-214d2ce997eb
+:STARTED: [2026-10-20 Tue 12:27]
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 12:09]
+- State "STARTED" from "TODO" [2026-10-20 Tue 12:27]
+- State "DONE" from "STARTED" [2026-10-20 Tue 12:32]
+:END:
+xc8 2.50 and 3.10: `Mode: PRO`, `-O3` without advisory `(2051)`; unpatched controls show it. xc8 4.00 has no licence manager and builds with no patch applied. Installer flags unchanged.
+
+** DONE Smoke-test PRO mode inside the mplab-x wrapper
+CLOSED: [2026-10-20 Tue 12:44]
+:PROPERTIES:
+:CUSTOM_ID: 06017c14-5fda-4486-ada7-976eef0893c0
+:CREATED: [2026-10-20 Tue 12:09]
+:BLOCKED-BY: task:af295f6a-75d7-4256-8319-28bbcddd3fcb
+:BLOCKED-BY+: task:7ad03448-146c-43ee-bc3f-8e4f712a2a40
+:STARTED: [2026-10-20 Tue 12:33]
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 12:09]
+- State "STARTED" from "TODO" [2026-10-20 Tue 12:33]
+- State "DONE" from "STARTED" [2026-10-20 Tue 12:44]
+:END:
+`mplab-xc16`: `xclm -status` via the `/opt/microchip/xc16/v1.61` symlink shows `Mode: PRO`; `-O3` clean; unpatched wrapper control shows Free mode. `pkgs/mplab-x/` unchanged. An MPLAB-X project build was not run.
+
+** DONE Document the compiler licence in README
+CLOSED: [2026-10-20 Tue 12:46]
+:PROPERTIES:
+:CUSTOM_ID: 21e91b0a-9533-4bfa-995c-ea040092019b
+:CREATED: [2026-10-20 Tue 12:09]
+:BLOCKED-BY: task:7ad03448-146c-43ee-bc3f-8e4f712a2a40
+:STARTED: [2026-10-20 Tue 12:45]
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 12:09]
+- State "STARTED" from "TODO" [2026-10-20 Tue 12:45]
+- State "DONE" from "STARTED" [2026-10-20 Tue 12:46]
+:END:
+README `** Compiler licence (PRO optimisations)` added with TOC entry; licence text not reproduced.
+
+* Implementation
+Licensing enforcement by packaged version, measured 2026-10-20 (unpatched control → patched):
+#+begin_example
+xc16 1.61  xclm -status: rlm_roam only → Product: xc16 Mode: PRO   -O3: "Options have been disabled due to restricted license" → none
+xc16 2.10  same as 1.61 (xclm:path has no trailing slash; prefix replacement handles it)
+xc8 2.50   xclm -status: rlm_roam only → Product: xc8 Mode: PRO    -O3: advisory (2051) → none; 122 → 114 bytes
+xc8 3.10   xclm -status: no Product lines → Product: xc8 Mode: PRO -O3: advisory (2051) → none; 122 → 118 bytes
+xc8 4.00   no etc/xclm.conf, no bin/xclm; -O3: no diagnostic either way; 118 bytes
+#+end_example
+`nix-store -q --references` on each patched xc16/xc8 2.50/3.10 output includes the `microchip-xclm-license` store path; xc8 4.00 does not. `diff -r` unpatched/patched xc8 3.10 differs only in `etc/xclm.conf` and self-referencing store paths.
+
+The xc16 `-O3` assembler output of the probe source is identical in Free and PRO mode, so the xc16 check is the warning, not the output.
+
+* Validation
+Standalone probe, with `.tmp/root` a writable rsync copy of `${mplab-x-build-fhs-env.fhsenv}`:
+#+begin_src sh
+  P=$(nix build .#xc16_1_61 --print-out-paths)
+  run() { bwrap --bind .tmp/root / --ro-bind /nix /nix --proc /proc --dev /dev --tmpfs /tmp --setenv HOME /tmp "$@"; }
+  run -- $P/bin/xclm -status        # Free: no own-product line; PRO: "Product: xc16 ... Mode: PRO Key: swxc16-pro-permanent"
+  run --ro-bind .tmp/src /tmp/src -- $P/bin/xc16-gcc -std=gnu99 -mcpu=33EP512MU810 -O3 -S -o /tmp/t.s /tmp/src/t.c
+  # Free mode prints "Options have been disabled due to restricted license"; PRO prints nothing.
+  # xc8: xc8-cc -mcpu=18F45K22 -mdfp=<device pack> -O3 ...; Free mode prints advisory (2051).
+#+end_src
+An unpatched control for the current tree builds from the base commit, e.g. `nix build "git+file://$PWD?rev=64b2f04...#xc8_3_10"`.
+
+Wrapper smoke test (06017c14): each command ran as `unshare -mUr -- <stage2 copy> <command>`, the same outer step as `mplab_ide`.
+#+begin_example
+$ ... /opt/microchip/xc16/v1.61/bin/xclm -status
+License Path: /nix/store/8cjcyv742f3cxdx07jldwwcz30kbgi6p-microchip-xclm-license//
+	Product: xc16 Type: Workstation Version: 1.0 Mode: PRO Key: swxc16-pro-permanent
+$ ... /opt/microchip/xc16/v1.61/bin/xc16-gcc -std=gnu99 -mcpu=33EP512MU810 -O3 -S ...   -> exit 0; 0 "restricted license" lines
+Control (wrapper built with unpatched xc16 1.61): License Path /opt/microchip/xclm/license//, rlm_roam only; -O3 prints the restricted-licence warning.
+mplab-xc8 (xc8 4.00): no etc/xclm.conf, no bin/xclm; -O3 compile exit 0, no diagnostic.
+#+end_example

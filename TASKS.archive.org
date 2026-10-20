@@ -32,3 +32,52 @@ Error getting handle for device 24: Access denied (insufficient permissions)
 
 
 Fixed by https://github.com/cormacc/nix-microchip/pull/3
+
+** CANCELLED Investigate building xc16 compiler from source
+CLOSED: [2026-10-20 Tue 12:11]
+:PROPERTIES:
+:CUSTOM_ID: bda0b14d-9f34-463c-a2fe-4f0ae3f74a24
+:CREATED: [2026-07-20 Mon 14:57]
+:ARCHIVED: [2026-10-20 Tue 12:11]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+- State "CANCELLED" from "TODO" [2026-10-20 Tue 12:11]
+:END:
+Sidestepping the license integration issues referenced above.
+
+This is likely too much effort... though there's some prior art for xc32 here:
+https://github.com/ElectricRCAircraftGuy/Microchip_XC32_Compiler
+
+** DONE Integrate legacy compiler license file
+CLOSED: [2026-10-20 Tue 12:54]
+:PROPERTIES:
+:CUSTOM_ID: bf2b3f81-47c0-498c-ac95-453f4b765be3
+:CREATED: [2026-07-20 Mon 14:57]
+:STARTED: [2026-10-20 Tue 12:14]
+:ARCHIVED: [2026-10-20 Tue 12:54]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+- State "STARTED" from "TODO" [2026-10-20 Tue 12:14]
+- State "DONE" from "STARTED" [2026-10-20 Tue 12:54]
+:END:
+#+IMPORT: [[plan:2026-xclm-license.org]]
+
+** DONE Fix xc16 2.10 installer URL
+CLOSED: [2026-10-20 Tue 12:58]
+:PROPERTIES:
+:CUSTOM_ID: fa712f8a-ede4-45f5-bc21-0476c720a155
+:CREATED: [2026-10-20 Tue 12:27]
+:ARCHIVED: [2026-10-20 Tue 12:58]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 12:27]
+- State "DONE" from "TODO" [2026-10-20 Tue 12:58]
+:END:
+The fetchurl URL in pkgs/xc16/common.nix (https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v<version>-full-install-linux64-installer.run) redirects to www.microchip.com/filehandler and returns 403 for 2.10 (measured 2026-10-20; 1.61 still returns 206). The same file, with the pinned hash, is served at https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc16-v2.10-full-install-linux64-installer.run. A fresh machine cannot build xc16_2_10 until the URL is updated.
+
+Resolved: `fetchurl` uses `urls` with the aemDocuments URL first and the DeviceDoc URL as fallback (1.61 returns 403 at aemDocuments). `nix build .#xc16_{1_61,2_10}.src --rebuild` re-fetched both and matched the pinned hashes (2026-10-20).

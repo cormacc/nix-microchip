@@ -1,6 +1,6 @@
 { version, hash }:
 
-{ lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, glibc, rsync }:
+{ lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, glibc, rsync, microchip-xclm-license }:
 
 let
   fhsEnv = buildFHSEnv {
@@ -54,6 +54,13 @@ in stdenvNoCC.mkDerivation rec {
       --mode unattended \
       --netservername localhost \
       --prefix $out
+
+    # Point xclm at the packaged licence instead of the host's /opt/microchip/xclm/license.
+    if [ -f "$out/etc/xclm.conf" ]; then
+      chmod u+w "$out/etc/xclm.conf"
+      substituteInPlace "$out/etc/xclm.conf" \
+        --replace-fail 'xclm:path="/opt/microchip/xclm/license' 'xclm:path="${microchip-xclm-license}'
+    fi
 
     runHook postInstall
   '';
