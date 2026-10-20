@@ -108,3 +108,19 @@ Options considered:
 - Overlay-first (=pkgs.extend self.overlays.default=): belongs with task 693fe26e.
 
 Cancelled: the flat =pkgs/default.nix= stays. The unused =pkgs/xc16/default.nix= and the FIXME with its commented-out import were removed; all derivation paths are unchanged.
+
+** DONE Add XC8, XC32, XC-DSC
+CLOSED: [2026-10-20 Tue 16:08]
+:PROPERTIES:
+:CUSTOM_ID: c8cf3426-e406-46c1-801c-cbe964815a50
+:CREATED: [2026-07-20 Mon 14:57]
+:STARTED: [2026-10-20 Tue 13:21]
+:ARCHIVED: [2026-10-20 Tue 16:08]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-07-20 Mon 14:57]
+- State "STARTED" from "TODO" [2026-10-20 Tue 13:21]
+- State "DONE" from "STARTED" [2026-10-20 Tue 16:08]
+:END:
+XC8 2.50/3.10/4.00 landed earlier (PR #3). Added XC32 5.10, 5.19, 6.00 and XC-DSC 3.31, 4.00, with =mplab-xc32= and =mplab-xc-dsc= wrappers. Licensing, measured 2026-10-20 against an unpatched-=xclm.conf= control: XC32 5.10 enforces it (=swxc32-cpp=); XC32 5.19/6.00 and XC-DSC 4.00 ship no licence manager; XC-DSC 3.31 enforces it and accepts =swxc16-pro=. The 6.00 release notes list no XC32 release between 5.10 and 5.19. Per-version results are in README.org "Compiler licence (PRO optimisations)".

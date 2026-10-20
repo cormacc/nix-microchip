@@ -38,8 +38,8 @@
 , writeShellApplication
 , xc8 ? null
 , xc16 ? null
-# , microchip-xc32
-# , microchip-xc-dsc
+, xc32 ? null
+, xc-dsc ? null
 }:
 
 let
@@ -83,10 +83,6 @@ let
   stage2 = writeShellApplication {
     name = "mplab_ide-wrapper";
     runtimeInputs = [ execline fuse-overlayfs rsync ];
-    # mkdir "$rt/overlay/opt/microchip/xc32"
-    # ln -s ${microchip-xc32} "$rt/overlay/opt/microchip/xc32/v${microchip-xc32.version}"
-    # mkdir "$rt/overlay/opt/microchip/xc-dsc"
-    # ln -s ${microchip-xc-dsc} "$rt/overlay/opt/microchip/xc-dsc/v${microchip-xc-dsc.version}"
     text = ''
       # Make the rt directory, isolated from the host filesystem.
       rt="$XDG_RUNTIME_DIR/mplab-x"
@@ -114,6 +110,14 @@ let
       ${lib.optionalString (xc8 != null) ''
         mkdir "$rt/overlay/opt/microchip/xc8"
         ln -s ${xc8} "$rt/overlay/opt/microchip/xc8/v${xc8.version}"
+      ''}
+      ${lib.optionalString (xc32 != null) ''
+        mkdir "$rt/overlay/opt/microchip/xc32"
+        ln -s ${xc32} "$rt/overlay/opt/microchip/xc32/v${xc32.version}"
+      ''}
+      ${lib.optionalString (xc-dsc != null) ''
+        mkdir "$rt/overlay/opt/microchip/xc-dsc"
+        ln -s ${xc-dsc} "$rt/overlay/opt/microchip/xc-dsc/v${xc-dsc.version}"
       ''}
 
       # Make and mount (with FUSE) the newroot subdirectory.

@@ -28,6 +28,7 @@ A Nix overlay for microchip development -- intended for use in per-project envir
   - [[#xc8][XC8]]
   - [[#xc32-xc-dsc-etc][XC32, XC-DSC etc.]]
 - [[#improvement-opportunities][Improvement opportunities]]
+- [[#llm-usage-statement][LLM usage statement]]
 
 * Overview
 This provides a Nix package for Microchip PIC24/dsPIC33 development, comprising the MPLAB-X IDE and an associated installation of the XC16 compiler. It should be readily adaptable to provide similar packages for XC8 and/or XC32.
@@ -43,6 +44,11 @@ Currently this provides packages for the following, to meet my own immediate nee
 - xc8 v2.50
 - xc8 v3.10
 - xc8 v4.00
+- xc32 v5.10
+- xc32 v5.19
+- xc32 v6.00
+- xc-dsc v3.31
+- xc-dsc v4.00
 - mplab-x v6.15
 - mplab-x v6.20
 - mplab-x v6.30
@@ -131,18 +137,22 @@ The rules grant world read/write (=MODE="666"=) on Microchip/Atmel/J-Link USB de
 
 Microchip states that previously paid MPLAB XC PRO versions are free (https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers), and issues the licence from the "software products" section of myMicrochip (https://www.microchipdirect.com/software-products). Without a licence the compilers run in Free mode, which limits the optimisation levels.
 
-The licence is shipped as the =microchip-xclm-license= package (=pkgs/xclm-license/=). Its =microchip.lic= is the licence block that Microchip's =linux.sh= installer writes into =/opt/microchip/xclm/license/=. It lists seven permanent features with =hostid=ANY=: =swxc8-pro=, =swxc16-pro=, =swxc32-cpp=, =swxc8-fs=, =swxc16-fs=, =swxc32-fs= and =swanaly-ts=. This overlay packages only XC8 and XC16, so only the =swxc8-pro= and =swxc16-pro= features are used.
+The licence is shipped as the =microchip-xclm-license= package (=pkgs/xclm-license/=). Its =microchip.lic= is the licence block that Microchip's =linux.sh= installer writes into =/opt/microchip/xclm/license/=. It lists seven permanent features with =hostid=ANY=: =swxc8-pro=, =swxc16-pro=, =swxc32-cpp=, =swxc8-fs=, =swxc16-fs=, =swxc32-fs= and =swanaly-ts=. Of these, the packaged compilers use =swxc8-pro= (XC8 2.50 and 3.10), =swxc16-pro= (XC16 1.61 and 2.10, and XC-DSC 3.31) and =swxc32-cpp= (XC32 5.10). The file has no XC-DSC feature.
 
-Each XC8 and XC16 package rewrites the =xclm:path= attribute in its =etc/xclm.conf= to the store path of =microchip-xclm-license=. The compilers then run in PRO mode without any manual licence step, with or without the =mplab-x= wrapper.
+Each XC8, XC16, XC32 5.10 and XC-DSC 3.31 package rewrites the =xclm:path= attribute in its =etc/xclm.conf= to the store path of =microchip-xclm-license=. The compilers then run in PRO mode without any manual licence step, with or without the =mplab-x= wrapper.
 
 Which packaged versions enforce licensing (checked with the probes below):
 - xc16 1.61 and xc16 2.10: yes.
 - xc8 2.50 and xc8 3.10: yes.
 - xc8 4.00: no. It ships no =xclm= and no =etc/xclm.conf=, so there is nothing to patch, and =-O3= gives no licence diagnostic.
+- xc-dsc 3.31: yes, and it uses the =swxc16-pro= feature. The installer needs =--LicenseType FreeMode --netservername localhost=. With only =swxc16-pro= in the licence directory, =-O3= and =-Os= print no diagnostic. With no licence, or with any other single feature of the file, they print =Options have been disabled due to restricted license= and =Visit https://www.microchip.com/compilers to purchase a new key.=. =xclm -status= shows no =xc-dsc= product line, so use the compile probe for this compiler. =-O0= to =-O2= print nothing in either mode.
+- xc-dsc 4.00: no. It ships no =xclm= and no =etc/xclm.conf=, and =-O3= and =-Os= give no licence diagnostic. Microchip documents that v4.00 and later need no key.
+- xc32 5.10: yes, and it uses the =swxc32-cpp= feature (=swxc32-pro-permanent=). The installer needs =--LicenseType FreeMode --netservername localhost=. =xclm -status= shows =Product: xc32 ... Mode: cpp Key: swxc32-pro-permanent=; the mode is =cpp=, not =PRO=. Without the licence, =-O3= prints =Compiler option (Optimization level > 2) ignored because this feature requires the MPLAB XC32 PRO compiler=, and =-Os= prints the same with =(Optimize for size)=. Each is followed by a note to visit http://www.microchip.com/MPLABXCcompilers. With the licence, they print nothing.
+- xc32 5.19 and xc32 6.00: no. Neither installs =xclm= or =etc/xclm.conf=, the installers have no licence options, and the compiler lists its licence options (=-mskip-license-check= and others) as obsolete. =-O3= and =-Os= give no licence diagnostic. No Free-mode build of these versions was available as a negative control. Microchip documents that v6.00 and later need no key, and 5.19 is the XC32 Functional Safety release. The XC32 6.00 release notes list no release between 5.10 and 5.19.
 
 To check that a compiler runs in PRO mode, use either probe. The compilers are dynamically linked, so run them inside the =mplab-x= environment or an equivalent FHS environment.
 - =xclm -status=: for a licensed compiler, the output includes a line for its own product with =Mode: PRO=, for example =Product: xc16 ... Mode: PRO Key: swxc16-pro-permanent=. In Free mode the output has no such line.
-- An =-O3= compile: in Free mode, =xc16-gcc= prints =Options have been disabled due to restricted license=. In Free mode, =xc8-cc= (2.50 and 3.10) prints the advisory =(2051) the current license does not permit the selected optimization level, using optimization level 2=. The xc8 advisory does not change the exit status (0), so search the output for =(2051)=. =xc8-cc= 3.10 and 4.00 also need a device pack (=-mdfp=).
+- An =-O3= compile: in Free mode, =xc16-gcc= prints =Options have been disabled due to restricted license=. In Free mode, =xc8-cc= (2.50 and 3.10) prints the advisory =(2051) the current license does not permit the selected optimization level, using optimization level 2=. The xc8 advisory does not change the exit status (0), so search the output for =(2051)=. =xc8-cc= 3.10 and 4.00 also need a device pack (=-mdfp=). =xc-dsc-gcc= 3.31 prints the same two lines as =xc16-gcc= for =-O3= and =-Os=, and =xc32-gcc= (5.10 prints the diagnostics quoted above) and =xc-dsc-gcc= 4.00 need a device pack (=-mdfp=) too.
 
 If Microchip reissues or revokes the licence, the compilers can fall back to Free mode and no automatic check reports it, so repeat the probes after an update. To use a reissued licence, replace =pkgs/xclm-license/microchip.lic= with the new file. No other file changes.
 
@@ -195,12 +205,25 @@ And then add a new line to [[./pkgs/default.nix]]:
 
 XC8 is packaged in the same manner as XC16 -- adding a new version just requires a new version/hash file in [[./pkgs/xc8]] and a line in [[./pkgs/default.nix]] that passes ={ inherit microchip-xclm-license; }=, as for XC16.
 
-The =mplab-x= package bundles XC16 only. Use the =mplab-xc8= package for an MPLAB-X wrapped with XC8 instead, or override the =xc8= / =xc16= parameters of the mplab-x package to bundle any combination.
+The =mplab-x= package bundles XC16 only. Use the =mplab-xc8= package for an MPLAB-X wrapped with XC8 instead, or override the =xc8= / =xc16= / =xc32= / =xc-dsc= parameters of the mplab-x package to bundle any combination.
 
 ** XC32, XC-DSC etc.
 
-Adding packages for the other Microchip compilers should (I believe) be as simple as copying the XC16 or XC8 subtree and making some minor adaptations. Another github user, =Fuwn=, has forked this repo and already done so for XC32 v4.40 -- [[https://github.com/Fuwn/nix-microchip][here]].
+XC32 ([[./pkgs/xc32]]) and XC-DSC ([[./pkgs/xc-dsc]]) follow the same pattern: a new version/hash file in the package directory and a line in [[./pkgs/default.nix]].
+
+Both lines pass ={ inherit microchip-xclm-license; }=. The package files gate the =xclm.conf= rewrite and the installer licence flags on the version (XC32 below 5.19, XC-DSC below 4.00).
+
+#+begin_src nix
+   xc32_6_00 = pkgs.callPackage ./xc32/6.00.nix { inherit microchip-xclm-license; };
+   xc-dsc_4_00 = pkgs.callPackage ./xc-dsc/4.00.nix { inherit microchip-xclm-license; };
+#+end_src
+
+The =xc32= and =xc-dsc= attributes default to the latest packaged version. =mplab-xc32= and =mplab-xc-dsc= are MPLAB-X wrapped with those compilers. The wrapper links each compiler as =/opt/microchip/xc32/v<version>= or =/opt/microchip/xc-dsc/v<version>=, which is where the installers install by default.
 
 
 * Improvement opportunities
 See [[./TASKS.org]]
+
+* LLM usage statement
+This flake was originally written and maintained by humans.
+Commits from 20/10/2026 forward are all robot-authored. Because life's too short to write nix by hand.

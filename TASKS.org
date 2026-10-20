@@ -12,6 +12,18 @@ This org-mode task backlog is intended to be used by humans and/or coding agents
 See https://github.com/cormacc/dotagents for more info.
 
 * Improvements
+
+** TODO Investigate scraping / auto-updating with new compiler versions via a CI hook
+:PROPERTIES:
+:CUSTOM_ID: ae8f31ca-3964-49fe-b2fb-a44e957daab3
+:CREATED: [2026-10-20 Tue 13:13]
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 13:13]
+:END:
+If the update is routine, we could potentially schedule a task to pickup and add new compiler versions.
+
+
 ** TODO Rework to allow the compilers and version(s) to be included as a parameter rather than hardcoded
 :PROPERTIES:
 :CUSTOM_ID: 693fe26e-3d2f-4a49-8a0a-db4a4e9235e1
@@ -21,15 +33,6 @@ See https://github.com/cormacc/dotagents for more info.
 - Created [2026-07-20 Mon 14:57]
 :END:
 Can probably do this at project level using a local overlay to override the default? Though would be nice to support multiple versions in the one devshell (e.g. for a multi-component build, or to facilitate comparisons)
-
-** TODO Add XC8, XC32, XC-DSC
-:PROPERTIES:
-:CUSTOM_ID: c8cf3426-e406-46c1-801c-cbe964815a50
-:CREATED: [2026-07-20 Mon 14:57]
-:END:
-:LOGBOOK:
-- Created [2026-07-20 Mon 14:57]
-:END:
 
 ** TODO (Maybe) Allow XC compilers to be installed independently of MPLAB-X
 :PROPERTIES:
