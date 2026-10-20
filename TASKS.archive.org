@@ -188,3 +188,23 @@ Done 2026-10-20 (pkgs/xc16/1.21.nix, pkgs/xc16/common.nix, pkgs/mplab-x/default.
 - The compiler is 32-bit and needs only glibc. The mplab-x FHS environment has multiArch (32-bit glibc and libstdc++) and LD_LIBRARY_PATH=/lib32, which also makes sim30 run.
 - Through fuse-overlayfs, /nix files have inode numbers above 2^32, so the 32-bit driver's stat() failed and it did not find cc1. stage2 bind-mounts /nix.
 - Verified: -O3 compile, link and xc16-bin2hex through mplab-x-run; no licence warning. Control: with an empty licence directory, -O3 prints "Options have been disabled due to restricted license".
+
+** DONE Add MPLAB-X 6.35 and make it the default
+CLOSED: [2026-10-20 Tue 17:48]
+:PROPERTIES:
+:CUSTOM_ID: d0bdb164-5e92-4524-ad5f-6ce5f18fffaf
+:CREATED: [2026-10-20 Tue 17:12]
+:STARTED: [2026-10-20 Tue 17:12]
+:ARCHIVED: [2026-10-20 Tue 17:48]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 17:12]
+- State "STARTED" from "TODO" [2026-10-20 Tue 17:12]
+- State "DONE" from "STARTED" [2026-10-20 Tue 17:48]
+:END:
+MPLAB-X 6.35 was released on 2026-07-24 (Microchip MPLAB X IDE page). The installer download needs the Referer header that pkgs/mplab-x-unwrapped/common.nix already sends.
+
+Done 2026-10-20: pkgs/mplab-x-unwrapped/6.35.nix; mplab-x-unwrapped is 6.35. The installer's MD5 matches the AUR microchip-mplabx-bin 6.35 PKGBUILD, and its SHA-256 matches the prefix and suffix on the Microchip page (4c747363...6705).
+
+Compatibility prerequisite: 0ecdbb5 removes gtk-engine-murrine, following fork s1idewhist1e/nix-microchip. Current nixpkgs removed the package ("depended on GTK2"). Verified: mplab-x builds with the flake's nixpkgs and with the host's nixpkgs. GUI compiler discovery remains a separate follow-up in TASKS.org.
