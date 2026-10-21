@@ -53,13 +53,3 @@ Each wrapped compiler call (e.g. xc16-gcc via mplab-x-run) took approximately 0.
 - Created [2026-10-20 Tue 17:02]
 :END:
 nix flake check --no-build fails with "overlay does not take an argument named 'final'" (measured 2026-10-20 at HEAD a13ccfe and with the working tree). flake.nix defines overlays.default as self: super: ...; the flake checker expects final: prev:.
-
-** TODO Verify MPLAB-X GUI compiler discovery
-:PROPERTIES:
-:CUSTOM_ID: c6910100-a36e-47a2-86fd-d32f12917001
-:CREATED: [2026-10-20 Tue 23:21]
-:END:
-:LOGBOOK:
-- Created [2026-10-20 Tue 23:21]
-:END:
-Run MPLAB-X 6.35 from a project devshell with compilers = [ xc16_1_61 xc16_1_21 ]; confirm both versions are selectable and the existing firmware projects build with their chosen compiler. CLI compilation, linking, hex conversion and licence checks passed for both versions; the GUI has not been checked visually. Use nixpkgs compatible with the host: the flake-pinned glibc differs from this machine. Headless startup against host nixpkgs reached DISPLAY is not set.

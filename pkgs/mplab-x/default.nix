@@ -12,6 +12,7 @@
 , expat
 , glib
 , glibc
+, gnumake
 , gtk2
 , gtk3
 , libdrm
@@ -185,6 +186,13 @@ let
     '';
   };
 
+  make = writeShellApplication {
+    name = "mplab-make";
+    text = ''
+      exec ${lib.getExe run} ${lib.getExe gnumake} "$@"
+    '';
+  };
+
   ide = writeShellApplication {
     name = "mplab_ide";
     text = ''
@@ -206,6 +214,7 @@ runCommand "mplab-x" {
   mkdir -p $out/bin
   ln -s ${lib.getExe ide} $out/bin/mplab_ide
   ln -s ${lib.getExe run} $out/bin/mplab-x-run
+  ln -s ${lib.getExe make} $out/bin/mplab-make
 
   # CLI wrappers for the default compiler of each pname. verifyinst is the installer's
   # manifest check. If two pnames ship the same executable (e.g. xclm), the first one wins.

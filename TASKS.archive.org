@@ -162,7 +162,7 @@ pkgs/mplab-x/default.nix shares the existing MPLAB-X environment between mplab_i
 Verification (2026-10-20): xc16 1.61 default and xc16 1.21 explicit path compile, link and produce hex files with no -O3 licence warning; empty-licence control for 1.21 prints the warning. xc16 1.61 xclm reports PRO mode. Failed compiles preserve exit 255. Eight parallel compiles, nested wrappers, legacy overrides and no XDG_RUNTIME_DIR passed. All five mplab-x* attributes built.
 
 Limits and follow-ups:
-- GUI compiler discovery is not visually verified: [[task:c6910100-a36e-47a2-86fd-d32f12917001]]. Headless startup against host nixpkgs reached DISPLAY is not set; the flake's older glibc conflicts with host tools, as documented in README * Usage.
+- GUI verification completed by the user on 2026-10-21 within a downstream project devshell: [[archive:c6910100-a36e-47a2-86fd-d32f12917001]]. The project shares an updated nixpkgs pin with the Microchip input to avoid the glibc mismatch documented in README * Usage.
 - A wrapped compiler call takes about 0.4 s; ten calls within one environment take about 0.5 s. Prefer mplab-x-run make. Further optimisation: [[task:c5363e06-ee58-4439-b609-9c3de1b47b3e]].
 - FUSE and user namespaces are required; the tested Nix build sandbox has no /dev/fuse. Device packs are not packaged. A compiler-only environment is outside this change.
 - ELF patching with autoPatchelfHook caused xc16 1.61 to report an attempted licence-manager override; default buildFHSEnv made xclm report UID 0 not supported. Both fell back to Free mode. Reusing the MPLAB-X environment preserves PRO mode.
@@ -207,4 +207,36 @@ MPLAB-X 6.35 was released on 2026-07-24 (Microchip MPLAB X IDE page). The instal
 
 Done 2026-10-20: pkgs/mplab-x-unwrapped/6.35.nix; mplab-x-unwrapped is 6.35. The installer's MD5 matches the AUR microchip-mplabx-bin 6.35 PKGBUILD, and its SHA-256 matches the prefix and suffix on the Microchip page (4c747363...6705).
 
-Compatibility prerequisite: 0ecdbb5 removes gtk-engine-murrine, following fork s1idewhist1e/nix-microchip. Current nixpkgs removed the package ("depended on GTK2"). Verified: mplab-x builds with the flake's nixpkgs and with the host's nixpkgs. GUI compiler discovery remains a separate follow-up in TASKS.org.
+Compatibility prerequisite: 0ecdbb5 removes gtk-engine-murrine, following fork s1idewhist1e/nix-microchip. Current nixpkgs removed the package ("depended on GTK2"). Verified: mplab-x builds with the flake's nixpkgs and with the host's nixpkgs. The user verified MPLAB-X within a downstream project devshell on 2026-10-21: [[archive:c6910100-a36e-47a2-86fd-d32f12917001]].
+
+** DONE Verify MPLAB-X GUI compiler discovery
+CLOSED: [2026-10-21 Wed 11:08]
+:PROPERTIES:
+:CUSTOM_ID: c6910100-a36e-47a2-86fd-d32f12917001
+:CREATED: [2026-10-20 Tue 23:21]
+:ARCHIVED: [2026-10-21 Wed 11:08]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 23:21]
+- State "DONE" from "TODO" [2026-10-21 Wed 11:08]
+:END:
+Verified by the user on 2026-10-21 within a downstream project devshell: MPLAB-X works correctly. The devshell selects MPLAB-X 6.35 with compilers = [ xc16_1_61 xc16_1_21 ], defaults to 1.61 on the CLI, and shares an updated nixpkgs pin with the Microchip input. Earlier CLI compilation, linking, hex conversion and licence probes passed for both versions. The user confirmed that the remaining verification activities can be closed.
+
+** DONE Add mplab-make convenience command
+CLOSED: [2026-10-21 Wed 11:37]
+:PROPERTIES:
+:CUSTOM_ID: 4abc132d-964b-49f8-9e57-4c165208d579
+:CREATED: [2026-10-21 Wed 11:19]
+:STARTED: [2026-10-21 Wed 11:21]
+:ARCHIVED: [2026-10-21 Wed 11:37]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 11:19]
+- State "STARTED" from "TODO" [2026-10-21 Wed 11:21]
+- State "DONE" from "STARTED" [2026-10-21 Wed 11:37]
+:END:
+pkgs/mplab-x/default.nix supplies mplab-make, which runs the packaged GNU Make through mplab-x-run and forwards all arguments. README.org (* Usage ** Command-line use) documents whole-build wrapping for MPLAB-generated makefiles, whose local settings put unwrapped IDE tools on PATH. Ordinary make is unchanged.
+
+Verified 2026-10-21: package build, recursive make, quoted argument forwarding, -j8, nested invocation inside mplab-x-run, and a deliberately failing recipe (GNU Make returns 2). A downstream devshell probe including an IDE-generated local makefile also passed. Downstream release configuration is outside this task's scope.
