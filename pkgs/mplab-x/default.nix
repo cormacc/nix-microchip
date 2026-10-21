@@ -87,7 +87,7 @@ let
     compilers = xc-cli.compilers;
     packs = allPacks;
     packsVersion = mplab-x-unwrapped.version;
-    environmentIdentity = xc-cli.rootfs;
+    extraEnvironmentIdentities = [ xc-cli.rootfs ];
     runName = "mplab-x-run";
     makeName = "mplab-make";
     extraRootfsCommands = ''

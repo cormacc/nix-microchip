@@ -9,11 +9,12 @@ if [ "$#" -eq 0 ]; then
   echo "usage: ${0##*/} <command> [args...]" >&2
   exit 2
 fi
-# Nested wrappers share an environment only when their root filesystems use the same xc-cli.
+# Nested wrappers run directly only when the active root filesystem contains their identity.
 if [ -n "${MPLAB_X_ENV:-}" ]; then
-  if [ "$MPLAB_X_ENV" = "$environmentId" ]; then
-    exec "$@"
-  fi
+  IFS=: read -ra environmentIds <<< "$MPLAB_X_ENV"
+  for id in "${environmentIds[@]}"; do
+    [ "$id" = "$environmentId" ] && exec "$@"
+  done
   printf '%s: cannot run in environment %q; requires environment %q\n' \
     "${0##*/}" "$MPLAB_X_ENV" "$environmentId" >&2
   exit 1
@@ -92,7 +93,7 @@ case "$PWD" in
 esac
 args+=(--remount-ro /)
 
-export MPLAB_X_ENV=$environmentId
+export MPLAB_X_ENV=$environmentIdentityList
 # The 32-bit loader does not search /lib32 by itself (sim30 needs libstdc++ from there).
 # 64-bit programs skip the 32-bit libraries in it.
 export LD_LIBRARY_PATH="/lib32${LD_LIBRARY_PATH:+:}${LD_LIBRARY_PATH:-}"

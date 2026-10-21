@@ -204,8 +204,8 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - xc-dsc 3.31 could not find `c30_device.info` and rejected dsPIC33CK64MP105 without a DFP. It compiled and linked with dsPIC33CK-MP_DFP 1.16.521 at `-mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33CK-MP_DFP/1.16.521/xc16`.
 
 ** 851cbd89
-- The marker is the selected `xc-cli` root filesystem path. `xc-cli` exposes this root filesystem in `passthru`, and `mplab-x` passes it to its runner, so both environments built from one selection have the same marker.
-- A nested runner executes directly only when its marker matches. A mismatch exits 1 and reports the active and required root filesystem identities.
+- The marker lists root filesystem identities. `xc-cli` sets its own root filesystem identity; `mplab-x` sets its own root filesystem identity and the selected `xc-cli` root filesystem identity.
+- A nested runner executes directly only when the active marker lists that runner's own root filesystem identity. An `xc-cli` wrapper can therefore run in either root, but an MPLAB-X runner cannot run in a compiler-only root. A mismatch exits 1 and reports the active and required root filesystem identities.
 - `mplab_ide` filters `PATH` directories that contain either runner command before it starts the IDE.
 
 * Validation
@@ -240,3 +240,5 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - 2026-10-22: an xc16 1.21 wrapper under an xc16 1.61 `xc-run` exited 1 and reported both distinct xc-cli root filesystem identities.
 - 2026-10-22: a traced `mplab_ide` wrapper retained `/usr/bin` and removed the selected xc-cli and mplab-x bin directories from `PATH` before its final `exec`.
 - 2026-10-22: `xc-cli` and `mplab-x` overrides with xc16 1.61 built successfully. `nix flake check --no-build` evaluated both packages, then exited 1 at the pre-existing `overlays.default` `final` argument error.
+- 2026-10-22: `xc-make` and `mplab-make` each compiled and linked an xc16 1.61 Makefile; `strace -f -e trace=execve` recorded one `/bwrap` execution for each. `xclm -status` in each environment exited 0 and listed xc16 `Mode: PRO`.
+- 2026-10-22: the MPLAB-X marker listed its own and its selected xc-cli root filesystem identities. An `mplab-x-run` call inside that xc-cli environment exited 1 and reported the active and required root identities; an xc16 1.21 wrapper in the xc16 1.61 environment did the same.
