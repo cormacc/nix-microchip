@@ -30,11 +30,11 @@ A project runs the XC compilers that it selects, with the device packs that it s
 
 ** Acceptance
 *** Core functionality
-- [ ] `nix path-info -r` of `xc-cli.override { compilers = [ xc16_1_61 ]; }` contains no `mplab-x-unwrapped` store path.
-- [ ] That closure is smaller than 2.5 GB (the xc16 1.61 closure is 1.9 GB).
-- [ ] In that environment, `xc16-gcc` compiles a dsPIC33E file, links it, and `xc16-bin2hex` makes a hex file.
-- [ ] With a fetched DFP in `packs`, `-mdfp=/opt/microchip/mplabx/v<version>/packs/<vendor>/<name>/<version>/xc16` compiles and links.
-- [ ] `xc-make` runs GNU Make in the environment, forwards its arguments and returns Make's exit status.
+- [X] `nix path-info -r` of `xc-cli.override { compilers = [ xc16_1_61 ]; }` contains no `mplab-x-unwrapped` store path.
+- [X] That closure is smaller than 2.5 GB (the xc16 1.61 closure is 1.9 GB).
+- [X] In that environment, `xc16-gcc` compiles a dsPIC33E file, links it, and `xc16-bin2hex` makes a hex file.
+- [X] With a fetched DFP in `packs`, `-mdfp=/opt/microchip/mplabx/v<version>/packs/<vendor>/<name>/<version>/xc16` compiles and links.
+- [X] `xc-make` runs GNU Make in the environment, forwards its arguments and returns Make's exit status.
 - [ ] Each packaged compiler (xc16 1.21, 1.61, 2.10; xc8 2.50, 3.10, 4.00; xc32 5.10, 5.19, 6.00; xc-dsc 3.31, 4.00) compiles and links one test file in `xc-cli`.
 - [ ] Each licensed compiler passes its README.org licence probe in `xc-cli`, and its unpatched control build shows Free mode.
 - [ ] `mplab-x` has no compiler wrappers in `bin/`.
@@ -46,17 +46,17 @@ A project runs the XC compilers that it selects, with the device packs that it s
 - [ ] A Nix derivation compiles and links with `xc-cli` in the Nix build sandbox.
 - [ ] A CMake project with a toolchain file that names the `xc-cli` wrappers configures and builds.
 *** Edge cases
-- [ ] `xc-cli` with no override builds, and `xc-run true` exits 0.
-- [ ] Two versions of one compiler: the wrapper runs the first, and `xc-run /opt/microchip/<pname>/v<other>/bin/<exe>` runs the other.
+- [X] `xc-cli` with no override builds, and `xc-run true` exits 0.
+- [X] Two versions of one compiler: the wrapper runs the first, and `xc-run /opt/microchip/<pname>/v<other>/bin/<exe>` runs the other.
 - [ ] An `xc-cli` wrapper called inside its own environment (e.g. from a Makefile under `xc-make`) runs the compiler without a new bwrap call.
 - [ ] An `xc-cli` wrapper called inside an `mplab-x` environment built from that `xc-cli` (e.g. from a Makefile under `mplab-make`) runs the compiler without a new bwrap call.
 - [ ] A wrapper called inside an unrelated environment exits non-zero with a message that names both environments.
 - [ ] `mplab_ide` removes `xc-cli` bin directories from `PATH` as it does for `mplab-x` bin directories.
 *** Anti-criteria
-- [ ] Must not: modify compiler payloads.
-- [ ] Must not: add a mount to the environment (README.org: each block-device mount costs each compile an `xclm` search).
-- [ ] Must not: give `xc-cli` a build or run dependency on `mplab-x-unwrapped` (its version string only).
-- [ ] Must not: change the remaining default compiler versions in `pkgs/default.nix` (e.g. `xc16 = xc16_1_61`).
+- [X] Must not: modify compiler payloads.
+- [X] Must not: add a mount to the environment (README.org: each block-device mount costs each compile an `xclm` search).
+- [X] Must not: give `xc-cli` a build or run dependency on `mplab-x-unwrapped` (its version string only).
+- [X] Must not: change the remaining default compiler versions in `pkgs/default.nix` (e.g. `xc16 = xc16_1_61`).
 
 ** Decisions
 - `xc-cli` owns the compiler and pack selection, and `mplab-x` builds its root filesystem from the inputs of an `xc-cli` (user decision, 2026-10-21) :: one selection for the CLI and the IDE, no duplicate compiler wrappers on `PATH`, and an `xc-cli` wrapper can run directly inside an `mplab-x` environment that contains its compiler paths. The `xc-cli` closure has no IDE. The IDE-free follow-on (task b0aa04ab) adds an `mplab_platform` subset to `xc-cli`, and `mplab-x` gets it too.
@@ -108,13 +108,17 @@ Acceptance criteria:
 - `run.sh` is unchanged, or each change is in the same commit with a reason.
 Pointer: `pkgs/mplab-x/default.nix` (`rootfs`, `run`, `make` and the wrapper loop).
 
-** TODO Add xc-cli with xc16
+** DONE Add xc-cli with xc16
+CLOSED: [2026-10-21 Wed 21:37]
 :PROPERTIES:
 :CUSTOM_ID: 2686e265-f557-40f7-adf8-d4201ff38d97
 :CREATED: [2026-10-21 Wed 20:38]
+:STARTED: [2026-10-21 Wed 21:23]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 20:38]
+- State "STARTED" from "TODO" [2026-10-21 Wed 21:23]
+- State "DONE" from "STARTED" [2026-10-21 Wed 21:37]
 :END:
 Acceptance criteria: the `xc-cli` core criteria for xc16 1.61 and 1.21, the DFP criterion, `xc-make`, the no-override and two-version edge cases, and the anti-criteria in `** Acceptance`. Record the closure size in `* Validation`.
 - `xc-cli` is in `pkgs/default.nix`, the flake `packages` and the overlay.
@@ -176,9 +180,14 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 * Implementation
 - `pkgs/mplab-x/rootfs.nix` takes the FHS package lists, compiler and pack selections, pack version, extra root filesystem and pack commands, and command names; it returns the root filesystem, run and make scripts, wrappers, and FHS package lists.
 - `mplab-x` supplies its GUI and IDE root filesystem content as extra commands, so the generic builder can assemble a compiler-only root filesystem without an IDE input.
+- `xc-cli` uses only glibc and `gcc.cc.lib` in a multi-architecture FHS root filesystem; the latter supplies 32-bit libstdc++ and libgcc_s for xc16 1.21 and sim30.
 
 * Validation
 - 2026-10-21: `nix build '.#mplab-x' --out-link .tmp/c5ae-after-mplab-x` exited 0 after the root filesystem extraction.
 - 2026-10-21: `find <rootfs> -printf '%P %l\\n' | sort` produced 78,221 entries before and after; `diff -u` exited 0.
 - 2026-10-21: `xc16-gcc -mcpu=33EP512MU810 -c .tmp/probe.c` and `xc16-gcc -mcpu=33EP512MU810 .tmp/probe.c -Wl,-Tp33EP512MU810.gld` exited 0 in `mplab-x`; each compiler invocation printed 26 expected USB licence-manager access messages.
 - 2026-10-21: `xclm -status` in `mplab-x` exited 0 and listed `Product: xc16 ... Mode: PRO`.
+- 2026-10-21: `nix path-info -r --json` for `xc-cli` with xc16 1.61 included the xc16 path and no `mplab-x-unwrapped` path; `nix path-info --recursive --size --closure-size --human-readable` measured a 2.1 GiB closure.
+- 2026-10-21: xc16 1.61 and 1.21 compiled and linked `.tmp/probe.c` with `-mcpu=33EP512MU810 -Wl,-Tp33EP512MU810.gld` in `xc-cli`; xc16 1.61 also produced a hex file with `xc16-bin2hex`.
+- 2026-10-21: xc16 1.61 with dsPIC33E-GM-GP-MC-GU-MU_DFP 1.5.258 compiled and linked with `-mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258/xc16`.
+- 2026-10-21: `xc-make -f .tmp/xc-cli-Makefile all` exited 0 and `fail` exited 2; the no-override `xc-run true` exited 0; with xc16 1.61 then 1.21 selected, the wrapper reported 1.61 and the explicit 1.21 path reported 1.21.

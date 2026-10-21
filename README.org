@@ -33,7 +33,7 @@ A Nix overlay for microchip development -- intended for use in per-project envir
 - [[#llm-usage-statement][LLM usage statement]]
 
 * Overview
-This provides a Nix package for Microchip PIC24/dsPIC33 development, comprising the MPLAB-X IDE and an associated installation of the XC16 compiler. It should be readily adaptable to provide similar packages for XC8 and/or XC32.
+This provides Nix packages for Microchip PIC24/dsPIC33 development. =xc-cli= runs selected compilers without the MPLAB-X IDE, and =mplab-x= provides the IDE with its selected compiler. It should be readily adaptable to provide similar packages for XC8 and/or XC32.
 
 The packages included here are primarily the work of https://github.com/nyadiia, in a merge request raised against nixpkgs here:
 [[https://github.com/NixOS/nixpkgs/pull/301317]]
@@ -62,8 +62,8 @@ Pull requests adding additional packages and/or addressing any of the [[./TASKS.
 
 * Usage
 
-The microchip compilers and mplab-x are dynamically linked binaries, requiring them to wrapped in an fhsEnv to be used on NixOS anyway.
-The compiler packages are unwrapped -- installing via the mplab-x package wraps mplab-x and the compiler(s) in an fhsEnv so they all function as intended. I haven't tested with microchip programmers etc. as yet, as my dev flow for current microchip projects doesn't require them (hex image programming via a bootloader, and debugging via log trace rather than ICD).
+The Microchip compilers and MPLAB-X are dynamically linked binaries, so they need an FHS environment on NixOS.
+The compiler packages are unwrapped. =xc-cli= wraps selected compilers in an FHS environment without the IDE. =mplab-x= wraps the IDE and compiler(s) in its FHS environment. I have not tested Microchip programmers because my development flow does not need them (hex image programming via a bootloader and debugging via log trace rather than ICD).
 
 Here's a sample flake illustrating use from a microchip project. This installs MPLAB-X and XC16 in a bubble-wrapped environment.
 ... (this overlay is hard-coded to x86_64-linux for now, so the forEachSupportedSystem stuff is aspirational )...
@@ -108,6 +108,25 @@ N.B. I'm using nixpkgs-unstable, as that's what I'm tracking for NixOS on my dev
 #+end_src
 
 ** Command-line use
+
+Use =xc-cli= for a compiler-only environment. It has no default compilers or packs, so select both with its =compilers= and =packs= arguments. It supplies =xc-run <command> [args...]=, =xc-make [args...]= and a wrapper for each executable of the first selected compiler of each family. =xc-make= runs GNU Make in the environment, forwards its arguments and preserves its exit status.
+
+#+begin_src nix
+packages = [
+  (pkgs.xc-cli.override {
+    compilers = with pkgs; [ xc16_1_61 xc16_2_10 ];
+    packs = [
+      (pkgs.fetchMplabPack {
+        name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+        version = "1.5.258";
+        hash = "sha256-GdndiTwmMizusNoGvP3TleTiD9E5LidbJoUEEjS0se0=";
+      })
+    ];
+  })
+];
+#+end_src
+
+With this environment, =xc16-gcc= runs v1.61 and =xc-run /opt/microchip/xc16/v2.10/bin/xc16-gcc= runs v2.10. The selected DFP is at =/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258/xc16= for =-mdfp=.
 
 The =mplab-x= package also supplies these commands:
 - =mplab-x-run <command> [args...]= runs a command inside the MPLAB-X environment. In this environment, each compiler is at =/opt/microchip/<compiler>/v<version>=, where MPLAB-X expects it.

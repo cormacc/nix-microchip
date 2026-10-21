@@ -23,6 +23,7 @@ pkgs : rec {
    xc-dsc = xc-dsc_4_00; #i.e. default to latest version we've bothered to package
    mplab-x-unwrapped_6_35 = pkgs.callPackage ./mplab-x-unwrapped/6.35.nix { };
    mplab-x-unwrapped = mplab-x-unwrapped_6_35;
+   xc-cli = pkgs.callPackage ./xc-cli { inherit mplab-x-unwrapped; };
    # Projects choose compilers with e.g. mplab-x.override { compilers = [ xc16_1_61 xc16_2_10 ]; },
    # and packs with e.g. mplab-x.override { packs = [ (fetchMplabPack { ... }) ]; }.
    # The single-compiler arguments stay so that existing overrides such as { xc16 = ...; } still work.
