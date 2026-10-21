@@ -240,3 +240,26 @@ CLOSED: [2026-10-21 Wed 11:37]
 pkgs/mplab-x/default.nix supplies mplab-make, which runs the packaged GNU Make through mplab-x-run and forwards all arguments. README.org (* Usage ** Command-line use) documents whole-build wrapping for MPLAB-generated makefiles, whose local settings put unwrapped IDE tools on PATH. Ordinary make is unchanged.
 
 Verified 2026-10-21: package build, recursive make, quoted argument forwarding, -j8, nested invocation inside mplab-x-run, and a deliberately failing recipe (GNU Make returns 2). A downstream devshell probe including an IDE-generated local makefile also passed. Downstream release configuration is outside this task's scope.
+
+* From TASKS.org
+
+** DONE Investigate USB access-denied noise from licensed xclm
+CLOSED: [2026-10-21 Wed 11:47]
+:PROPERTIES:
+:CUSTOM_ID: 067f6545-8d89-4de1-9441-31cce94db262
+:CREATED: [2026-10-20 Tue 12:44]
+:ARCHIVE_TIME: 2026-10-21 Wed 11:47
+:ARCHIVE_FILE: ~/dev/nix-microchip/TASKS.org
+:ARCHIVE_OLPATH: Improvements
+:ARCHIVE_CATEGORY: TASKS
+:ARCHIVE_TODO: DONE
+:END:
+:LOGBOOK:
+- State "DONE"       from "WAITING"    [2026-10-21 Wed 11:47]
+- State "WAITING"    from "STARTED"    [2026-10-21 Wed 11:46]
+- State "STARTED"    from "TODO"       [2026-10-21 Wed 11:46]
+- Created [2026-10-20 Tue 12:44]
+:END:
+With the microchip-xclm-license package wired in (task bf2b3f81), xclm and xc16-gcc print `Error getting handle for device N: Access denied (insufficient permissions)` on stderr inside the mplab-x environment; the unpatched compiler does not (measured by worker 06017c14, see design/log/2026-xclm-license.org * Implementation). Exit status is 0. Unverified hypothesis: RLM probes USB for a licence dongle once a licence directory resolves, and the archived "noisy permission errors" fix (udev rules, README Udev rules) applies. Check whether the udev rules suppress it, or whether an xclm.conf setting disables the dongle scan (xc8 3.10 xclm.conf has a Dongle element).
+
+Addressed by applying the previously documented udev rules at nixos level.

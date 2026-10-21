@@ -24,16 +24,6 @@ See https://github.com/cormacc/dotagents for more info.
 If the update is routine, we could potentially schedule a task to pickup and add new compiler versions.
 
 
-** TODO Investigate USB access-denied noise from licensed xclm
-:PROPERTIES:
-:CUSTOM_ID: 067f6545-8d89-4de1-9441-31cce94db262
-:CREATED: [2026-10-20 Tue 12:44]
-:END:
-:LOGBOOK:
-- Created [2026-10-20 Tue 12:44]
-:END:
-With the microchip-xclm-license package wired in (task bf2b3f81), xclm and xc16-gcc print `Error getting handle for device N: Access denied (insufficient permissions)` on stderr inside the mplab-x environment; the unpatched compiler does not (measured by worker 06017c14, see design/log/2026-xclm-license.org * Implementation). Exit status is 0. Unverified hypothesis: RLM probes USB for a licence dongle once a licence directory resolves, and the archived "noisy permission errors" fix (udev rules, README Udev rules) applies. Check whether the udev rules suppress it, or whether an xclm.conf setting disables the dongle scan (xc8 3.10 xclm.conf has a Dongle element).
-
 ** TODO Reduce per-call overhead of the mplab-x CLI wrappers
 :PROPERTIES:
 :CUSTOM_ID: c5363e06-ee58-4439-b609-9c3de1b47b3e

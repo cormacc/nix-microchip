@@ -20,9 +20,6 @@ pkgs : rec {
    xc-dsc_3_31 = pkgs.callPackage ./xc-dsc/3.31.nix { inherit microchip-xclm-license; };
    xc-dsc = xc-dsc_4_00; #i.e. default to latest version we've bothered to package
    mplab-x-unwrapped_6_35 = pkgs.callPackage ./mplab-x-unwrapped/6.35.nix { };
-   mplab-x-unwrapped_6_30 = pkgs.callPackage ./mplab-x-unwrapped/6.30.nix { };
-   mplab-x-unwrapped_6_20 = pkgs.callPackage ./mplab-x-unwrapped/6.20.nix { };
-   mplab-x-unwrapped_6_15 = pkgs.callPackage ./mplab-x-unwrapped/6.15.nix { };
    mplab-x-unwrapped = mplab-x-unwrapped_6_35;
    # Projects choose compilers with e.g. mplab-x.override { compilers = [ xc16_1_61 xc16_2_10 ]; }.
    # The single-compiler arguments stay so that existing overrides such as { xc16 = ...; } still work.

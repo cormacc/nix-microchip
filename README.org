@@ -51,10 +51,9 @@ Currently this provides packages for the following, to meet my own immediate nee
 - xc32 v6.00
 - xc-dsc v3.31
 - xc-dsc v4.00
-- mplab-x v6.15
-- mplab-x v6.20
-- mplab-x v6.30
-- mplab-x v6.35 (the default =mplab-x-unwrapped=)
+- mplab-x v6.35 (=mplab-x-unwrapped=)
+
+Only the latest verified MPLAB-X version is retained. Legacy compiler versions are retained for reproducible firmware builds; compiler-version requirements do not require us to retain older IDE packages.
 
 Adding additional versions is trivial -- see instructions in the section [[Adding packages]].
 
@@ -225,21 +224,22 @@ Pass =microchip-xclm-license= explicitly: both =packages= and =overlays.default=
 
 ** MPLAB-X
 
-The mplab-x-unwrapped has been refactored in a similar manner to xc16. I.e. adding a new version should just require creating a new file containing the version number and hash in [[./pkgs/mplab-x-unwrapped/]].
+To upgrade MPLAB-X, add a version/hash file in [[./pkgs/mplab-x-unwrapped/]] and register it in [[./pkgs/default.nix]]. Build and verify the new IDE before changing =mplab-x-unwrapped= to point to it. Once verified, remove the superseded IDE version files and their package attributes. Unlike compilers, only the latest verified IDE is retained.
 
-See the example below for MPLAB-X v6.20 (from [[./pkgs/mplab-x-unwrapped/6.20.nix]]):
+See the example below for MPLAB-X v6.35 (from [[./pkgs/mplab-x-unwrapped/6.35.nix]]):
 #+begin_src nix
 import ./common.nix {
-  version = "6.20";
-  hash = "sha256-zs77CsuKFUCGYwUiv4ZZLm8HZLskxm3zP8HoGMUHdWA=";
+  version = "6.35";
+  hash = "sha256-THRzY9z7MVcmQ5+WjQ4lsLFyFLubpdL9Sn87qyjFZwU=";
 }
 #+end_src
 
 
-And then add a new line to [[./pkgs/default.nix]]:
+The corresponding entries in [[./pkgs/default.nix]] are:
 
 #+begin_src nix
-   mplab-x-unwrapped_6_20 = pkgs.callPackage ./mplab-x-unwrapped/6.20.nix { };
+   mplab-x-unwrapped_6_35 = pkgs.callPackage ./mplab-x-unwrapped/6.35.nix { };
+   mplab-x-unwrapped = mplab-x-unwrapped_6_35;
 #+end_src
 
 
