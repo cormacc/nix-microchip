@@ -143,6 +143,8 @@ The =mplab-x= package also supplies these commands:
 - =mplab-x-run <command> [args...]= runs a command inside the MPLAB-X environment. In this environment, each compiler selected by =xc-cli= is at =/opt/microchip/<compiler>/v<version>=, where MPLAB-X expects it.
 - =mplab-make [args...]= runs the packaged GNU Make inside the MPLAB-X environment. It forwards arguments and preserves its exit status; ordinary =make= is unchanged.
 
+Before it starts, =mplab_ide= removes each =PATH= directory that contains =mplab-x-run= or =xc-run=. This prevents the IDE from registering wrapper directories as duplicate toolchains.
+
 The compilers must run unmodified in this environment. A compiler that is patched to run directly on NixOS (=autoPatchelfHook=) detects the change and runs in Free mode. See [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]].
 
 Set the compiler and device-pack selection on =xc-cli=, then pass that package to =mplab-x=. Two or more versions of one compiler can coexist. The first compiler of each family in the list supplies the =xc-cli= command-line wrapper:
@@ -169,7 +171,7 @@ Use =mplab-make= for MPLAB-generated makefiles. Their local settings prepend the
 mplab-make -j8 -f Makefile CONF=bootloadable
 #+end_src
 
-Each call from outside the environment sets up the environment again. With xc16 1.61, a wrapped =-O3= compile of a small file took approximately 0.2 s, and =mplab-x-run true= took approximately 0.03 s (measured 2026-10-21). For a build that calls the compiler many times, run the whole build in one environment with =mplab-make=, or use =mplab-x-run ./build.sh= for a build script. Inside the environment, the wrappers run the compiler directly; ten compiles took 1.8 s in total, including the set-up.
+Each call from outside the environment sets up the environment again. With xc16 1.61, a wrapped =-O3= compile of a small file took approximately 0.2 s, and =mplab-x-run true= took approximately 0.03 s (measured 2026-10-21). For a build that calls the compiler many times, run the whole build in one environment with =mplab-make=, or use =mplab-x-run ./build.sh= for a build script. Inside the environment, wrappers from the same =xc-cli= selection run the compiler directly, including an =xc-cli= wrapper inside an =mplab-x= environment built from that =xc-cli=; ten compiles took 1.8 s in total, including the set-up. A wrapper from another =xc-cli= selection exits non-zero and names the active and required environments, because it cannot create a nested bubblewrap environment.
 
 The environment shows these host directories, writable: =/dev=, =/home=, =/nix=, =/proc=, =/run=, =/sys=, =/tmp=, =/var= and the working directory. Other top-level host directories (e.g. =/boot=, =/mnt= and =/srv=) are not visible, so a build cannot use an absolute path in them. =/etc=, =/usr= and =/opt= merge the MPLAB-X root filesystem with the host, and the root filesystem has precedence. The root filesystem is read-only. Do not add mounts to the environment without a measurement: on each call, =xclm= searches each block-device mount for licence files, so each mount makes each compile slower (approximately 16 ms on the test host).
 

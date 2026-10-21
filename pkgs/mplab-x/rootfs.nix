@@ -14,6 +14,7 @@
 , compilers
 , packs
 , packsVersion
+, environmentIdentity ? null
 , extraRootfsCommands ? ""
 , extraPackCommands ? ""
 , runName
@@ -72,10 +73,13 @@ let
     '') compilers}
   '';
 
+  environmentId = if environmentIdentity == null then rootfs else environmentIdentity;
+
   run = writeShellApplication {
     name = runName;
     text = ''
       root=${rootfs}
+      environmentId=${environmentId}
       bwrap=${lib.getExe bubblewrap}
     '' + builtins.readFile ./run.sh;
   };

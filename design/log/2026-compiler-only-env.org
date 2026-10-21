@@ -48,10 +48,10 @@ A project runs the XC compilers that it selects, with the device packs that it s
 *** Edge cases
 - [X] `xc-cli` with no override builds, and `xc-run true` exits 0.
 - [X] Two versions of one compiler: the wrapper runs the first, and `xc-run /opt/microchip/<pname>/v<other>/bin/<exe>` runs the other.
-- [ ] An `xc-cli` wrapper called inside its own environment (e.g. from a Makefile under `xc-make`) runs the compiler without a new bwrap call.
-- [ ] An `xc-cli` wrapper called inside an `mplab-x` environment built from that `xc-cli` (e.g. from a Makefile under `mplab-make`) runs the compiler without a new bwrap call.
-- [ ] A wrapper called inside an unrelated environment exits non-zero with a message that names both environments.
-- [ ] `mplab_ide` removes `xc-cli` bin directories from `PATH` as it does for `mplab-x` bin directories.
+- [X] An `xc-cli` wrapper called inside its own environment (e.g. from a Makefile under `xc-make`) runs the compiler without a new bwrap call.
+- [X] An `xc-cli` wrapper called inside an `mplab-x` environment built from that `xc-cli` (e.g. from a Makefile under `mplab-make`) runs the compiler without a new bwrap call.
+- [X] A wrapper called inside an unrelated environment exits non-zero with a message that names both environments.
+- [X] `mplab_ide` removes `xc-cli` bin directories from `PATH` as it does for `mplab-x` bin directories.
 *** Anti-criteria
 - [X] Must not: modify compiler payloads.
 - [X] Must not: add a mount to the environment (README.org: each block-device mount costs each compile an `xclm` search).
@@ -162,13 +162,17 @@ Acceptance criteria: the `mplab-x` criteria (wrappers, default packs, override, 
 - GUI check, reported apart from the CLI checks: the IDE starts with no packs, and with an `xc-cli` override, lists the selected compiler.
 - The commit is marked BREAKING.
 
-** TODO Handle calls between environments
+** DONE Handle calls between environments
+CLOSED: [2026-10-22 Thu 00:45]
 :PROPERTIES:
 :CUSTOM_ID: 851cbd89-8c33-4c6d-aa10-b00b3f0a99a6
 :CREATED: [2026-10-21 Wed 20:38]
+:STARTED: [2026-10-22 Thu 00:38]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 20:38]
+- State "STARTED" from "TODO" [2026-10-22 Thu 00:38]
+- State "DONE" from "STARTED" [2026-10-22 Thu 00:45]
 :END:
 Acceptance criteria: the own-environment, `mplab-x`-environment, unrelated-environment and `mplab_ide` `PATH` edge cases in `** Acceptance`.
 Constraint: the environment marker (`MPLAB_X_ENV` in `run.sh`) names the `xc-cli` that the root filesystem contains, so that a wrapper can tell a compatible environment from an unrelated one.
@@ -199,6 +203,11 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - No library was added to `fhsMultiPkgs` or `fhsTargetPkgs`: every compile and link probe completed with the existing glibc and `gcc.cc.lib` root filesystem. `readelf -d` recorded the dynamic dependencies of every executable in each selected compiler output before the probes.
 - xc-dsc 3.31 could not find `c30_device.info` and rejected dsPIC33CK64MP105 without a DFP. It compiled and linked with dsPIC33CK-MP_DFP 1.16.521 at `-mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33CK-MP_DFP/1.16.521/xc16`.
 
+** 851cbd89
+- The marker is the selected `xc-cli` root filesystem path. `xc-cli` exposes this root filesystem in `passthru`, and `mplab-x` passes it to its runner, so both environments built from one selection have the same marker.
+- A nested runner executes directly only when its marker matches. A mismatch exits 1 and reports the active and required root filesystem identities.
+- `mplab_ide` filters `PATH` directories that contain either runner command before it starts the IDE.
+
 * Validation
 - 2026-10-21: `nix build '.#mplab-x' --out-link .tmp/c5ae-after-mplab-x` exited 0 after the root filesystem extraction.
 - 2026-10-21: `find <rootfs> -printf '%P %l\\n' | sort` produced 78,221 entries before and after; `diff -u` exited 0.
@@ -223,3 +232,11 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - 2026-10-21: in the xc16 1.61 override, compile, link and `xclm -status` exited 0; the status named xc16 `Mode: PRO`. Each probe printed the expected USB access diagnostics.
 - 2026-10-21: with `DISPLAY=:0` and `WAYLAND_DISPLAY=wayland-1`, the default and xc16 override IDE commands each stayed running for 20 seconds (timeout 124). The override then logged `java.net.SocketException: Connection reset`; the GUI toolchain list was not observed, so the GUI criterion remains unverified.
 - 2026-10-21: `nix flake check --no-build` evaluated packages including `xc-cli` and `mplab-x`, then failed at the existing `overlays.default` argument-name error recorded in TASKS.org.
+
+** 851cbd89
+- 2026-10-22: `xc-make -C .tmp -f 851cbd89-Makefile all` with xc16 1.61 compiled and linked successfully. `strace -f -e trace=execve` recorded one `/bwrap` execution, the initial environment only.
+- 2026-10-22: `mplab-make -C .tmp -f 851cbd89-Makefile -B all` in `mplab-x.override { xc-cli = xc-cli.override { compilers = [ xc16_1_61 ]; }; }` compiled and linked successfully. The same trace recorded one `/bwrap` execution.
+- 2026-10-22: `xclm -status` in each environment exited 0 and listed xc16 `Mode: PRO`; expected USB access diagnostics were present.
+- 2026-10-22: an xc16 1.21 wrapper under an xc16 1.61 `xc-run` exited 1 and reported both distinct xc-cli root filesystem identities.
+- 2026-10-22: a traced `mplab_ide` wrapper retained `/usr/bin` and removed the selected xc-cli and mplab-x bin directories from `PATH` before its final `exec`.
+- 2026-10-22: `xc-cli` and `mplab-x` overrides with xc16 1.61 built successfully. `nix flake check --no-build` evaluated both packages, then exited 1 at the pre-existing `overlays.default` `final` argument error.

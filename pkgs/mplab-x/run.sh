@@ -6,13 +6,17 @@
 # ("UID 0 not supported").
 
 if [ "$#" -eq 0 ]; then
-  echo "usage: mplab-x-run <command> [args...]" >&2
+  echo "usage: ${0##*/} <command> [args...]" >&2
   exit 2
 fi
-# A nested call (e.g. a Makefile run with mplab-x-run that calls a CLI wrapper) is already
-# in the environment.
+# Nested wrappers share an environment only when their root filesystems use the same xc-cli.
 if [ -n "${MPLAB_X_ENV:-}" ]; then
-  exec "$@"
+  if [ "$MPLAB_X_ENV" = "$environmentId" ]; then
+    exec "$@"
+  fi
+  printf '%s: cannot run in environment %q; requires environment %q\n' \
+    "${0##*/}" "$MPLAB_X_ENV" "$environmentId" >&2
+  exit 1
 fi
 
 shopt -s dotglob nullglob
@@ -88,7 +92,7 @@ case "$PWD" in
 esac
 args+=(--remount-ro /)
 
-export MPLAB_X_ENV=1
+export MPLAB_X_ENV=$environmentId
 # The 32-bit loader does not search /lib32 by itself (sim30 needs libstdc++ from there).
 # 64-bit programs skip the 32-bit libraries in it.
 export LD_LIBRARY_PATH="/lib32${LD_LIBRARY_PATH:+:}${LD_LIBRARY_PATH:-}"

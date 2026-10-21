@@ -26,6 +26,7 @@ runCommand "xc-cli" {
   nativeBuildInputs = [ makeWrapper ];
   passthru = {
     inherit compilers fhsMultiPkgs fhsTargetPkgs ideVersion packs;
+    rootfs = environment.rootfs;
   };
   meta.mainProgram = "xc-run";
 } ''

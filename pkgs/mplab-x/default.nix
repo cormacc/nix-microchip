@@ -87,6 +87,7 @@ let
     compilers = xc-cli.compilers;
     packs = allPacks;
     packsVersion = mplab-x-unwrapped.version;
+    environmentIdentity = xc-cli.rootfs;
     runName = "mplab-x-run";
     makeName = "mplab-make";
     extraRootfsCommands = ''
@@ -126,12 +127,12 @@ let
     name = "mplab_ide";
     text = ''
       echo "mplab-x-unwrapped: ${mplab-x-unwrapped}" >&2
-      # The IDE registers each PATH directory that contains a compiler as a toolchain. Exclude
-      # an earlier mplab-x package directory, because it can contain a legacy compiler wrapper.
+      # The IDE registers each PATH directory that contains a compiler wrapper as a toolchain.
+      # Exclude earlier mplab-x and xc-cli package directories to avoid duplicate registrations.
       path=
       IFS=: read -ra dirs <<< "''${PATH:-}"
       for d in "''${dirs[@]}"; do
-        [ -x "$d/mplab-x-run" ] || path=''${path:+$path:}$d
+        [ -x "$d/mplab-x-run" ] || [ -x "$d/xc-run" ] || path=''${path:+$path:}$d
       done
       export PATH=$path
       # Only the IDE gets /lib on LD_LIBRARY_PATH. The compilers do not need it, and it makes
