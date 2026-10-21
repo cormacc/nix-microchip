@@ -1,6 +1,6 @@
 * Fixes
 ** DONE Investigate / fix the noisy permission errors during build
-Explained and addressed -- see [[#udev-rules][Udev rules]]. MPLAB-X probes every USB device while scanning for hardware tools, and each probe fails unless the host has udev rules granting access. Original notes below:
+Explained -- see README [[file:README.org::*Udev rules][Udev rules]]. The licence manager of the licensed compilers (=xclm=) opens every USB device to look for a licence dongle, and prints a message for each device that the user cannot open. Microchip's udev rules cover only Microchip, Atmel and J-Link devices, so they do not remove the messages. A =uaccess= rule for all USB devices is necessary (task 067f6545). Original notes below:
 
 Building from mplab-x works fine in my limited testing, though I see some noisy error message along the following lines in the build console...
 #+begin_example
@@ -262,7 +262,7 @@ CLOSED: [2026-10-21 Wed 11:47]
 :END:
 With the microchip-xclm-license package wired in (task bf2b3f81), xclm and xc16-gcc print `Error getting handle for device N: Access denied (insufficient permissions)` on stderr inside the mplab-x environment; the unpatched compiler does not (measured by worker 06017c14, see design/log/2026-xclm-license.org * Implementation). Exit status is 0. Unverified hypothesis: RLM probes USB for a licence dongle once a licence directory resolves, and the archived "noisy permission errors" fix (udev rules, README Udev rules) applies. Check whether the udev rules suppress it, or whether an xclm.conf setting disables the dongle scan (xc8 3.10 xclm.conf has a Dongle element).
 
-Addressed by applying the previously documented udev rules at nixos level.
+Microchip's udev rules do not address this. With the rules installed on a host with 28 USB devices, one xc16 1.61 compile printed 26 messages: one for each device that the user could not open (measured 2026-10-21). The scan is not disabled by the =xclm.conf= setting either: xc16 1.61's =xclm= prints =Unrecognized value in xclm config file: xclm:Dongle= and continues the scan. Fix: a =uaccess= rule for all USB devices in a rules file that sorts before =73-seat-late.rules=. See README [[file:README.org::*Udev rules][Udev rules]].
 
 ** DONE Reduce per-call overhead of the mplab-x CLI wrappers
 CLOSED: [2026-10-21 Wed 13:37]
