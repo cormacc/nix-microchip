@@ -89,13 +89,17 @@ A project runs the XC compilers that it selects, with the device packs that it s
 - Per-compiler pack sets: [[task:aebb7421-fa4a-4b4b-b536-97dbdf8ef1b4][task aebb7421]].
 
 * Plan
-** TODO Extract a shared root filesystem builder from mplab-x
+** DONE Extract a shared root filesystem builder from mplab-x
+CLOSED: [2026-10-21 Wed 21:23]
 :PROPERTIES:
 :CUSTOM_ID: c5ae0366-e20f-4aa0-a054-b455591afa85
 :CREATED: [2026-10-21 Wed 20:38]
+:STARTED: [2026-10-21 Wed 21:17]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 20:38]
+- State "STARTED" from "TODO" [2026-10-21 Wed 21:17]
+- State "DONE" from "STARTED" [2026-10-21 Wed 21:23]
 :END:
 Acceptance criteria:
 - The builder takes the FHS package lists, compilers, packs, the packs version and extra root filesystem commands, and returns the root filesystem and the `run`, `make` and wrapper scripts with given command names. A caller can build one root filesystem from the inputs of two callers (the `xc-cli` inputs plus the IDE inputs).
@@ -170,3 +174,11 @@ Acceptance criteria: the Nix derivation and CMake criteria in `** Acceptance`.
 Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` limits.
 
 * Implementation
+- `pkgs/mplab-x/rootfs.nix` takes the FHS package lists, compiler and pack selections, pack version, extra root filesystem and pack commands, and command names; it returns the root filesystem, run and make scripts, wrappers, and FHS package lists.
+- `mplab-x` supplies its GUI and IDE root filesystem content as extra commands, so the generic builder can assemble a compiler-only root filesystem without an IDE input.
+
+* Validation
+- 2026-10-21: `nix build '.#mplab-x' --out-link .tmp/c5ae-after-mplab-x` exited 0 after the root filesystem extraction.
+- 2026-10-21: `find <rootfs> -printf '%P %l\\n' | sort` produced 78,221 entries before and after; `diff -u` exited 0.
+- 2026-10-21: `xc16-gcc -mcpu=33EP512MU810 -c .tmp/probe.c` and `xc16-gcc -mcpu=33EP512MU810 .tmp/probe.c -Wl,-Tp33EP512MU810.gld` exited 0 in `mplab-x`; each compiler invocation printed 26 expected USB licence-manager access messages.
+- 2026-10-21: `xclm -status` in `mplab-x` exited 0 and listed `Product: xc16 ... Mode: PRO`.
