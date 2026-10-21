@@ -6,7 +6,7 @@ This flake packages proprietary Microchip tools for `x86_64-linux`. Read [README
 
 - `flake.nix` exports packages and the overlay; `pkgs/default.nix` registers versions and defaults.
 - `pkgs/<tool>/<version>.nix` contains the version and installer hash; `common.nix` contains shared packaging logic.
-- `pkgs/mplab-x/default.nix` provides the runtime environment, compiler wrappers, `mplab-x-run` and `mplab-make`.
+- `pkgs/mplab-x/default.nix` provides the runtime environment, compiler wrappers, `mplab-x-run` and `mplab-make`. `pkgs/mplab-x/run.sh` builds the environment with bubblewrap.
 
 ## Changes
 
@@ -20,5 +20,5 @@ This flake packages proprietary Microchip tools for `x86_64-linux`. Read [README
 
 - Build changed packages and affected wrappers, e.g. `nix build '.#mplab-x'`.
 - Test runtime changes with a representative compile and link; check licence diagnostics as well as exit status. Use `mplab-make` for MPLAB-generated makefiles.
-- Runtime probes need FUSE and user namespaces outside the Nix build sandbox. Report GUI checks separately from CLI checks.
+- Runtime probes need unprivileged user namespaces. Report GUI checks separately from CLI checks.
 - Run `nix flake check --no-build`; distinguish existing failures recorded in TASKS.org from regressions.

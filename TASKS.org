@@ -24,16 +24,6 @@ See https://github.com/cormacc/dotagents for more info.
 If the update is routine, we could potentially schedule a task to pickup and add new compiler versions.
 
 
-** TODO Reduce per-call overhead of the mplab-x CLI wrappers
-:PROPERTIES:
-:CUSTOM_ID: c5363e06-ee58-4439-b609-9c3de1b47b3e
-:CREATED: [2026-10-20 Tue 17:02]
-:END:
-:LOGBOOK:
-- Created [2026-10-20 Tue 17:02]
-:END:
-Each wrapped compiler call (e.g. xc16-gcc via mplab-x-run) took approximately 0.8 s (measured 2026-10-20, xc16 1.61): 0.52 s for the first program on the new fuse-overlayfs mount, 0.11 s for the rsync of the FHS rootfs, the remainder for mounts. Ten calls inside one environment took 0.9 s in total. After stage2 bind-mounted /nix (task dd8c0710), a wrapped call took approximately 0.37 s and mplab-x-run true 0.38 s, so the set-up is now the main cost. Possible approach: build the CLI root with bind mounts (bwrap) instead of fuse-overlayfs. Any new sandbox must keep the PRO licence: a default buildFHSEnv wrapper made xclm fail with "UID 0 not supported" (see task e00f895e).
-
 ** TODO Fix nix flake check: overlay argument names
 :PROPERTIES:
 :CUSTOM_ID: d1547c9b-5b14-4ab8-88e3-963d4d3d78a7
@@ -43,3 +33,13 @@ Each wrapped compiler call (e.g. xc16-gcc via mplab-x-run) took approximately 0.
 - Created [2026-10-20 Tue 17:02]
 :END:
 nix flake check --no-build fails with "overlay does not take an argument named 'final'" (measured 2026-10-20 at HEAD a13ccfe and with the working tree). flake.nix defines overlays.default as self: super: ...; the flake checker expects final: prev:.
+
+** TODO Provide a compiler-only environment without MPLAB-X
+:PROPERTIES:
+:CUSTOM_ID: bf4262f4-b2fd-4680-a20e-8d823f6178eb
+:CREATED: [2026-10-21 Wed 13:35]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 13:35]
+:END:
+The XC compiler packages cannot run directly on NixOS: they are unpatched to keep PRO mode, and xc16-gcc 1.61 run from its store path fails with "Could not start dynamically linked executable" (measured 2026-10-21). Their only runtime environment is mplab-x-run, whose root filesystem includes mplab-x-unwrapped (16.0 GB of a 19.6 GB closure; the xc16 1.61 closure is 1.9 GB). mplab-xc8, mplab-xc16, mplab-xc32 and mplab-xc-dsc in pkgs/default.nix are all mplab-x with a different default compiler. Possible approach: reuse pkgs/mplab-x/run.sh (it needs only root and bwrap) with a small root filesystem: 64-bit and 32-bit glibc, 32-bit libstdc++ for sim30, and the compilers at /opt/microchip/<pname>/v<version>, plus the same CLI wrappers. Not verified: the libraries that xc8, xc32 and xc-dsc need beyond glibc, and whether xclm or the compilers read anything from the IDE installation (e.g. /opt/microchip/mplabcomm). Verify PRO mode for each licensed compiler with the README.org licence probes, including an empty-licence control. MPLAB-generated makefiles put the IDE bin directory on PATH (README.org * Usage ** Command-line use), so they probably still need mplab-x; target user Makefiles, CMake and Nix derivations.

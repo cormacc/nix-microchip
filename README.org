@@ -15,7 +15,7 @@
 # Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
 #+STARTUP:: latexpreview
 
-A Nix overlay for microchip development -- intended for use in per-project environment flakes and/or home-manager configuration.
+A Nix overlay for microchip development -- intended for use in per-project environment flakes, home-manager configuration and/or NixOS configuration (for udev rules).
 
 * Table of Contents                                         :TOC_2_gh:noexport:
 - [[#overview][Overview]]
@@ -133,13 +133,15 @@ Use =mplab-make= for MPLAB-generated makefiles. Their local settings prepend the
 mplab-make -j8 -f Makefile CONF=bootloadable
 #+end_src
 
-Each call sets up the environment again. With xc16 1.61, each wrapped call took approximately 0.4 s (measured 2026-10-20). For a build that calls the compiler many times, run the whole build in one environment with =mplab-make=, or use =mplab-x-run ./build.sh= for a build script. Inside the environment, the wrappers run the compiler directly; ten calls took 0.5 s in total, including the set-up.
+Each call from outside the environment sets up the environment again. With xc16 1.61, a wrapped =-O3= compile of a small file took approximately 0.2 s, and =mplab-x-run true= took approximately 0.03 s (measured 2026-10-21). For a build that calls the compiler many times, run the whole build in one environment with =mplab-make=, or use =mplab-x-run ./build.sh= for a build script. Inside the environment, the wrappers run the compiler directly; ten compiles took 1.8 s in total, including the set-up.
+
+The environment shows these host directories, writable: =/dev=, =/home=, =/nix=, =/proc=, =/run=, =/sys=, =/tmp=, =/var= and the working directory. Other top-level host directories (e.g. =/boot=, =/mnt= and =/srv=) are not visible, so a build cannot use an absolute path in them. =/etc=, =/usr= and =/opt= merge the MPLAB-X root filesystem with the host, and the root filesystem has precedence. The root filesystem is read-only. Do not add mounts to the environment without a measurement: on each call, =xclm= searches each block-device mount for licence files, so each mount makes each compile slower (approximately 16 ms on the test host).
 
 The environment includes 32-bit glibc and libstdc++, for XC16 before 1.50 (32-bit) and for =sim30= (32-bit in every XC16 version).
 
 Limits:
-- The environment needs unprivileged user namespaces and FUSE. The Nix build sandbox does not supply =/dev/fuse=, so a Nix derivation cannot build firmware with these commands.
-- The licensed compilers print =Error getting handle for device N: Access denied (insufficient permissions)= on stderr. The exit status is not affected. [[./TASKS.org]] tracks the investigation.
+- The environment needs unprivileged user namespaces. It does not need FUSE. In a test derivation in the Nix build sandbox on NixOS, =mplab-x-run= compiled and linked with xc16 1.61 and 1.21, =xc16-bin2hex= made a hex file, and =xclm -status= reported PRO mode (measured 2026-10-21).
+- Without the udev rules, the licensed compilers print =Error getting handle for device N: Access denied (insufficient permissions)= on stderr. The exit status is not affected. See [[#udev-rules][Udev rules]].
 - XC8 3.10 and later, XC32 and XC-DSC 4.00 need a device pack (=-mdfp=). This overlay does not package device packs.
 
 ** Udev rules
@@ -155,7 +157,10 @@ These messages are harmless if you program via a bootloader -- builds work fine 
 The =mplab-x-unwrapped= package ships Microchip's udev rules in =lib/udev/rules.d=, but udev runs on the host -- outside the bubble-wrapped environment -- so they must be installed at system level. On NixOS:
 
 #+begin_src nix
-  services.udev.packages = [ pkgs.mplab-x-unwrapped ]; # with the overlay applied
+  # In a NixOS module. The NixOS pkgs set is separate from any Home Manager or
+  # devShell pkgs set, so apply the overlay here too:
+  nixpkgs.overlays = [ microchip.overlays.default ];
+  services.udev.packages = [ pkgs.mplab-x-unwrapped ];
   # or, without the overlay:
   # services.udev.packages = [ microchip.packages.x86_64-linux.mplab-x-unwrapped ];
 #+end_src

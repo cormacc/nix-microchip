@@ -263,3 +263,23 @@ CLOSED: [2026-10-21 Wed 11:47]
 With the microchip-xclm-license package wired in (task bf2b3f81), xclm and xc16-gcc print `Error getting handle for device N: Access denied (insufficient permissions)` on stderr inside the mplab-x environment; the unpatched compiler does not (measured by worker 06017c14, see design/log/2026-xclm-license.org * Implementation). Exit status is 0. Unverified hypothesis: RLM probes USB for a licence dongle once a licence directory resolves, and the archived "noisy permission errors" fix (udev rules, README Udev rules) applies. Check whether the udev rules suppress it, or whether an xclm.conf setting disables the dongle scan (xc8 3.10 xclm.conf has a Dongle element).
 
 Addressed by applying the previously documented udev rules at nixos level.
+
+** DONE Reduce per-call overhead of the mplab-x CLI wrappers
+CLOSED: [2026-10-21 Wed 13:37]
+:PROPERTIES:
+:CUSTOM_ID: c5363e06-ee58-4439-b609-9c3de1b47b3e
+:CREATED: [2026-10-20 Tue 17:02]
+:STARTED: [2026-10-21 Wed 12:22]
+:ARCHIVED: [2026-10-21 Wed 13:37]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 17:02]
+- State "STARTED" from "TODO" [2026-10-21 Wed 12:22]
+- State "DONE" from "STARTED" [2026-10-21 Wed 13:37]
+:END:
+Each wrapped compiler call (e.g. xc16-gcc via mplab-x-run) took approximately 0.8 s (measured 2026-10-20, xc16 1.61): 0.52 s for the first program on the new fuse-overlayfs mount, 0.11 s for the rsync of the FHS rootfs, the remainder for mounts. Ten calls inside one environment took 0.9 s in total. After stage2 bind-mounted /nix (task dd8c0710), a wrapped call took approximately 0.37 s and mplab-x-run true 0.38 s, so the set-up is now the main cost. Possible approach: build the CLI root with bind mounts (bwrap) instead of fuse-overlayfs. Any new sandbox must keep the PRO licence: a default buildFHSEnv wrapper made xclm fail with "UID 0 not supported" (see task e00f895e).
+
+Done 2026-10-21 (pkgs/mplab-x/run.sh, pkgs/mplab-x/default.nix, README.org * Usage ** Command-line use, AGENTS.md): mplab-x-run builds the environment with bubblewrap: a tmpfs root, writable binds of /dev, /home, /nix, /proc, /run, /sys, /tmp, /var and the working directory, and a merge of a build-time root filesystem with host /etc, /usr and /opt. It needs no FUSE, rsync, execline or host unshare. xclm searches each block-device mount for licence files on each call (approximately 16 ms each), so the environment does not show other top-level host directories.
+
+Verification (2026-10-21, xc16 1.61 and 1.21): mplab-x-run true 0.38 s to 0.03 s; wrapped -O3 compile 0.57 s to 0.20 s; ten compiles in one environment 2.25 s to 1.82 s. No -O3 licence warning and xclm reports PRO mode; the empty-licence control prints the warning. Link and hex, exit status 255, eight concurrent environments, nested wrappers, mplab-make with recursive make, no XDG_RUNTIME_DIR, USB sysfs and signal clean-up passed. A test derivation in the Nix build sandbox compiled, linked and made a hex file in PRO mode. All five mplab-x* attributes built. The user verified the mplab_ide GUI. Follow-up: [[task:bf4262f4-b2fd-4680-a20e-8d823f6178eb]].

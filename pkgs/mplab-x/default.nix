@@ -1,14 +1,13 @@
 { lib
 , alsa-lib
 , at-spi2-atk
+, bubblewrap
 , buildFHSEnv
 , cairo
 , coreutils
 , corefonts
 , cups
 , dbus
-, execline
-, fuse-overlayfs
 , expat
 , glib
 , glibc
@@ -100,90 +99,31 @@ let
     ];
   };
 
-  # Runs its arguments as a command inside the MPLAB-X root filesystem. The compilers must run
-  # unmodified in this environment: an autoPatchelf'd compiler detects the change and drops to
-  # Free mode, and a default buildFHSEnv sandbox makes xclm fail ("UID 0 not supported").
-  stage2 = writeShellApplication {
-    name = "mplab-x-stage2";
-    runtimeInputs = [ execline fuse-overlayfs rsync ];
-    text = ''
-      # Make the rt directory, isolated from the host filesystem. The tmpfs is private to this
-      # mount namespace, so concurrent invocations (e.g. make -j) do not interfere.
-      # CI runners and other non-login shells can have no XDG_RUNTIME_DIR.
-      rt="''${XDG_RUNTIME_DIR:-/tmp}/mplab-x"
-      mkdir -p "$rt"
-      mount -t tmpfs mplab-x-wrapper "$rt"
-
-      # Make and populate the overlay subdirectory.
-      mkdir -p "$rt/overlay/opt/microchip"
-      rsync -rlp ${fhsEnv.fhsenv}/             "$rt/overlay/"
-      rsync -rlp ${mplab-x-unwrapped}/etc/     "$rt/overlay/etc/"
-      # FIXME: This line has started causing issues, but is likely required for programmer support
-      # mkdir -p "$rt/overlay/lib/udev"
-      # rsync -rlp ${mplab-x-unwrapped}/lib/udev/ "$rt/overlay/lib/udev/"
-      ln -s "$HOME"                            "$rt/overlay/root"
-      for f in ${mplab-x-unwrapped}/opt/microchip/*; do
-        ln -s "$f" "$rt/overlay/opt/microchip/"
-      done
-
-
-      ${lib.concatMapStrings (c: ''
-        mkdir -p "$rt/overlay/opt/microchip/${c.pname}"
-        ln -s ${c} "$rt/overlay${compilerDir c}"
-      '') allCompilers}
-
-      # Make and mount (with FUSE) the newroot subdirectory.
-      mkdir "$rt/newroot"
-      fuse-overlayfs -o lowerdir="$rt/overlay":/ "$rt/newroot"
-      trap 'fusermount -zu "$rt/newroot"' EXIT
-
-      # Bind mount some subtrees we want to make mutable.
-      mount --rbind /dev  "$rt/newroot/dev"
-      mount --rbind /home "$rt/newroot/home"
-      # fuse-overlayfs gives files inode numbers above 2^32. 32-bit programs (XC16 before 1.50)
-      # then fail stat() with EOVERFLOW: e.g. the driver does not find cc1. The bind mount also
-      # keeps the compilers' file access out of FUSE.
-      mount --rbind /nix  "$rt/newroot/nix"
-      mount --rbind /proc "$rt/newroot/proc"
-      mount --rbind /run  "$rt/newroot/run"
-      # N.B. /sys must be a real sysfs mount: fuse-overlayfs cannot traverse it as
-      # a lower layer, and without it libusb enumerates no USB devices, so MPLAB
-      # never sees programmers/debuggers (PICkit, ICD, ...).
-      mount --rbind /sys  "$rt/newroot/sys"
-      mount --rbind /tmp  "$rt/newroot/tmp"
-      mount --rbind /var  "$rt/newroot/var"
-      # Without this bind, the overlay makes a working directory outside the trees above
-      # (e.g. a CI checkout under /builds) read-only.
-      case "$PWD" in
-        /|/dev|/dev/*|/home|/home/*|/proc|/proc/*|/run|/run/*|/sys|/sys/*|/tmp|/tmp/*|/var|/var/*) ;;
-        *) mount --rbind "$PWD" "$rt/newroot$PWD" ;;
-      esac
-
-      # Chroot into the new rootfs and run the command.
-      export MPLAB_X_ENV=1
-      # The 32-bit loader does not search /lib32 by itself (sim30 needs libstdc++ from there).
-      # 64-bit programs skip the 32-bit libraries in it.
-      export LD_LIBRARY_PATH="/lib32''${LD_LIBRARY_PATH:+:}''${LD_LIBRARY_PATH:-}"
-      chroot "$rt/newroot" execline-cd "$PWD" "$@"
-    '';
-
-    inherit (mplab-x-unwrapped) meta;
-  };
+  # The root filesystem of the environment. mplab-x-run merges it with the host at each call.
+  rootfs = runCommand "mplab-x-rootfs" { nativeBuildInputs = [ rsync ]; } ''
+    mkdir -p $out
+    rsync -rlp --chmod=Du+w ${fhsEnv.fhsenv}/ $out/
+    rm -rf $out/nix-support
+    rsync -rlp --chmod=Du+w ${mplab-x-unwrapped}/etc/ $out/etc/
+    # FIXME: This line has started causing issues, but is likely required for programmer support
+    # mkdir -p $out/lib/udev
+    # rsync -rlp ${mplab-x-unwrapped}/lib/udev/ $out/lib/udev/
+    mkdir -p $out/opt/microchip
+    for f in ${mplab-x-unwrapped}/opt/microchip/*; do
+      ln -s "$f" $out/opt/microchip/
+    done
+    ${lib.concatMapStrings (c: ''
+      mkdir -p $out/opt/microchip/${c.pname}
+      ln -s ${c} $out${compilerDir c}
+    '') allCompilers}
+  '';
 
   run = writeShellApplication {
     name = "mplab-x-run";
     text = ''
-      if [ "$#" -eq 0 ]; then
-        echo "usage: mplab-x-run <command> [args...]" >&2
-        exit 2
-      fi
-      # The kernel refuses a new user namespace inside a chroot, so a nested call (e.g. a
-      # Makefile run with mplab-x-run that calls a CLI wrapper) runs the command directly.
-      if [ -n "''${MPLAB_X_ENV:-}" ]; then
-        exec "$@"
-      fi
-      exec unshare -mUr -- ${lib.getExe stage2} "$@"
-    '';
+      root=${rootfs}
+      bwrap=${lib.getExe bubblewrap}
+    '' + builtins.readFile ./run.sh;
   };
 
   make = writeShellApplication {
