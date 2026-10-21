@@ -188,6 +188,15 @@ let
     name = "mplab_ide";
     text = ''
       echo "mplab-x-unwrapped: ${mplab-x-unwrapped}" >&2
+      # The IDE registers each PATH directory that contains a compiler as a toolchain. The CLI
+      # wrappers run the default compiler, so their directory (and that of an earlier mplab-x
+      # build) would add one more toolchain with that version and a store path.
+      path=
+      IFS=: read -ra dirs <<< "''${PATH:-}"
+      for d in "''${dirs[@]}"; do
+        [ -x "$d/mplab-x-run" ] || path=''${path:+$path:}$d
+      done
+      export PATH=$path
       # Only the IDE gets /lib on LD_LIBRARY_PATH. The compilers do not need it, and it makes
       # host programs (e.g. a script run with mplab-x-run) load the FHS glibc instead of their own.
       exec ${lib.getExe run} ${coreutils}/bin/env \
