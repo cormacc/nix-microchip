@@ -35,8 +35,8 @@ A project runs the XC compilers that it selects, with the device packs that it s
 - [X] In that environment, `xc16-gcc` compiles a dsPIC33E file, links it, and `xc16-bin2hex` makes a hex file.
 - [X] With a fetched DFP in `packs`, `-mdfp=/opt/microchip/mplabx/v<version>/packs/<vendor>/<name>/<version>/xc16` compiles and links.
 - [X] `xc-make` runs GNU Make in the environment, forwards its arguments and returns Make's exit status.
-- [ ] Each packaged compiler (xc16 1.21, 1.61, 2.10; xc8 2.50, 3.10, 4.00; xc32 5.10, 5.19, 6.00; xc-dsc 3.31, 4.00) compiles and links one test file in `xc-cli`.
-- [ ] Each licensed compiler passes its README.org licence probe in `xc-cli`, and its unpatched control build shows Free mode.
+- [X] Each packaged compiler (xc16 1.21, 1.61, 2.10; xc8 2.50, 3.10, 4.00; xc32 5.10, 5.19, 6.00; xc-dsc 3.31, 4.00) compiles and links one test file in `xc-cli`.
+- [X] Each licensed compiler passes its README.org licence probe in `xc-cli`, and its unpatched control build shows Free mode.
 - [ ] `mplab-x` has no compiler wrappers in `bin/`.
 - [ ] `mplab-x` with no override has no pack in its packs folder.
 - [ ] `mplab-x.override { xc-cli = xc-cli.override { compilers = [ xc16_1_61 ]; packs = [ mplab-x-unwrapped.packs ]; }; }` gives the same root filesystem file list as the `mplab-x` default before the change.
@@ -126,13 +126,17 @@ Acceptance criteria: the `xc-cli` core criteria for xc16 1.61 and 1.21, the DFP 
 - README.org documents `xc-cli`, `xc-run`, `xc-make` and the `compilers` and `packs` arguments.
 Constraint: `multiArch` with 32-bit libstdc++ and libgcc (sim30 and xc16 1.21 are 32-bit); no GUI libraries.
 
-** TODO Verify xc8, xc32 and xc-dsc in xc-cli
+** DONE Verify xc8, xc32 and xc-dsc in xc-cli
+CLOSED: [2026-10-21 Wed 22:55]
 :PROPERTIES:
 :CUSTOM_ID: ef7bb5be-f4c7-4450-8cb4-a3197f3321a5
 :CREATED: [2026-10-21 Wed 20:38]
+:STARTED: [2026-10-21 Wed 21:43]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 20:38]
+- State "STARTED" from "TODO" [2026-10-21 Wed 21:43]
+- State "DONE" from "STARTED" [2026-10-21 Wed 22:55]
 :END:
 Acceptance criteria:
 - xc16 2.10, xc8 2.50, 3.10 and 4.00, xc32 5.10, 5.19 and 6.00, and xc-dsc 3.31 and 4.00 each compile and link one test file in `xc-cli`, with a fetched DFP where README.org says that the compiler needs `-mdfp`.
@@ -182,6 +186,10 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - `mplab-x` supplies its GUI and IDE root filesystem content as extra commands, so the generic builder can assemble a compiler-only root filesystem without an IDE input.
 - `xc-cli` uses only glibc and `gcc.cc.lib` in a multi-architecture FHS root filesystem; the latter supplies 32-bit libstdc++ and libgcc_s for xc16 1.21 and sim30.
 
+** ef7bb5be
+- No library was added to `fhsMultiPkgs` or `fhsTargetPkgs`: every compile and link probe completed with the existing glibc and `gcc.cc.lib` root filesystem. `readelf -d` recorded the dynamic dependencies of every executable in each selected compiler output before the probes.
+- xc-dsc 3.31 could not find `c30_device.info` and rejected dsPIC33CK64MP105 without a DFP. It compiled and linked with dsPIC33CK-MP_DFP 1.16.521 at `-mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33CK-MP_DFP/1.16.521/xc16`.
+
 * Validation
 - 2026-10-21: `nix build '.#mplab-x' --out-link .tmp/c5ae-after-mplab-x` exited 0 after the root filesystem extraction.
 - 2026-10-21: `find <rootfs> -printf '%P %l\\n' | sort` produced 78,221 entries before and after; `diff -u` exited 0.
@@ -191,3 +199,8 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - 2026-10-21: xc16 1.61 and 1.21 compiled and linked `.tmp/probe.c` with `-mcpu=33EP512MU810 -Wl,-Tp33EP512MU810.gld` in `xc-cli`; xc16 1.61 also produced a hex file with `xc16-bin2hex`.
 - 2026-10-21: xc16 1.61 with dsPIC33E-GM-GP-MC-GU-MU_DFP 1.5.258 compiled and linked with `-mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258/xc16`.
 - 2026-10-21: `xc-make -f .tmp/xc-cli-Makefile all` exited 0 and `fail` exited 2; the no-override `xc-run true` exited 0; with xc16 1.61 then 1.21 selected, the wrapper reported 1.61 and the explicit 1.21 path reported 1.21.
+
+** ef7bb5be
+- 2026-10-21: xc16 2.10 compiled and linked for dsPIC33EP512MU810; xc8 2.50 for PIC18F45K22; xc8 3.10 and 4.00 for PIC18F47K40 with PIC18F-K_DFP 1.17.312; xc32 5.10, 5.19 and 6.00 for PIC32MX795F512L with PIC32MX_DFP 1.7.380; and xc-dsc 3.31 and 4.00 for dsPIC33CK64MP105 with dsPIC33CK-MP_DFP 1.16.521. Every compile/link command exited 0 in its selected `xc-cli` environment.
+- 2026-10-21: `-O3` licence probes for xc16 2.10, xc8 2.50 and 3.10, xc32 5.10 and xc-dsc 3.31 exited 0 without their Free-mode diagnostics. Matching unpatched controls emitted `restricted license`, `(2051)`, `requires the MPLAB XC32 PRO compiler`, and `restricted license` respectively. The xc8 controls were compiler outputs built from 64b2f048c47d4908d3ac52a5204977856cd7b2a8; xc16, xc32 and xc-dsc controls were derivations that copied the packaged compiler and restored its original `/opt/microchip/xclm/license` configuration, because xc16's base-revision installer URL returns 403 and xc32 and xc-dsc were introduced with the licence patch.
+- 2026-10-21: `readelf -d` found only existing FHS libraries for the compiler commands used by the probes; no compile/link probe reported a missing shared library.

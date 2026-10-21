@@ -164,7 +164,7 @@ The environment includes 32-bit glibc and libstdc++, for XC16 before 1.50 (32-bi
 Limits:
 - The environment needs unprivileged user namespaces. It does not need FUSE. In a test derivation in the Nix build sandbox on NixOS, =mplab-x-run= compiled and linked with xc16 1.61 and 1.21, =xc16-bin2hex= made a hex file, and =xclm -status= reported PRO mode (measured 2026-10-21).
 - The licensed compilers print =Error getting handle for device N: Access denied (insufficient permissions)= on stderr for each USB device that the user cannot open. Microchip's udev rules do not remove all of these messages. The exit status is not affected. See [[#udev-rules][Udev rules]].
-- XC8 3.10 and later, XC32 and XC-DSC 4.00 need a device pack (=-mdfp=). See [[#device-packs][Device packs]].
+- XC8 3.10 and later, XC32 and XC-DSC 3.31 and 4.00 need a device pack (=-mdfp=). See [[#device-packs][Device packs]].
 
 ** Device packs
 
@@ -264,7 +264,7 @@ Which packaged versions enforce licensing (checked with the probes below):
 
 To check that a compiler runs in PRO mode, use either probe. The compilers are dynamically linked, so run them inside the =mplab-x= environment (e.g. with =mplab-x-run= or the command-line wrappers) or an equivalent FHS environment.
 - =xclm -status=: for a licensed compiler, the output includes a line for its own product with =Mode: PRO=, for example =Product: xc16 ... Mode: PRO Key: swxc16-pro-permanent=. In Free mode the output has no such line.
-- An =-O3= compile: in Free mode, =xc16-gcc= prints =Options have been disabled due to restricted license=. In Free mode, =xc8-cc= (2.50 and 3.10) prints the advisory =(2051) the current license does not permit the selected optimization level, using optimization level 2=. The xc8 advisory does not change the exit status (0), so search the output for =(2051)=. =xc8-cc= 3.10 and 4.00 also need a device pack (=-mdfp=). =xc-dsc-gcc= 3.31 prints the same two lines as =xc16-gcc= for =-O3= and =-Os=, and =xc32-gcc= (5.10 prints the diagnostics quoted above) and =xc-dsc-gcc= 4.00 need a device pack (=-mdfp=) too.
+- An =-O3= compile: in Free mode, =xc16-gcc= prints =Options have been disabled due to restricted license=. In Free mode, =xc8-cc= (2.50 and 3.10) prints the advisory =(2051) the current license does not permit the selected optimization level, using optimization level 2=. The xc8 advisory does not change the exit status (0), so search the output for =(2051)=. =xc8-cc= 3.10 and 4.00 also need a device pack (=-mdfp=). =xc-dsc-gcc= 3.31 prints the same two lines as =xc16-gcc= for =-O3= and =-Os=, and it needs a DFP for the dsPIC33CK64MP105 probe. =xc32-gcc= 5.10 (which prints the diagnostics quoted above) and =xc-dsc-gcc= 4.00 need a device pack (=-mdfp=) too.
 
 If Microchip reissues or revokes the licence, the compilers can fall back to Free mode and no automatic check reports it, so repeat the probes after an update. To use a reissued licence, replace =pkgs/xclm-license/microchip.lic= with the new file. No other file changes.
 
