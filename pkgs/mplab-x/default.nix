@@ -29,6 +29,7 @@
 , makeWrapper
 , mesa
 , mplab-x-unwrapped
+, xc-cli ? (callPackage ../xc-cli { inherit mplab-x-unwrapped; })
 , nspr
 , nss
 , pango
@@ -36,28 +37,13 @@
 , runtimeShell
 , systemdLibs
 , writeShellApplication
-  # Compilers to install at /opt/microchip/<pname>/v<version>. Two or more versions of one
-  # compiler can coexist. The first compiler of each pname is the CLI default: its executables
-  # get wrappers in bin/. When null, the xc8/xc16/xc32/xc-dsc arguments supply the list;
-  # otherwise the package ignores them.
-, compilers ? null
-  # Device and tool packs for the packs folder, /opt/microchip/mplabx/v<version>/packs. Each
-  # element is a pack from fetchMplabPack, or a folder of packs at <vendor>/<name>/<version>
-  # (e.g. mplab-x-unwrapped.packs, all the packs that the installer bundles). When null, the
-  # bundled packs are used.
-, packs ? null
-, xc8 ? null
-, xc16 ? null
-, xc32 ? null
-, xc-dsc ? null
+  # IDE-only packs for the packs folder, /opt/microchip/mplabx/v<version>/packs. Each element
+  # is a pack from fetchMplabPack, or a folder of packs at <vendor>/<name>/<version>.
+, packs ? [ ]
 }:
 
 let
-  allCompilers = lib.unique (
-    if compilers != null then compilers
-    else lib.filter (c: c != null) [ xc8 xc16 xc32 xc-dsc ]
-  );
-  allPacks = if packs != null then packs else [ mplab-x-unwrapped.packs ];
+  allPacks = xc-cli.packs ++ packs;
   ideDir = "/opt/microchip/mplabx/v${mplab-x-unwrapped.version}";
   rootfsBuilder = callPackage ./rootfs.nix { };
   fhsMultiPkgs = [ glibc ];
@@ -95,8 +81,10 @@ let
   ];
   environment = rootfsBuilder {
     name = "mplab-x";
-    inherit fhsMultiPkgs fhsTargetPkgs;
-    compilers = allCompilers;
+    # Keep the GUI list first so buildFHSEnv resolves collisions as the pre-xc-cli root did.
+    fhsMultiPkgs = fhsMultiPkgs ++ xc-cli.fhsMultiPkgs;
+    fhsTargetPkgs = fhsTargetPkgs ++ xc-cli.fhsTargetPkgs;
+    compilers = xc-cli.compilers;
     packs = allPacks;
     packsVersion = mplab-x-unwrapped.version;
     runName = "mplab-x-run";
@@ -138,9 +126,8 @@ let
     name = "mplab_ide";
     text = ''
       echo "mplab-x-unwrapped: ${mplab-x-unwrapped}" >&2
-      # The IDE registers each PATH directory that contains a compiler as a toolchain. The CLI
-      # wrappers run the default compiler, so their directory (and that of an earlier mplab-x
-      # build) would add one more toolchain with that version and a store path.
+      # The IDE registers each PATH directory that contains a compiler as a toolchain. Exclude
+      # an earlier mplab-x package directory, because it can contain a legacy compiler wrapper.
       path=
       IFS=: read -ra dirs <<< "''${PATH:-}"
       for d in "''${dirs[@]}"; do
@@ -156,9 +143,10 @@ let
   };
 
 in
+assert xc-cli.ideVersion == mplab-x-unwrapped.version || throw "mplab-x: xc-cli.ideVersion (${xc-cli.ideVersion}) must match mplab-x-unwrapped.version (${mplab-x-unwrapped.version})";
 runCommand "mplab-x" {
   nativeBuildInputs = [ makeWrapper ];
-  passthru = { compilers = allCompilers; packs = allPacks; };
+  passthru = { inherit xc-cli; packs = allPacks; };
   meta = mplab-x-unwrapped.meta // { mainProgram = "mplab_ide"; };
 } ''
   mkdir -p $out/bin
@@ -166,7 +154,4 @@ runCommand "mplab-x" {
   ln -s ${lib.getExe environment.run} $out/bin/mplab-x-run
   ln -s ${lib.getExe environment.make} $out/bin/mplab-make
 
-  # CLI wrappers for the default compiler of each pname. verifyinst is the installer's
-  # manifest check. If two pnames ship the same executable (e.g. xclm), the first one wins.
-  ${environment.wrappers "$out"}
 ''

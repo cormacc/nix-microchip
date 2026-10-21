@@ -37,12 +37,12 @@ A project runs the XC compilers that it selects, with the device packs that it s
 - [X] `xc-make` runs GNU Make in the environment, forwards its arguments and returns Make's exit status.
 - [ ] Each packaged compiler (xc16 1.21, 1.61, 2.10; xc8 2.50, 3.10, 4.00; xc32 5.10, 5.19, 6.00; xc-dsc 3.31, 4.00) compiles and links one test file in `xc-cli`.
 - [ ] Each licensed compiler passes its README.org licence probe in `xc-cli`, and its unpatched control build shows Free mode.
-- [ ] `mplab-x` has no compiler wrappers in `bin/`.
-- [ ] `mplab-x` with no override has no pack in its packs folder.
-- [ ] `mplab-x.override { xc-cli = xc-cli.override { compilers = [ xc16_1_61 ]; packs = [ mplab-x-unwrapped.packs ]; }; }` gives the same root filesystem file list as the `mplab-x` default before the change.
-- [ ] The `mplab-x` `packs` argument adds its packs to the packs of its `xc-cli`.
-- [ ] Evaluation fails with a message when the IDE version of `xc-cli` differs from `mplab-x-unwrapped.version`.
-- [ ] The flake exports no `mplab-xc8`, `mplab-xc16`, `mplab-xc32` or `mplab-xc-dsc`.
+- [X] `mplab-x` has no compiler wrappers in `bin/`.
+- [X] `mplab-x` with no override has no pack in its packs folder.
+- [X] `mplab-x.override { xc-cli = xc-cli.override { compilers = [ xc16_1_61 ]; packs = [ mplab-x-unwrapped.packs ]; }; }` gives the same root filesystem file list as the `mplab-x` default before the change.
+- [X] The `mplab-x` `packs` argument adds its packs to the packs of its `xc-cli`.
+- [X] Evaluation fails with a message when the IDE version of `xc-cli` differs from `mplab-x-unwrapped.version`.
+- [X] The flake exports no `mplab-xc8`, `mplab-xc16`, `mplab-xc32` or `mplab-xc-dsc`.
 - [ ] A Nix derivation compiles and links with `xc-cli` in the Nix build sandbox.
 - [ ] A CMake project with a toolchain file that names the `xc-cli` wrappers configures and builds.
 *** Edge cases
@@ -140,13 +140,17 @@ Acceptance criteria:
 - Each library added to the root filesystem has a `DT_NEEDED` entry or a measured failure as its reason in `* Implementation`.
 Pointer: `readelf -d` of each ELF file in the compiler output lists its `DT_NEEDED` entries; `RLM_LICENSE` on an empty directory is not a Free-mode control (`design/log/2026-xclm-license.org`), so use an unpatched build from the base commit.
 
-** TODO Build mplab-x from xc-cli, and remove the mplab-xc packages
+** DONE Build mplab-x from xc-cli, and remove the mplab-xc packages
+CLOSED: [2026-10-21 Wed 21:54]
 :PROPERTIES:
 :CUSTOM_ID: a1ff2556-ef21-4148-9f84-e2bc2c8805f8
 :CREATED: [2026-10-21 Wed 20:38]
+:STARTED: [2026-10-21 Wed 21:43]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 20:38]
+- State "STARTED" from "TODO" [2026-10-21 Wed 21:43]
+- State "DONE" from "STARTED" [2026-10-21 Wed 21:54]
 :END:
 Acceptance criteria: the `mplab-x` criteria (wrappers, default packs, override, `packs` argument, version assertion) and the export criterion in `** Acceptance`.
 - `mplab-x` has no `compilers`, `xc8`, `xc16`, `xc32` or `xc-dsc` argument.
@@ -181,6 +185,11 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - `pkgs/mplab-x/rootfs.nix` takes the FHS package lists, compiler and pack selections, pack version, extra root filesystem and pack commands, and command names; it returns the root filesystem, run and make scripts, wrappers, and FHS package lists.
 - `mplab-x` supplies its GUI and IDE root filesystem content as extra commands, so the generic builder can assemble a compiler-only root filesystem without an IDE input.
 - `xc-cli` uses only glibc and `gcc.cc.lib` in a multi-architecture FHS root filesystem; the latter supplies 32-bit libstdc++ and libgcc_s for xc16 1.21 and sim30.
+** a1ff2556
+- `mplab-x` takes `xc-cli`, uses its compilers, packs and FHS lists with the GUI FHS lists, and appends its IDE-only `packs`; it fails evaluation when the two IDE versions differ.
+- `mplab-x` keeps only `mplab_ide`, `mplab-x-run` and `mplab-make` in `bin`; the removed compiler wrappers are provided by the selected `xc-cli`.
+- The FHS lists put the GUI lists first so the override root filesystem preserves the base file list while still taking additions from `xc-cli`.
+- `mplab-xc8`, `mplab-xc16`, `mplab-xc32` and `mplab-xc-dsc` are removed; README.org documents the breaking migration.
 
 * Validation
 - 2026-10-21: `nix build '.#mplab-x' --out-link .tmp/c5ae-after-mplab-x` exited 0 after the root filesystem extraction.
@@ -191,3 +200,12 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - 2026-10-21: xc16 1.61 and 1.21 compiled and linked `.tmp/probe.c` with `-mcpu=33EP512MU810 -Wl,-Tp33EP512MU810.gld` in `xc-cli`; xc16 1.61 also produced a hex file with `xc16-bin2hex`.
 - 2026-10-21: xc16 1.61 with dsPIC33E-GM-GP-MC-GU-MU_DFP 1.5.258 compiled and linked with `-mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258/xc16`.
 - 2026-10-21: `xc-make -f .tmp/xc-cli-Makefile all` exited 0 and `fail` exited 2; the no-override `xc-run true` exited 0; with xc16 1.61 then 1.21 selected, the wrapper reported 1.61 and the explicit 1.21 path reported 1.21.
+** a1ff2556
+- 2026-10-21: `nix build '.#mplab-x'` exited 0; its `bin` has only `mplab_ide`, `mplab-make` and `mplab-x-run`, and its packs folder has only `index.idx`.
+- 2026-10-21: the specified `xc-cli` override and `git+file:///home/cormacc/dev/nix-microchip?rev=9e86c48#mplab-x` each produced 78,221 root filesystem entries; `diff -u` exited 0.
+- 2026-10-21: an `xc-cli` with bundled packs plus the `mplab-x` `packs` argument set to dsPIC33E-GM-GP-MC-GU-MU_DFP 1.5.258 contained both that DFP and the `ICD4_TP` bundled-pack directory.
+- 2026-10-21: evaluating an `xc-cli` with `ideVersion = "0.0"` failed with `mplab-x: xc-cli.ideVersion (0.0) must match mplab-x-unwrapped.version (6.35)`.
+- 2026-10-21: `nix eval --json` reported `mplab-x` and `xc-cli` true and all four removed exports false.
+- 2026-10-21: in the xc16 1.61 override, compile, link and `xclm -status` exited 0; the status named xc16 `Mode: PRO`. Each probe printed the expected USB access diagnostics.
+- 2026-10-21: with `DISPLAY=:0` and `WAYLAND_DISPLAY=wayland-1`, the default and xc16 override IDE commands each stayed running for 20 seconds (timeout 124). The override then logged `java.net.SocketException: Connection reset`; the GUI toolchain list was not observed, so the GUI criterion remains unverified.
+- 2026-10-21: `nix flake check --no-build` evaluated packages including `xc-cli` and `mplab-x`, then failed at the existing `overlays.default` argument-name error recorded in TASKS.org.
