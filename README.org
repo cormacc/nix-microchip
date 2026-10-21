@@ -178,7 +178,7 @@ The environment includes 32-bit glibc and libstdc++, for XC16 before 1.50 (32-bi
 Limits:
 - The environment needs unprivileged user namespaces. It does not need FUSE. In a test derivation in the Nix build sandbox on NixOS, =mplab-x-run= compiled and linked with xc16 1.61 and 1.21, =xc16-bin2hex= made a hex file, and =xclm -status= reported PRO mode (measured 2026-10-21).
 - The licensed compilers print =Error getting handle for device N: Access denied (insufficient permissions)= on stderr for each USB device that the user cannot open. Microchip's udev rules do not remove all of these messages. The exit status is not affected. See [[#udev-rules][Udev rules]].
-- XC8 3.10 and later, XC32 and XC-DSC 3.31 and 4.00 need a device pack (=-mdfp=). See [[#device-packs][Device packs]].
+- XC8 3.10 and later, XC32 and XC-DSC 4.00 need a device pack (=-mdfp=). XC-DSC 3.31 needs one for a device without built-in support, e.g. dsPIC33CK64MP105 (measured 2026-10-21). See [[#device-packs][Device packs]].
 
 ** Device packs
 
