@@ -44,7 +44,10 @@
       # Your custom packages
       # Accessible through 'nix build', 'nix shell', etc
       # packages = forAllSystems (system: import ./pkgs { pkgs = pkgsForSystem system; });
-      packages.${system} = import ./pkgs pkgs;
+      # packages may contain only derivations, so functions such as fetchMplabPack are in
+      # legacyPackages and the overlay.
+      packages.${system} = nixpkgs.lib.filterAttrs (_: nixpkgs.lib.isDerivation) (import ./pkgs pkgs);
+      legacyPackages.${system} = import ./pkgs pkgs;
 
       # Your custom packages and modifications, exported as overlays
       # overlays.default = import ./overlays {inherit inputs;};

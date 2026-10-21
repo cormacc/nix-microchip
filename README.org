@@ -21,6 +21,7 @@ A Nix overlay for microchip development -- intended for use in per-project envir
 - [[#overview][Overview]]
 - [[#usage][Usage]]
   - [[#command-line-use][Command-line use]]
+  - [[#device-packs][Device packs]]
   - [[#udev-rules][Udev rules]]
   - [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]]
 - [[#adding-packages][Adding packages]]
@@ -142,7 +143,41 @@ The environment includes 32-bit glibc and libstdc++, for XC16 before 1.50 (32-bi
 Limits:
 - The environment needs unprivileged user namespaces. It does not need FUSE. In a test derivation in the Nix build sandbox on NixOS, =mplab-x-run= compiled and linked with xc16 1.61 and 1.21, =xc16-bin2hex= made a hex file, and =xclm -status= reported PRO mode (measured 2026-10-21).
 - Without the udev rules, the licensed compilers print =Error getting handle for device N: Access denied (insufficient permissions)= on stderr. The exit status is not affected. See [[#udev-rules][Udev rules]].
-- XC8 3.10 and later, XC32 and XC-DSC 4.00 need a device pack (=-mdfp=). This overlay does not package device packs.
+- XC8 3.10 and later, XC32 and XC-DSC 4.00 need a device pack (=-mdfp=). See [[#device-packs][Device packs]].
+
+** Device packs
+
+A device family pack (DFP) gives the compilers the device headers, linker scripts and device data. MPLAB-generated makefiles pass =-mdfp= to each compile, link and =xc16-bin2hex= step. XC8 3.10 and later, XC32 and XC-DSC 4.00 need =-mdfp= for all devices. A tool pack (TP) gives MPLAB-X the support for a programmer or debugger.
+
+The =mplab-x= environment has one packs folder, =/opt/microchip/mplabx/v<version>/packs=. The IDE and the MPLAB-X command-line scripts (e.g. =prjMakefilesGenerator.sh=) use it, and the makefiles that they generate set =DFP_DIR= to a pack in it, e.g. =/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258=. Packs that the IDE downloads go to =~/.mchp_packs=, as on other Linux installations.
+
+By default, the packs folder contains all the packs that the MPLAB-X installer bundles: 147 packs, 14 GB for 6.35. The =mplab-x-unwrapped= package keeps them in its =packs= output, so its main output does not include them. Use the =packs= argument of =mplab-x= to select packs, and =fetchMplabPack= to pin a pack from Microchip's pack repository:
+
+#+begin_src nix
+  packages = [
+    (pkgs.mplab-x.override {
+      packs = [
+        (pkgs.fetchMplabPack {
+          name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+          version = "1.5.258";
+          hash = "sha256-GdndiTwmMizusNoGvP3TleTiD9E5LidbJoUEEjS0se0=";
+        })
+      ];
+    })
+  ];
+#+end_src
+
+With this selection and xc16 1.61, the =mplab-x= closure was 5.9 GB; with the bundled packs, it was 19.7 GB (measured 2026-10-21). Pin the pack version that the project's =nbproject/configurations.xml= names in its =<pack>= element. The bundled packs change with the IDE version: MPLAB-X 6.35 bundles dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401, not 1.5.258.
+
+=fetchMplabPack= takes =name=, =version=, =hash= and =vendor= (default ="Microchip"=). It downloads =https://packs.download.microchip.com/<vendor>.<name>.<version>.atpack=. Its output is the pack root, so a derivation can use the pack directly, e.g. =-mdfp=${pack}/xc16=. The output does not include the archive manifest =package.content=, so its hash is the =nix hash path= of an installed copy of the same pack version. To get the hash, either:
+- run =nix hash path= on the pack in the bundled packs, e.g. =$(nix build '.#mplab-x-unwrapped.packs' --print-out-paths)/Microchip/<name>/<version>=; or
+- set =hash = lib.fakeHash;=, build, and copy the hash from the error message.
+
+The flake exports =fetchMplabPack= in =legacyPackages= and in the overlay. It is a function, so it is not in =packages=.
+
+To add the bundled packs to a selection, put =pkgs.mplab-x-unwrapped.packs= in the list. Two packs at the same =<vendor>/<name>/<version>= make the build fail.
+
+The bundled packs contain approximately 2.5 GB of duplicate files, most of them in the debugger tool packs (measured with =jdupes=, 2026-10-21). Nix does not de-duplicate store files by default. =nix store optimise=, or =nix.settings.auto-optimise-store = true;= on NixOS, replaces duplicate files with hard links. This does not make a download from a binary cache smaller.
 
 ** Udev rules
 

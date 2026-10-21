@@ -283,3 +283,20 @@ Each wrapped compiler call (e.g. xc16-gcc via mplab-x-run) took approximately 0.
 Done 2026-10-21 (pkgs/mplab-x/run.sh, pkgs/mplab-x/default.nix, README.org * Usage ** Command-line use, AGENTS.md): mplab-x-run builds the environment with bubblewrap: a tmpfs root, writable binds of /dev, /home, /nix, /proc, /run, /sys, /tmp, /var and the working directory, and a merge of a build-time root filesystem with host /etc, /usr and /opt. It needs no FUSE, rsync, execline or host unshare. xclm searches each block-device mount for licence files on each call (approximately 16 ms each), so the environment does not show other top-level host directories.
 
 Verification (2026-10-21, xc16 1.61 and 1.21): mplab-x-run true 0.38 s to 0.03 s; wrapped -O3 compile 0.57 s to 0.20 s; ten compiles in one environment 2.25 s to 1.82 s. No -O3 licence warning and xclm reports PRO mode; the empty-licence control prints the warning. Link and hex, exit status 255, eight concurrent environments, nested wrappers, mplab-make with recursive make, no XDG_RUNTIME_DIR, USB sysfs and signal clean-up passed. A test derivation in the Nix build sandbox compiled, linked and made a hex file in PRO mode. All five mplab-x* attributes built. The user verified the mplab_ide GUI. Follow-up: [[task:bf4262f4-b2fd-4680-a20e-8d823f6178eb]].
+
+** DONE Package device and tool packs separately from MPLAB-X
+CLOSED: [2026-10-21 Wed 16:55]
+:PROPERTIES:
+:CUSTOM_ID: 77c12e60-2938-4c5b-a968-7baea196a870
+:CREATED: [2026-10-21 Wed 15:02]
+:STARTED: [2026-10-21 Wed 15:40]
+:ARCHIVED: [2026-10-21 Wed 16:55]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 15:02]
+- State "STARTED" from "TODO" [2026-10-21 Wed 15:40]
+- State "DONE" from "STARTED" [2026-10-21 Wed 16:55]
+:END:
+#+IMPORT: [[plan:2026-device-packs.org]]
+mplab-x-unwrapped ships 146 packs in opt/microchip/mplabx/v<version>/packs: 14 GB of its 16.0 GB (measured 2026-10-21, 6.35). The IDE version also fixes the DFP version that a build uses: a makefile that the 6.20 IDE generated names dsPIC33E-GM-GP-MC-GU-MU_DFP 1.5.258, and 6.35 ships 1.7.401, so an IDE upgrade changes firmware builds without notice. Approach: package each DFP and tool pack as its own pinned derivation from its .atpack (a zip) at https://packs.download.microchip.com/Microchip.<pack>.<version>.atpack, e.g. dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 is a 24 MB download (HTTP 200; a non-existent version gave 403) and 292 MB installed. Remove packs/ from mplab-x-unwrapped and let the mplab-x rootfs assemble packs/ from a packs argument, with the same selection pattern as the compilers argument. The compiler-only environment uses the same pack derivations. Not verified: whether the IDE accepts a partial packs/ and needs a regenerated packs/index.idx; which tool packs (*_TP) programmer support needs; whether the IDE pack manager falls back to ~/.mchp_packs. Related footprint data (2026-10-21): jdupes finds 2.47 GB of duplicate files in mplab-x-unwrapped, 2.09 GB of it in the six debugger tool packs (Snap_TP, PKOB4_TP, ICD5_TP, PICkit4_TP, PICkit5_TP, ICE4_TP, ~342 MB each); nix store optimise (auto-optimise-store) recovers this on disk but not in NAR transfers. xc32 6.00 is 9.3 GB, 6.9 GB of it pic32c, with 746 MB of duplicates. GUI libraries add ~1.7 GB to the mplab-x closure (mesa 1.1 GB). Store compression is not available natively, and squashfs would need FUSE, which mplab-x-run avoids. Document the de-duplication option in README.org as part of this task.

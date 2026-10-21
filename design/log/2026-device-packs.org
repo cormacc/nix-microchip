@@ -1,0 +1,159 @@
+#+TITLE: Package device and tool packs separately from MPLAB-X
+#+DATE: 2026-10-21 Wed
+#+PARENT: [[archive:77c12e60-2938-4c5b-a968-7baea196a870][Package device and tool packs separately from MPLAB-X]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Accepted
+#+SPEC: [[proj:README.org]]
+
+* Intent
+A project selects the device and tool packs that it needs, pinned independently of the MPLAB-X version, so that an IDE closure can omit the 14 GB of bundled packs and the compiler-only environment (task bf4262f4) can supply the DFP that every generated compile passes with -mdfp.
+
+* Summary
+*Level:* production · *Tests:* smoke · *Docs:* README
+
+** Scope
+*** In scope
+- `fetchMplabPack`: one pinned pack from https://packs.download.microchip.com/, exported in the overlay and `legacyPackages`.
+- `mplab-x-unwrapped`: the bundled packs move to a separate `packs` output.
+- `mplab-x`: a `packs` argument that assembles the packs folder in the root filesystem. The default is the bundled packs.
+- README.org: pack selection, the hash procedure, and the store de-duplication option.
+*** Out of scope
+- The compiler-only environment (task bf4262f4) and IDE-free MPLAB makefile builds (task b0aa04ab).
+- A registry of pinned packs in this flake. Projects pin their own packs.
+- Stable paths for PATH_TO_IDE_BIN, MP_JAVA_PATH and the hexmate step in generated makefiles (task b0aa04ab). DFP_DIR became stable as a side effect.
+- A smaller default pack selection.
+
+** Acceptance
+Verified 2026-10-21; evidence in `* Validation`.
+*** Core functionality
+- [X] `fetchMplabPack` for dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 builds with the hash that `nix hash path` gives for the copy that the 6.35 installer bundles.
+- [X] The `mplab-x-unwrapped` `out` closure does not contain the packs output.
+- [X] In the default `mplab-x` environment, /opt/microchip/mplabx/v6.35/packs lists the same 147 <vendor>/<name>/<version> entries and index.idx as the 6.35 installation before the change.
+- [X] With `packs = [ one fetched DFP ]`, the environment's packs folder lists only that pack and index.idx, and the closure is smaller than the default closure by at least 13 GB.
+- [X] Inside that environment, xc16 1.61 compiles and links a dsPIC33E test file with -mdfp pointing into the packs folder, and the -O3 licence probe prints no Free-mode diagnostic.
+- [X] README.org documents the `packs` argument, `fetchMplabPack`, the hash procedure and de-duplication.
+*** Edge cases
+- [X] Two selected packs at one <vendor>/<name>/<version> fail the root filesystem build.
+- [X] The installation's packs path resolves to the assembled packs folder inside the environment.
+*** Anti-criteria
+- [X] Must not: change the default pack set or the default compilers.
+- [X] Must not: modify compiler payloads.
+- [X] Must not: add a mount to mplab-x-run (README.org: each block-device mount costs each compile an xclm search).
+- [X] Must not: put a function in the flake's `packages` output.
+
+** Decisions
+- Multiple outputs for the bundled packs :: the installer output stays the same, needs no extra downloads, and the default pack set is unchanged.
+  Rejected:
+  - Fetch every bundled pack with `fetchMplabPack` and remove packs from the installer output: 147 downloads for the default IDE, and a pin list to regenerate for each IDE version.
+- The root filesystem builds the packs folder from real directories with symlinks to the files (`cp -rs`) :: packslib finds packs with `Files.walkFileTree` without `FOLLOW_LINKS` and a depth of 4 (`com.microchip.packslib.packutilities.FileLocator.getAllTypeFiles`), so it does not find a pack whose directory is a symlink.
+  Rejected:
+  - One symlink for each <vendor>/<name>/<version>: measured, `prjMakefilesGenerator.sh` reported "There are no DFPs in the local pack repositories".
+  - Bind mounts: each mount costs each compile an xclm search.
+- A wrapper at /opt/microchip/mplabx/v<version>/sys/java/*/bin/java sets `-Dpackslib.packsfolder=/opt/microchip/mplabx/v<version>/packs` (read by `com.microchip.packslib.parsers.ConfigParser.getSystemRepoLocation`) :: without the property, packslib derives the folder from its jar's real location, the store path of the installation, and the walk does not follow the packs symlink there. The IDE launcher (`jdkhome` in `mplab_ide.conf`) and the CLI scripts (`jdk_java` in `common-vars.sh`) start java from the /opt path.
+  Rejected:
+  - `-J-Dpackslib.packsfolder` in the `mplab_ide` wrapper: only the IDE launcher takes -J options.
+  - `JAVA_TOOL_OPTIONS` in mplab-x-run: every JVM prints a "Picked up JAVA_TOOL_OPTIONS" line.
+- The installation keeps packs as a symlink to the assembled folder :: a file path below the installation's packs directory still resolves inside the environment. A packslib walk from that path finds nothing, because its start is a symlink.
+- `fetchMplabPack` output is the pack root, without the archive's package.content manifest :: its hash is then the `nix hash path` of an installed copy, and a derivation can use `${pack}/xc16` directly.
+
+** Shipped
+- `fetchMplabPack` (`pkgs/fetch-mplab-pack/default.nix`), in the overlay and `legacyPackages`; `packages` contains only derivations.
+- `mplab-x-unwrapped.packs`: the 147 bundled packs. The `out` closure is 1.97 GB (16.0 GB before).
+- `mplab-x` `packs` argument. The default closure grows by 22 MB (the symlinks of the packs folder): 19.66 GB.
+- Makefiles that MPLAB-X tools generate set DFP_DIR to /opt/microchip/mplabx/v<version>/packs/<vendor>/<name>/<version>, not to a store path.
+- ADDED README.org `** Device packs`. MODIFIED README.org `** Command-line use` limits: points to device packs.
+
+** Gotchas
+- An .atpack contains package.content; packs that the installer bundles do not.
+- `RLM_LICENSE` pointed at an empty directory does not give Free mode (see `2026-xclm-license.org`), so the licence probe here has no in-place negative control. The xc16 store path is the same as before the change.
+
+** Risks
+- A pack can need another pack (for example a DFP and a tool pack for programming). The IDE reports a missing dependency; `packs` does not resolve dependencies.
+
+** Follow-ups
+- Compiler-only environment: [[task:bf4262f4-b2fd-4680-a20e-8d823f6178eb][task bf4262f4]].
+- IDE-free MPLAB makefile builds: [[task:b0aa04ab-d641-4239-9d2a-dc12f0d930ba][task b0aa04ab]].
+- A local build still writes the 14 GB packs output: [[task:a03b91ed-076b-4b84-8272-b7e5b6aa7b38][task a03b91ed]].
+
+* Plan
+** DONE Add the fetchMplabPack fetcher
+CLOSED: [2026-10-21 Wed 15:46]
+:PROPERTIES:
+:CUSTOM_ID: 3f9f4770-690b-4116-954c-1d67067550f4
+:CREATED: [2026-10-21 Wed 15:46]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 15:46]
+- State "DONE" from "TODO" [2026-10-21 Wed 15:46]
+:END:
+Acceptance criteria: the dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 pin equals nix hash path of the bundled 6.35 copy; fetchMplabPack is in legacyPackages and not in packages.
+
+** DONE Move the bundled packs to a packs output of mplab-x-unwrapped
+CLOSED: [2026-10-21 Wed 16:41]
+:PROPERTIES:
+:CUSTOM_ID: 281bd302-df49-4711-bb1e-3c361aeef782
+:CREATED: [2026-10-21 Wed 15:46]
+:STARTED: [2026-10-21 Wed 15:46]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 15:46]
+- State "STARTED" from "TODO" [2026-10-21 Wed 15:46]
+- State "DONE" from "STARTED" [2026-10-21 Wed 16:41]
+:END:
+Acceptance criteria: the out closure excludes the packs output; the packs output has the 147 bundled packs.
+
+** DONE Add the packs argument to mplab-x
+CLOSED: [2026-10-21 Wed 16:41]
+:PROPERTIES:
+:CUSTOM_ID: 31701bb9-75fa-431b-bb04-20f417a3ca33
+:CREATED: [2026-10-21 Wed 15:46]
+:STARTED: [2026-10-21 Wed 15:46]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 15:46]
+- State "STARTED" from "TODO" [2026-10-21 Wed 15:46]
+- State "DONE" from "STARTED" [2026-10-21 Wed 16:41]
+:END:
+Acceptance criteria: the default environment lists the 147 bundled packs and index.idx; a one-pack selection lists one pack; a duplicate pack fails the build; xc16 1.61 compiles and links with -mdfp from the packs folder in PRO mode.
+
+** DONE Probe the MPLAB-X Java tools with a partial packs folder
+CLOSED: [2026-10-21 Wed 16:41]
+:PROPERTIES:
+:CUSTOM_ID: 6376ba5c-e240-4084-8a79-b780e80ba4fb
+:CREATED: [2026-10-21 Wed 15:46]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 15:46]
+- State "DONE" from "TODO" [2026-10-21 Wed 16:41]
+:END:
+Acceptance criteria: prjMakefilesGenerator.sh generates the makefiles of a test project, and the DFP_DIR value that it writes is recorded; the IDE GUI check is reported separately from the CLI checks.
+
+** DONE Document device packs in README.org
+CLOSED: [2026-10-21 Wed 16:41]
+:PROPERTIES:
+:CUSTOM_ID: ae9f95ec-afa0-4e17-926d-2295bc678c9a
+:CREATED: [2026-10-21 Wed 15:46]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 15:46]
+- State "DONE" from "TODO" [2026-10-21 Wed 16:41]
+:END:
+Acceptance criteria: README.org documents the packs argument, fetchMplabPack, the hash procedure and store de-duplication.
+
+* Implementation
+- `pkgs/fetch-mplab-pack/default.nix`: URL https://packs.download.microchip.com/<vendor>.<name>.<version>.atpack; `passthru.mplabPackPath` gives <vendor>/<name>/<version>.
+- `pkgs/mplab-x-unwrapped/common.nix` `installPhase`: moves packs/* to `$packs`, index.idx to `$out/share/mplab-x/packs/`, and replaces packs with a symlink to /opt/microchip/mplabx/v<version>/packs.
+- `pkgs/mplab-x/default.nix` `rootfs`: /opt/microchip/mplabx/v<version> is a real directory with symlinks to the installation's entries except packs and sys; `addPack` copies each pack as symlinks; sys is a symlink copy with the java wrapper.
+- The packs folder of the 6.35 installer has 147 packs (146 Microchip, 1 arm), each at <vendor>/<name>/<version> with one version, and index.idx (15 MB), which is the online pack index, not a list of the installed packs.
+- index.idx is not a pack, so it is in `out` and every packs folder links it.
+
+* Validation
+Measured 2026-10-21 on the development host.
+- Pack hash: `nix hash path` of the bundled dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 is sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=; `fetchMplabPack` builds with that hash. Control: with package.content kept, the fetched hash was sha256-a8foWznm5xZB6bWwPWNOCwDnNqsfuCSfw27I1TPPk0k=, and `diff -rq` showed package.content as the only difference.
+- Outputs: `out` closure 1,974,480,440 bytes without the packs output (`nix path-info -r`, 0 matches; the `mplab-x` closure: 1 match). `packs` output 14,043,074,984 bytes, 147 pack directories; `nix hash path` of its Microchip and arm folders equals that of the folders in the installation before the change.
+- Default environment: `find -L` through the installation's packs path inside `mplab-x-run` lists the same 297 entries (to depth 3) as the installation before the change.
+- One-pack environment (1.7.401): packs folder lists index.idx and that pack only; closure 5,895,098,960 bytes against 19,657,081,112 for the default. xc16 1.61 compiled, linked (linker script from the pack) and made a hex file at -O3 with no licence diagnostic; `xclm -status` shows `Mode: PRO`. Control: -mdfp to a missing pack fails with "CPU 33EP128GM306 not recognized".
+- Duplicate packs: `[ dfp dfp ]` and `[ mplab-x-unwrapped.packs dfp ]` fail with "Two packs at Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401". The one-pack build succeeded with the same code.
+- CLI tools: in an environment with dsPIC33E-GM-GP-MC-GU-MU_DFP 1.5.258 only, `prjMakefilesGenerator.sh` generated the makefiles of a downstream xc16 project with DFP_DIR=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258. `mplab-make -j8` then built the hex file: 254 -O3 compiles, no licence diagnostic, no compiler error. Control: with the first implementation (a symlink for each pack directory, no java wrapper), the generator printed "There are no DFPs in the local pack repositories" and wrote no makefiles. In the default environment, the generator wrote DFP_DIR for the bundled 1.7.401.
+- GUI (separate from the CLI checks): the IDE started under Xvfb in the one-pack environment and ran until the 240 s timeout. Its messages.log shows `-Dpackslib.packsfolder=/opt/microchip/mplabx/v6.35/packs` and no EmptyPacksFolderException; with the first implementation, the log had that exception. No project was opened in the GUI.
+- `nix flake check --no-build`: checks the 23 packages and `legacyPackages`, then fails at the existing overlay argument error (task d1547c9b).

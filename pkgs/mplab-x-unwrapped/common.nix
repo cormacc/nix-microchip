@@ -24,7 +24,9 @@ stdenvNoCC.mkDerivation rec {
     ];
   };
 
-  outputs = [ "out" ];
+  # The packs output holds the bundled device and tool packs (14 GB of 16 GB for 6.35), so a
+  # closure that selects its own packs does not include them.
+  outputs = [ "out" "packs" ];
 
   nativeBuildInputs = [ bubblewrap rsync ];
 
@@ -67,6 +69,16 @@ stdenvNoCC.mkDerivation rec {
     cp -r chroot/usr/share/applications chroot/usr/share/icons $out/usr/share/
     cp -r chroot/opt $out/
     # cp -r chroot/usr/lib/udev
+
+    # In the mplab-x environment, this symlink resolves to the packs folder that the root
+    # filesystem assembles from the selected packs. The pack index (index.idx) is not a pack,
+    # so it stays in this output.
+    packsDir=$out/opt/microchip/mplabx/v${version}/packs
+    mkdir -p $out/share/mplab-x/packs $packs
+    mv $packsDir/index.idx $out/share/mplab-x/packs/
+    mv $packsDir/* $packs/
+    rmdir $packsDir
+    ln -s /opt/microchip/mplabx/v${version}/packs $packsDir
 
     runHook postInstall
   '';

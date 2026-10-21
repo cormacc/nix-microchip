@@ -36,6 +36,7 @@
 , pango
 , rsync
 , runCommand
+, runtimeShell
 , systemdLibs
 , writeShellApplication
   # Compilers to install at /opt/microchip/<pname>/v<version>. Two or more versions of one
@@ -43,6 +44,11 @@
   # get wrappers in bin/. When null, the xc8/xc16/xc32/xc-dsc arguments supply the list;
   # otherwise the package ignores them.
 , compilers ? null
+  # Device and tool packs for the packs folder, /opt/microchip/mplabx/v<version>/packs. Each
+  # element is a pack from fetchMplabPack, or a folder of packs at <vendor>/<name>/<version>
+  # (e.g. mplab-x-unwrapped.packs, all the packs that the installer bundles). When null, the
+  # bundled packs are used.
+, packs ? null
 , xc8 ? null
 , xc16 ? null
 , xc32 ? null
@@ -55,6 +61,20 @@ let
     else lib.filter (c: c != null) [ xc8 xc16 xc32 xc-dsc ]
   );
   compilerDir = c: "/opt/microchip/${c.pname}/v${c.version}";
+  allPacks = if packs != null then packs else [ mplab-x-unwrapped.packs ];
+  ideDir = "/opt/microchip/mplabx/v${mplab-x-unwrapped.version}";
+
+  # Adds each pack to $out${ideDir}/packs as real directories with symlinks to the files: the
+  # pack library finds packs with Files.walkFileTree, which does not follow directory symlinks
+  # (packslib.jar, com.microchip.packslib.packutilities.FileLocator).
+  linkPack = p: if p ? mplabPackPath then ''
+    addPack ${p} ${p.mplabPackPath}
+  '' else ''
+    for d in ${p}/*/*/*; do
+      addPack "$d" "''${d#${p}/}"
+    done
+  '';
+
   defaultCompilers = lib.attrValues (lib.foldl'
     (acc: c: if acc ? ${c.pname} then acc else acc // { ${c.pname} = c; })
     { }
@@ -110,8 +130,39 @@ let
     # rsync -rlp ${mplab-x-unwrapped}/lib/udev/ $out/lib/udev/
     mkdir -p $out/opt/microchip
     for f in ${mplab-x-unwrapped}/opt/microchip/*; do
-      ln -s "$f" $out/opt/microchip/
+      [ "''${f##*/}" = mplabx ] || ln -s "$f" $out/opt/microchip/
     done
+    # A real directory, so that the packs folder can differ from the IDE installation. The
+    # installation's packs symlink resolves to this packs folder.
+    mkdir -p $out${ideDir}
+    for f in ${mplab-x-unwrapped}${ideDir}/*; do
+      case ''${f##*/} in packs|sys) ;; *) ln -s "$f" $out${ideDir}/ ;; esac
+    done
+    # The IDE and the CLI scripts (e.g. prjMakefilesGenerator.sh) run ${ideDir}/sys/java. The
+    # pack library derives its packs folder from its jar's real path, which is in the store,
+    # so a wrapper sets the folder with the packslib.packsfolder property
+    # (com.microchip.packslib.parsers.ConfigParser.getSystemRepoLocation).
+    cp -rs ${mplab-x-unwrapped}${ideDir}/sys $out${ideDir}/sys
+    for java in $out${ideDir}/sys/java/*/bin/java; do
+      real=$(readlink "$java")
+      chmod u+w "$(dirname "$java")"
+      rm "$java"
+      printf '#!%s\nexec %s -Dpackslib.packsfolder=%s "$@"\n' \
+        ${runtimeShell} "$real" ${ideDir}/packs > "$java"
+      chmod +x "$java"
+    done
+    packsDir=$out${ideDir}/packs
+    mkdir -p "$packsDir"
+    ln -s ${mplab-x-unwrapped}/share/mplab-x/packs/index.idx "$packsDir/"
+    addPack() {
+      if [ -e "$packsDir/$2" ]; then
+        echo "Two packs at $2" >&2
+        exit 1
+      fi
+      mkdir -p "$packsDir/$(dirname "$2")"
+      cp -rs "$1" "$packsDir/$2"
+    }
+    ${lib.concatMapStrings linkPack allPacks}
     ${lib.concatMapStrings (c: ''
       mkdir -p $out/opt/microchip/${c.pname}
       ln -s ${c} $out${compilerDir c}
@@ -148,7 +199,7 @@ let
 in
 runCommand "mplab-x" {
   nativeBuildInputs = [ makeWrapper ];
-  passthru = { compilers = allCompilers; };
+  passthru = { compilers = allCompilers; packs = allPacks; };
   meta = mplab-x-unwrapped.meta // { mainProgram = "mplab_ide"; };
 } ''
   mkdir -p $out/bin
