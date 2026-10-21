@@ -1,0 +1,172 @@
+#+TITLE: Provide a compiler-only environment without MPLAB-X
+#+DATE: 2026-10-21 Wed
+#+PARENT: [[task:bf4262f4-b2fd-4680-a20e-8d823f6178eb][Provide a compiler-only environment without MPLAB-X]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Accepted
+#+SPEC: [[proj:README.org]]
+#+SPEC: [[proj:AGENTS.md]]
+
+* Intent
+A project runs the XC compilers that it selects, with the device packs that it selects, in a small environment without the IDE, for user Makefiles, CMake and Nix derivations. Each installation states its compilers and packs once, in `xc-cli`, and `mplab-x` uses that selection: neither has a default compiler or a default pack set.
+
+* Summary
+*Level:* production · *Tests:* smoke · *Docs:* README
+
+** Scope
+*** In scope
+- `xc-cli`: root filesystem with glibc (64-bit and 32-bit), 32-bit libstdc++ and libgcc, the selected compilers at /opt/microchip/<pname>/v<version> and the selected packs at /opt/microchip/mplabx/v<version>/packs; commands `xc-run`, `xc-make` and a wrapper for each executable of the first compiler of each pname.
+- `xc-cli` exposes its inputs in `passthru` (compilers, packs, FHS libraries, IDE version). A root filesystem builder and `run.sh` are shared by `mplab-x` and `xc-cli`.
+- `mplab-x` takes an `xc-cli` argument and builds its root filesystem from those inputs plus the GUI libraries and the IDE. Its `packs` argument adds IDE-only packs (e.g. tool packs). It has no compiler wrappers; `mplab_ide`, `mplab-x-run` and `mplab-make` stay.
+- BREAKING: `mplab-x` has no `compilers` argument, and its default `xc-cli` has no compilers and no packs; `mplab-xc8`, `mplab-xc16`, `mplab-xc32` and `mplab-xc-dsc` are removed.
+- All bundled packs stay available as `mplab-x-unwrapped.packs`; `fetchMplabPack` selects single packs.
+- README.org: `xc-cli` usage, the changed `mplab-x` defaults, migration from `mplab-xc*`, and the udev/licence sections that name `mplab-x-run`. AGENTS.md: the layout section.
+*** Out of scope
+- MPLAB-generated makefiles without the IDE: `prjMakefilesGenerator.sh`, `hexmate`, `fixDeps` and `mplab_platform` paths ([[task:b0aa04ab-d641-4239-9d2a-dc12f0d930ba][task b0aa04ab]]).
+- Per-compiler pack sets ([[task:aebb7421-fa4a-4b4b-b536-97dbdf8ef1b4][task aebb7421]]).
+- Pack dependency resolution.
+- Changes to compiler payloads or to `xclm.conf` beyond the existing licence path patch.
+- A compiler call from one environment into an unrelated environment (see `** Decisions`).
+- CI runner set-up (unprivileged user namespaces in containers).
+
+** Acceptance
+*** Core functionality
+- [ ] `nix path-info -r` of `xc-cli.override { compilers = [ xc16_1_61 ]; }` contains no `mplab-x-unwrapped` store path.
+- [ ] That closure is smaller than 2.5 GB (the xc16 1.61 closure is 1.9 GB).
+- [ ] In that environment, `xc16-gcc` compiles a dsPIC33E file, links it, and `xc16-bin2hex` makes a hex file.
+- [ ] With a fetched DFP in `packs`, `-mdfp=/opt/microchip/mplabx/v<version>/packs/<vendor>/<name>/<version>/xc16` compiles and links.
+- [ ] `xc-make` runs GNU Make in the environment, forwards its arguments and returns Make's exit status.
+- [ ] Each packaged compiler (xc16 1.21, 1.61, 2.10; xc8 2.50, 3.10, 4.00; xc32 5.10, 5.19, 6.00; xc-dsc 3.31, 4.00) compiles and links one test file in `xc-cli`.
+- [ ] Each licensed compiler passes its README.org licence probe in `xc-cli`, and its unpatched control build shows Free mode.
+- [ ] `mplab-x` has no compiler wrappers in `bin/`.
+- [ ] `mplab-x` with no override has no pack in its packs folder.
+- [ ] `mplab-x.override { xc-cli = xc-cli.override { compilers = [ xc16_1_61 ]; packs = [ mplab-x-unwrapped.packs ]; }; }` gives the same root filesystem file list as the `mplab-x` default before the change.
+- [ ] The `mplab-x` `packs` argument adds its packs to the packs of its `xc-cli`.
+- [ ] Evaluation fails with a message when the IDE version of `xc-cli` differs from `mplab-x-unwrapped.version`.
+- [ ] The flake exports no `mplab-xc8`, `mplab-xc16`, `mplab-xc32` or `mplab-xc-dsc`.
+- [ ] A Nix derivation compiles and links with `xc-cli` in the Nix build sandbox.
+- [ ] A CMake project with a toolchain file that names the `xc-cli` wrappers configures and builds.
+*** Edge cases
+- [ ] `xc-cli` with no override builds, and `xc-run true` exits 0.
+- [ ] Two versions of one compiler: the wrapper runs the first, and `xc-run /opt/microchip/<pname>/v<other>/bin/<exe>` runs the other.
+- [ ] An `xc-cli` wrapper called inside its own environment (e.g. from a Makefile under `xc-make`) runs the compiler without a new bwrap call.
+- [ ] An `xc-cli` wrapper called inside an `mplab-x` environment built from that `xc-cli` (e.g. from a Makefile under `mplab-make`) runs the compiler without a new bwrap call.
+- [ ] A wrapper called inside an unrelated environment exits non-zero with a message that names both environments.
+- [ ] `mplab_ide` removes `xc-cli` bin directories from `PATH` as it does for `mplab-x` bin directories.
+*** Anti-criteria
+- [ ] Must not: modify compiler payloads.
+- [ ] Must not: add a mount to the environment (README.org: each block-device mount costs each compile an `xclm` search).
+- [ ] Must not: give `xc-cli` a build or run dependency on `mplab-x-unwrapped` (its version string only).
+- [ ] Must not: change the remaining default compiler versions in `pkgs/default.nix` (e.g. `xc16 = xc16_1_61`).
+
+** Decisions
+- `xc-cli` owns the compiler and pack selection, and `mplab-x` builds its root filesystem from the inputs of an `xc-cli` (user decision, 2026-10-21) :: one selection for the CLI and the IDE, no duplicate compiler wrappers on `PATH`, and an `xc-cli` wrapper can run directly inside an `mplab-x` environment that contains its compiler paths. The `xc-cli` closure has no IDE. The IDE-free follow-on (task b0aa04ab) adds an `mplab_platform` subset to `xc-cli`, and `mplab-x` gets it too.
+  Rejected:
+  - Separate `compilers` and `packs` arguments on both packages: two selections that can drift, two wrappers with one name in a devshell, and nested calls that fail between the two roots.
+  - Layer the built `xc-cli` root filesystem under the IDE root at run time: `run.sh` merges one root filesystem with the host; a second layer adds merge logic for each call, and the separate `mplab-x` root costs mostly symlinks.
+  - An `ide = false` argument of `mplab-x`: one package with two root filesystems, and the small closure only with an override.
+- An eval-time assertion that the IDE version of `xc-cli` equals `mplab-x-unwrapped.version` :: both packs folders are at /opt/microchip/mplabx/v<version>/packs, so a mismatch puts the packs where the IDE does not look.
+- The `mplab-x` `packs` argument adds IDE-only packs :: tool packs (e.g. ICD4_TP) are needed to program and debug, not to compile, so they stay out of the `xc-cli` closure.
+  Rejected:
+  - Tool packs in `xc-cli` only: one place to select packs, but a larger CLI closure.
+- Packs at /opt/microchip/mplabx/v<version>/packs, with <version> from `mplab-x-unwrapped.version` :: the DFP_DIR path of MPLAB-generated makefiles (task 77c12e60). The version is a string, so `xc-cli` does not build or refer to the IDE.
+  Rejected:
+  - /opt/microchip/packs: differs from DFP_DIR, so task b0aa04ab would need a second path.
+- No default compiler and no default packs in `xc-cli` and `mplab-x`; no `compilers` argument on `mplab-x`; `mplab-xc*` removed :: each installation states what it needs, and no closure gets a compiler or 14 GB of packs that it did not request (user decision, 2026-10-21).
+  Rejected:
+  - Keep `mplab-xc*` with a per-compiler pack set: a rule from the compiler subdirectory of each pack misses about 40 device packs (measured 2026-10-21); deferred to task aebb7421.
+- A wrapper called inside an unrelated environment fails with a message :: a second bwrap call inside `mplab-x-run` fails with `bwrap: setting up uid map: Operation not permitted` (measured 2026-10-21), so it cannot enter its own root filesystem, and the compiler path that it expects can be absent there. The environment marker names the `xc-cli` that the root filesystem contains, so an `mplab-x` built from an `xc-cli` is not unrelated to it.
+  Rejected:
+  - Run the compiler from its store path when nested: the compiler then depends on the other root filesystem's libraries, without a test.
+
+** Risks
+- xc8, xc32 and xc-dsc can need libraries beyond glibc, libstdc++ and libgcc. Only xc16 1.61 and 1.21 were measured (`DT_NEEDED`: glibc, 32-bit libstdc++ and libgcc_s), and neither names /opt/microchip.
+- The IDE with an empty packs folder is not tested; a GUI check is in the removal task.
+- Downstream projects that use `mplab-xc16`, the `mplab-x` `compilers` argument or the `mplab-x` default compiler fail to evaluate or lose their compiler after the update. README.org gives the migration.
+- A devshell with `mplab-x` and no `xc-cli` has no command-line compilers; README.org examples list both.
+
+** Follow-ups
+- IDE-free MPLAB makefile builds: [[task:b0aa04ab-d641-4239-9d2a-dc12f0d930ba][task b0aa04ab]].
+- Per-compiler pack sets: [[task:aebb7421-fa4a-4b4b-b536-97dbdf8ef1b4][task aebb7421]].
+
+* Plan
+** TODO Extract a shared root filesystem builder from mplab-x
+:PROPERTIES:
+:CUSTOM_ID: c5ae0366-e20f-4aa0-a054-b455591afa85
+:CREATED: [2026-10-21 Wed 20:38]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 20:38]
+:END:
+Acceptance criteria:
+- The builder takes the FHS package lists, compilers, packs, the packs version and extra root filesystem commands, and returns the root filesystem and the `run`, `make` and wrapper scripts with given command names. A caller can build one root filesystem from the inputs of two callers (the `xc-cli` inputs plus the IDE inputs).
+- The default `mplab-x` root filesystem file list (`find -printf '%P %l\n'`) is the same as before the change.
+- In `mplab-x`, xc16 1.61 compiles and links, and `xclm -status` shows `Mode: PRO`.
+- `run.sh` is unchanged, or each change is in the same commit with a reason.
+Pointer: `pkgs/mplab-x/default.nix` (`rootfs`, `run`, `make` and the wrapper loop).
+
+** TODO Add xc-cli with xc16
+:PROPERTIES:
+:CUSTOM_ID: 2686e265-f557-40f7-adf8-d4201ff38d97
+:CREATED: [2026-10-21 Wed 20:38]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 20:38]
+:END:
+Acceptance criteria: the `xc-cli` core criteria for xc16 1.61 and 1.21, the DFP criterion, `xc-make`, the no-override and two-version edge cases, and the anti-criteria in `** Acceptance`. Record the closure size in `* Validation`.
+- `xc-cli` is in `pkgs/default.nix`, the flake `packages` and the overlay.
+- `xc-cli` exposes `compilers`, `packs`, its FHS package lists and its IDE version in `passthru`.
+- README.org documents `xc-cli`, `xc-run`, `xc-make` and the `compilers` and `packs` arguments.
+Constraint: `multiArch` with 32-bit libstdc++ and libgcc (sim30 and xc16 1.21 are 32-bit); no GUI libraries.
+
+** TODO Verify xc8, xc32 and xc-dsc in xc-cli
+:PROPERTIES:
+:CUSTOM_ID: ef7bb5be-f4c7-4450-8cb4-a3197f3321a5
+:CREATED: [2026-10-21 Wed 20:38]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 20:38]
+:END:
+Acceptance criteria:
+- xc16 2.10, xc8 2.50, 3.10 and 4.00, xc32 5.10, 5.19 and 6.00, and xc-dsc 3.31 and 4.00 each compile and link one test file in `xc-cli`, with a fetched DFP where README.org says that the compiler needs `-mdfp`.
+- xc16 2.10, xc8 2.50 and 3.10, xc32 5.10 and xc-dsc 3.31 pass their README.org licence probes, and their unpatched control builds show Free mode.
+- Each library added to the root filesystem has a `DT_NEEDED` entry or a measured failure as its reason in `* Implementation`.
+Pointer: `readelf -d` of each ELF file in the compiler output lists its `DT_NEEDED` entries; `RLM_LICENSE` on an empty directory is not a Free-mode control (`design/log/2026-xclm-license.org`), so use an unpatched build from the base commit.
+
+** TODO Build mplab-x from xc-cli, and remove the mplab-xc packages
+:PROPERTIES:
+:CUSTOM_ID: a1ff2556-ef21-4148-9f84-e2bc2c8805f8
+:CREATED: [2026-10-21 Wed 20:38]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 20:38]
+:END:
+Acceptance criteria: the `mplab-x` criteria (wrappers, default packs, override, `packs` argument, version assertion) and the export criterion in `** Acceptance`.
+- `mplab-x` has no `compilers`, `xc8`, `xc16`, `xc32` or `xc-dsc` argument.
+- README.org gives the migration from `mplab-xc16`, from the `mplab-x` `compilers` argument and from the `mplab-x` default, and its devshell examples list `xc-cli` and `mplab-x`.
+- GUI check, reported apart from the CLI checks: the IDE starts with no packs, and with an `xc-cli` override, lists the selected compiler.
+- The commit is marked BREAKING.
+
+** TODO Handle calls between environments
+:PROPERTIES:
+:CUSTOM_ID: 851cbd89-8c33-4c6d-aa10-b00b3f0a99a6
+:CREATED: [2026-10-21 Wed 20:38]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 20:38]
+:END:
+Acceptance criteria: the own-environment, `mplab-x`-environment, unrelated-environment and `mplab_ide` `PATH` edge cases in `** Acceptance`.
+Constraint: the environment marker (`MPLAB_X_ENV` in `run.sh`) names the `xc-cli` that the root filesystem contains, so that a wrapper can tell a compatible environment from an unrelated one.
+
+** TODO Verify xc-cli in a Nix derivation and a CMake project
+:PROPERTIES:
+:CUSTOM_ID: 49e324f0-6835-444a-b8d8-0d8cdf5e0a8a
+:CREATED: [2026-10-21 Wed 20:38]
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 20:38]
+:END:
+Acceptance criteria: the Nix derivation and CMake criteria in `** Acceptance`.
+- README.org has a minimal example for each, taken from the verified test.
+Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` limits.
+
+* Implementation
