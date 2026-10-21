@@ -24,12 +24,5 @@ pkgs : rec {
    mplab-x-unwrapped_6_35 = pkgs.callPackage ./mplab-x-unwrapped/6.35.nix { };
    mplab-x-unwrapped = mplab-x-unwrapped_6_35;
    xc-cli = pkgs.callPackage ./xc-cli { inherit mplab-x-unwrapped; };
-   # Projects choose compilers with e.g. mplab-x.override { compilers = [ xc16_1_61 xc16_2_10 ]; },
-   # and packs with e.g. mplab-x.override { packs = [ (fetchMplabPack { ... }) ]; }.
-   # The single-compiler arguments stay so that existing overrides such as { xc16 = ...; } still work.
-   mplab-x = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16; };
-   mplab-xc8 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc8; };
-   mplab-xc16 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc16; };
-   mplab-xc32 = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc32; };
-   mplab-xc-dsc = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc-dsc; };
+   mplab-x = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc-cli; };
 }
