@@ -11,6 +11,11 @@ if [ "$#" -eq 0 ]; then
 fi
 # Nested wrappers run directly only when the active root filesystem contains their identity.
 if [ -n "${MPLAB_X_ENV:-}" ]; then
+  if [ "${#generatorBinds[@]}" -ne 0 ]; then
+    printf '%s: cannot run inside environment %q; requires an IDE-bind environment\n' \
+      "${0##*/}" "$MPLAB_X_ENV" >&2
+    exit 1
+  fi
   IFS=: read -ra environmentIds <<< "$MPLAB_X_ENV"
   for id in "${environmentIds[@]}"; do
     [ "$id" = "$environmentId" ] && exec "$@"
@@ -18,6 +23,15 @@ if [ -n "${MPLAB_X_ENV:-}" ]; then
   printf '%s: cannot run in environment %q; requires environment %q\n' \
     "${0##*/}" "$MPLAB_X_ENV" "$environmentId" >&2
   exit 1
+fi
+
+generatorBinds=()
+if [ -n "$generatorBindList" ]; then
+  while IFS=$'\t' read -r source target; do
+    generatorBinds+=("$source" "$target")
+  done < "$generatorBindList"
+  generatorBinds+=("$root$mplabxDir/packs" "$mplabxDir/packs")
+  generatorBinds+=("$root$mplabxDir/sys" "$mplabxDir/sys")
 fi
 
 shopt -s dotglob nullglob
@@ -54,7 +68,10 @@ merge() {
     name=${p##*/}
     seen[$name]=1
     h=$dir/$name
-    if [[ -d $p && ! -L $p && -d $h && ! -L $h ]]; then
+    if [ "${#generatorBinds[@]}" -ne 0 ] && [[ $h = /opt/microchip || $h = /opt/microchip/mplabx || $h = "$mplabxDir" ]]; then
+      args+=(--dir "$h")
+      [ "$h" = "$mplabxDir" ] || merge "$h" "$alias" "$sub/$name"
+    elif [[ -d $p && ! -L $p && -d $h && ! -L $h ]]; then
       args+=(--dir "$h")
       merge "$h" "$alias" "$sub/$name"
     else
@@ -91,6 +108,9 @@ case "$PWD" in
   /dev|/dev/*|/home|/home/*|/nix|/nix/*|/proc|/proc/*|/run|/run/*|/sys|/sys/*|/tmp|/tmp/*|/var|/var/*) ;;
   *) args+=(--bind "$PWD" "$PWD") ;;
 esac
+for ((index = 0; index < ${#generatorBinds[@]}; index += 2)); do
+  args+=(--ro-bind "${generatorBinds[index]}" "${generatorBinds[index + 1]}")
+done
 args+=(--remount-ro /)
 
 export MPLAB_X_ENV=$environmentIdentityList

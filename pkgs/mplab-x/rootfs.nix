@@ -19,6 +19,8 @@
 , extraPackCommands ? ""
 , runName
 , makeName
+, generatorRunName ? null
+, generatorBindSource ? null
 }:
 
 let
@@ -77,14 +79,30 @@ let
 
   environmentIds = [ rootfs ] ++ extraEnvironmentIdentities;
 
-  run = writeShellApplication {
-    name = runName;
+  generatorBindList = if generatorBindSource == null then null else runCommand "${name}-generator-binds" { } ''
+    for source in ${generatorBindSource}/*; do
+      case "''${source##*/}" in packs|sys) continue ;; esac
+      printf '%s\t%s/%s\n' "$source" "${ideDir}" "''${source##*/}" >> $out
+    done
+  '';
+
+  mkRun = { name, generator }: writeShellApplication {
+    inherit name;
     text = ''
       root=${rootfs}
       environmentId=${rootfs}
       environmentIdentityList=${lib.concatStringsSep ":" environmentIds}
+      generatorBindList=${if generator then generatorBindList else ""}
+      mplabxDir=${ideDir}
       bwrap=${lib.getExe bubblewrap}
     '' + builtins.readFile ./run.sh;
+  };
+
+  run = mkRun { name = runName; generator = false; };
+
+  generatorRun = if generatorRunName == null then null else mkRun {
+    name = generatorRunName;
+    generator = true;
   };
 
   make = writeShellApplication {
@@ -104,5 +122,5 @@ let
   '') defaultCompilers;
 in
 {
-  inherit fhsMultiPkgs fhsTargetPkgs make rootfs run wrappers;
+  inherit fhsMultiPkgs fhsTargetPkgs generatorRun make rootfs run wrappers;
 }
