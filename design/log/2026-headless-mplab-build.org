@@ -14,7 +14,7 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 
 ** Scope
 *** In scope
-- A real /opt/microchip/mplabx/v<version> directory in the environment (bind mount), so that the makefile generator writes /opt paths; `-Djava.home` in the existing java wrapper for `MP_JAVA_PATH`. In `mplab-x` and in `xc-cli`.
+- A generator command `mplab-gen` that runs the makefile generator with a real /opt/microchip/mplabx/v<version> directory (bind mount), so that it writes /opt paths; `-Djava.home` in the existing java wrapper for `MP_JAVA_PATH`. In `mplab-x` and in `xc-cli`. Builds and compiler calls run without the bind.
 - An IDE command-line subset package built from `mplab-x-unwrapped` by a committed file inventory: java, the makefile generator and its jars, `make`, `hexmate`, `fixDeps`, `extractobjectdependencies.jar` and `dat/en_msgs.txt`. A script that regenerates the inventory for a new IDE version.
 - An `xc-cli` argument `withMplabProjects ? false` that adds the subset, and a generator command `mplab-gen <project>@<conf>...` that passes `-compilers=` for each selected compiler.
 - README.org: the CI workflow (generate, then build), the effect of `nbproject/private`, and committed versus generated makefiles. AGENTS.md: layout.
@@ -28,7 +28,8 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 ** Acceptance
 *** Core functionality
 - [ ] With the IDE bind, the compile cost of the extra mount is measured and recorded (time per compiler call, with and without the bind).
-- [ ] In `mplab-x`, the generator writes `.mk` files that contain no `/nix/store` string for the downstream xc16 project (both configurations).
+- [ ] In `mplab-x`, `mplab-gen` writes `.mk` files that contain no `/nix/store` string for the downstream xc16 project (both configurations).
+- [ ] `mplab-make`, `mplab-x-run` and the compiler wrappers run without the bind: their root filesystem and mounts are unchanged.
 - [ ] The subset package contains every jar that the generator manifest's `Class-Path` names; its build fails when one is missing.
 - [ ] `xc-cli` with the subset and xc16 1.61 has no `mplab-x-unwrapped` path in its runtime closure.
 - [ ] In that `xc-cli`, the generator command writes `.mk` files that are byte-identical to those that `mplab-x` writes for the same project and private state.
@@ -42,12 +43,13 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 - [ ] Generation does not read toolchains from `nbproject/private` or `PATH` when the command passes `-compilers=`.
 *** Anti-criteria
 - [ ] Must not: modify payload executables or jars.
-- [ ] Must not: add a mount beyond the one IDE bind.
+- [ ] Must not: add a mount to builds or compiler calls. Only `mplab-gen` runs have the IDE bind.
 - [ ] Must not: change the root filesystem of `xc-cli` or `mplab-x` beyond the bind, the /opt directory chain and the java wrapper.
 
 ** Decisions
-- A bind mount gives the IDE files a real /opt/microchip/mplabx/v<version> path (user decision, 2026-10-22) :: the generator derives its IDE path from the canonical location of its own jar (`AbstractContext.determine`, `ReleaseContext`) and overwrites `netbeans.home`, so a symlink into the store gives store paths. The bind gives stable paths for every generator run, including makefiles that the GUI writes.
+- A bind mount gives the IDE files a real /opt/microchip/mplabx/v<version> path in `mplab-gen` runs only (user decisions, 2026-10-22) :: the generator derives its IDE path from the canonical location of its own jar (`AbstractContext.determine`, `ReleaseContext`) and overwrites `netbeans.home`, so a symlink into the store gives store paths. The bind adds 72.6 ms to each compiler call (median of 35 xc16 1.61 `-O3` compiles: 114.6 ms without, 187.1 ms with), so builds run without it; the generated makefiles reach `make` and `hexmate` at /opt through the existing symlinks. CI can also keep its own generated makefiles and not run `mplab-gen`.
   Rejected:
+  - The bind in every environment: 72.6 ms more for each compiler call; it would also give stable paths in makefiles that the GUI writes, which matters only for projects that commit makefiles written by the GUI.
   - Rewrite the store prefix in the generated files: no mount, but makefiles that the GUI writes keep store paths.
   - Bind in `mplab-x` and rewrite in `xc-cli`: two mechanisms for one problem.
   - A real directory for each IDE entry in bwrap arguments: the IDE has more entries than bwrap's 9,000-argument limit.
@@ -60,6 +62,7 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 ** Risks
 - The inventory covers the generator and the build of one xc16 project. Other project types, compilers and error paths can need other files.
 - `nbproject/private` changes the generated output (e.g. the dependency footer). A comparison needs the same private state.
+- Makefiles that the GUI writes during a GUI build contain store paths. A project that commits its makefiles regenerates them with `mplab-gen` first.
 - The subset still needs the installer at build time: a cold build without a binary cache runs the 16 GB installer.
 
 ** Follow-ups
@@ -99,7 +102,8 @@ Acceptance criteria:
 - State "TODO" from "STARTED" [2026-10-22 Thu 11:52]
 :END:
 Acceptance criteria: the `mplab-x` generator criterion and the anti-criteria in `** Acceptance`.
-- The root filesystem builder gets the bind and the /opt directory chain as an option, so that task 42eb9cbb reuses it.
+- The root filesystem builder gets the bind and the /opt directory chain as an option of a generator command only, so that task 42eb9cbb reuses it; `mplab-x` gets `mplab-gen`.
+- `mplab-gen` called inside an environment fails with a message (a second bwrap call cannot start there).
 - In `mplab-x`, xc16 1.61 compiles and links, and `xclm -status` shows `Mode: PRO`.
 - README.org states that the generated makefiles name /opt paths.
 
