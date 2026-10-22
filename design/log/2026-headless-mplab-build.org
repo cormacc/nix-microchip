@@ -27,7 +27,7 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 
 ** Acceptance
 *** Core functionality
-- [ ] With the IDE bind, the compile cost of the extra mount is measured and recorded (time per compiler call, with and without the bind).
+- [X] With the IDE bind, the compile cost of the extra mount is measured and recorded (time per compiler call, with and without the bind).
 - [ ] In `mplab-x`, `mplab-gen` writes `.mk` files that contain no `/nix/store` string for the downstream xc16 project (both configurations).
 - [ ] `mplab-make`, `mplab-x-run` and the compiler wrappers run without the bind: their root filesystem and mounts are unchanged.
 - [ ] The subset package contains every jar that the generator manifest's `Class-Path` names; its build fails when one is missing.
@@ -75,7 +75,8 @@ Measured 2026-10-22 on a downstream xc16 project (two configurations, XC16 1.61,
 - At build time the makefiles ran only `make` (needs `libdl`, `libc`) and `hexmate` (static) from the IDE; `fixDeps`, `extractobjectdependencies.jar` and `en_msgs.txt` were not read.
 
 * Plan
-** WAITING Measure the compile cost of an IDE bind mount
+** DONE Measure the compile cost of an IDE bind mount
+CLOSED: [2026-10-22 Thu 12:06]
 :PROPERTIES:
 :CUSTOM_ID: da0ba85a-fcee-44bf-88c9-7dbcea46838c
 :CREATED: [2026-10-22 Thu 11:40]
@@ -85,6 +86,7 @@ Measured 2026-10-22 on a downstream xc16 project (two configurations, XC16 1.61,
 - Created [2026-10-22 Thu 11:40]
 - State "STARTED" from "TODO" [2026-10-22 Thu 11:46]
 - State "WAITING" from "STARTED" [2026-10-22 Thu 11:52]
+- State "DONE" from "WAITING" [2026-10-22 Thu 12:06]
 :END:
 Acceptance criteria:
 - Median time of at least 30 `-O3` compiles of one file with xc16 1.61 in one environment, with and without the IDE bind, is recorded in `* Validation`.
@@ -147,9 +149,9 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 
 * Implementation
 ** da0ba85a
-- The measured bind candidate was reverted because its median compile cost exceeded the 50 ms limit. Task 17c81b55 remains TODO.
+- The user accepted the measurement and chose an IDE bind for generator runs only.
 
 * Validation
 ** da0ba85a
 - 2026-10-22: 35 XC16 1.61 =-O3= compiles of one file ran inside one MPLAB-X environment call for each condition. Without the IDE bind, the median was 114.559 ms. With the bind and the real /opt directory chain, the median was 187.131 ms.
-- The median increase was 72.572 ms per compiler call, which exceeds the 50 ms limit. No task is DONE.
+- The median increase was 72.572 ms per compiler call; the user chose the generator-only bind in `mplab-gen`.
