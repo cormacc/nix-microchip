@@ -30,7 +30,7 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 - [ ] With the IDE bind, the compile cost of the extra mount is measured and recorded (time per compiler call, with and without the bind).
 - [ ] In `mplab-x`, `mplab-gen` writes `.mk` files that contain no `/nix/store` string for the downstream xc16 project (both configurations).
 - [ ] `mplab-make`, `mplab-x-run` and the compiler wrappers run without the bind: their root filesystem and mounts are unchanged.
-- [ ] The subset package contains every jar that the generator manifest's `Class-Path` names; its build fails when one is missing.
+- [X] The subset package contains every jar that the generator manifest's `Class-Path` names; its build fails when one is missing.
 - [ ] `xc-cli` with the subset and xc16 1.61 has no `mplab-x-unwrapped` path in its runtime closure.
 - [ ] In that `xc-cli`, the generator command writes `.mk` files that are byte-identical to those that `mplab-x` writes for the same project and private state.
 - [ ] In that `xc-cli`, `xc-make` builds both configurations of the downstream xc16 project, and each hex file is byte-identical to the `mplab-x` build.
@@ -101,13 +101,17 @@ Acceptance criteria: the `mplab-x` generator criterion and the anti-criteria in 
 - In `mplab-x`, xc16 1.61 compiles and links, and `xclm -status` shows `Mode: PRO`.
 - README.org states that the generated makefiles name /opt paths.
 
-** TODO Package the IDE command-line subset
+** DONE Package the IDE command-line subset
+CLOSED: [2026-10-22 Thu 11:56]
 :PROPERTIES:
 :CUSTOM_ID: 43d8ee2c-5cb5-4e22-9a6d-62b3d965b0bd
 :CREATED: [2026-10-22 Thu 11:40]
+:STARTED: [2026-10-22 Thu 11:46]
 :END:
 :LOGBOOK:
 - Created [2026-10-22 Thu 11:40]
+- State "STARTED" from "TODO" [2026-10-22 Thu 11:46]
+- State "DONE" from "STARTED" [2026-10-22 Thu 11:56]
 :END:
 Acceptance criteria: the subset manifest criterion in `** Acceptance`.
 - The inventory for 6.35 is a committed text file next to the `mplab-x-unwrapped` version file; the subset derivation copies the listed files (real files, not store symlinks) and keeps the empty directories that generated paths traverse with `..`.
@@ -140,3 +144,15 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 - Keep private downstream project details out of README.org and the record.
 
 * Implementation
+
+** 43d8ee2c Package the IDE command-line subset
+- Added the 6.35 inventory and a `commandLineSubset` passthru on `mplab-x-unwrapped`. The passthru keeps the subset coupled to its source IDE version without adding it to `xc-cli`.
+- The derivation copies each inventory file with symlinks dereferenced, retains the two generator path directories, and checks every jar named by `PrjMakefilesGenerator.jar`'s manifest before copying.
+- Added `pkgs/mplab-x-unwrapped/regenerate-headless-files.clj`, which selects successful generator and build file accesses from traces and retains the three conservative build additions.
+
+* Validation
+
+** 43d8ee2c Package the IDE command-line subset
+- `nix build '.#mplab-x-unwrapped.commandLineSubset' --no-link --print-out-paths` exited 0. The output has 355 regular files, 397,156,378 logical bytes, no symlinks, and the required generator path directories.
+- After removing `mplab_platform/ide/modules/org-netbeans-api-debugger.jar` from the inventory, the same build exited 1 with `Manifest jar is missing from the inventory: mplab_platform/ide/modules/org-netbeans-api-debugger.jar`.
+- The regeneration script run with the downstream xc16 project generator trace and both build traces produced 355 lines byte-identical to `pkgs/mplab-x-unwrapped/6.35-headless-files.txt`.
