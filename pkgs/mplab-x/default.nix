@@ -34,7 +34,6 @@
 , nss
 , pango
 , runCommand
-, runtimeShell
 , systemdLibs
 , writeShellApplication
   # IDE-only packs for the packs folder, /opt/microchip/mplabx/v<version>/packs. Each element
@@ -46,6 +45,7 @@ let
   allPacks = xc-cli.packs ++ packs;
   ideDir = "/opt/microchip/mplabx/v${mplab-x-unwrapped.version}";
   rootfsBuilder = callPackage ./rootfs.nix { };
+  javaWrapper = callPackage ./java-wrapper.nix { };
   fhsMultiPkgs = [ glibc ];
   fhsTargetPkgs = [
     alsa-lib
@@ -106,22 +106,7 @@ let
       for f in ${mplab-x-unwrapped}${ideDir}/*; do
         case ''${f##*/} in packs|sys) ;; *) ln -s "$f" $out${ideDir}/ ;; esac
       done
-      # The IDE and the CLI scripts (e.g. prjMakefilesGenerator.sh) run ${ideDir}/sys/java. The
-      # pack library derives its packs folder from its jar's real path, which is in the store,
-      # so a wrapper sets the folder with the packslib.packsfolder property
-      # (com.microchip.packslib.parsers.ConfigParser.getSystemRepoLocation). The generator also
-      # uses this property for MP_JAVA_PATH in its makefiles.
-      cp -rs ${mplab-x-unwrapped}${ideDir}/sys $out${ideDir}/sys
-      for java in $out${ideDir}/sys/java/*/bin/java; do
-        real=$(readlink "$java")
-        javaHome=''${java#$out${ideDir}/sys/java/}
-        javaHome=${ideDir}/sys/java/''${javaHome%/bin/java}
-        chmod u+w "$(dirname "$java")"
-        rm "$java"
-        printf '#!%s\nexec %s -Djava.home=%s -Dpackslib.packsfolder=%s "$@"\n' \
-          ${runtimeShell} "$real" "$javaHome" ${ideDir}/packs > "$java"
-        chmod +x "$java"
-      done
+      ${javaWrapper { sys = "${mplab-x-unwrapped}${ideDir}/sys"; inherit ideDir; }}
     '';
     extraPackCommands = ''
       ln -s ${mplab-x-unwrapped}/share/mplab-x/packs/index.idx "$packsDir/"

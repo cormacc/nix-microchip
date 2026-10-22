@@ -367,3 +367,17 @@ CLOSED: [2026-10-22 Thu 20:40]
 :END:
 #+IMPORT: [[plan:2026-split-bundled-packs.org]]
 A local build of mplab-x-unwrapped writes both outputs, out (1.97 GB) and packs (14.04 GB), because Nix builds every output of a derivation; the installer tarball (1.16 GB) also stays in the store (measured 2026-10-21, 6.35). A closure that selects its packs with fetchMplabPack does not refer to the packs output, so the garbage collector can remove it, but each local build needs the space again; a binary cache avoids it on clients only. Options to investigate (none verified): (1) an installer option that skips the bundled packs, e.g. a component selection in unattended mode (check the installer --help output); (2) extract the installer payload without running the installer and omit packs; (3) delete packs in installPhase and drop the packs output, so the store gets only out (the build directory still needs the space during the build), with the default pack set then from fetchMplabPack pins generated from the bundled versions (pin hashes are the nix hash path of the installed copies, see README.org ** Device packs) or a changed default, which needs a decision because the default pack set must not change without a request. Compare store size, peak build-directory size and build time with the current build, and check that the IDE still starts and that prjMakefilesGenerator.sh still finds the selected packs.
+
+** DONE Share the java wrapper code of mplab-x and xc-cli
+CLOSED: [2026-10-22 Thu 20:55]
+:PROPERTIES:
+:CUSTOM_ID: f9ea7bd0-5802-44c9-b684-9f34a396558e
+:CREATED: [2026-10-22 Thu 15:02]
+:ARCHIVED: [2026-10-22 Thu 20:55]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-22 Thu 15:02]
+- State "DONE" from "TODO" [2026-10-22 Thu 20:55]
+:END:
+pkgs/mplab-x/default.nix and pkgs/xc-cli/default.nix (withMplabProjects) each replace sys/java/*/bin/java with the same wrapper script (-Djava.home, -Dpackslib.packsfolder). Move it to one function, e.g. in pkgs/mplab-x/rootfs.nix, so that a change reaches both. Found at closure of task b0aa04ab (design/log/2026-headless-mplab-build.org).

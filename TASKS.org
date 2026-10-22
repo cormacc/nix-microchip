@@ -34,16 +34,6 @@ If the update is routine, we could potentially schedule a task to pickup and add
 :END:
 nix flake check --no-build fails with "overlay does not take an argument named 'final'" (measured 2026-10-20 at HEAD a13ccfe and with the working tree). flake.nix defines overlays.default as self: super: ...; the flake checker expects final: prev:.
 
-** TODO Share the java wrapper code of mplab-x and xc-cli
-:PROPERTIES:
-:CUSTOM_ID: f9ea7bd0-5802-44c9-b684-9f34a396558e
-:CREATED: [2026-10-22 Thu 15:02]
-:END:
-:LOGBOOK:
-- Created [2026-10-22 Thu 15:02]
-:END:
-pkgs/mplab-x/default.nix and pkgs/xc-cli/default.nix (withMplabProjects) each replace sys/java/*/bin/java with the same wrapper script (-Djava.home, -Dpackslib.packsfolder). Move it to one function, e.g. in pkgs/mplab-x/rootfs.nix, so that a change reaches both. Found at closure of task b0aa04ab (design/log/2026-headless-mplab-build.org).
-
 ** TODO Pass installer options and pack names through for bundled and tool packs
 :PROPERTIES:
 :CUSTOM_ID: d69d03e5-6247-4fe6-8410-a1fdcf680717

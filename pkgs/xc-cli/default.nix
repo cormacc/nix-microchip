@@ -5,7 +5,6 @@
 , makeWrapper
 , mplab-x-unwrapped
 , runCommand
-, runtimeShell
 , compilers ? [ ]
 , packs ? [ ]
 , ideVersion ? mplab-x-unwrapped.version
@@ -14,6 +13,7 @@
 
 let
   rootfsBuilder = callPackage ../mplab-x/rootfs.nix { };
+  javaWrapper = callPackage ../mplab-x/java-wrapper.nix { };
   ideDir = "/opt/microchip/mplabx/v${ideVersion}";
   subset = mplab-x-unwrapped.commandLineSubset;
   # sim30 and XC16 before 1.50 are 32-bit, and need libstdc++ and libgcc_s from /lib32.
@@ -32,17 +32,7 @@ let
       for f in ${subset}/*; do
         [ "''${f##*/}" = sys ] || ln -s "$f" $out${ideDir}/
       done
-      cp -rs ${subset}/sys $out${ideDir}/sys
-      for java in $out${ideDir}/sys/java/*/bin/java; do
-        real=$(readlink "$java")
-        javaHome=''${java#$out${ideDir}/sys/java/}
-        javaHome=${ideDir}/sys/java/''${javaHome%/bin/java}
-        chmod u+w "$(dirname "$java")"
-        rm "$java"
-        printf '#!%s\nexec %s -Djava.home=%s -Dpackslib.packsfolder=%s "$@"\n' \
-          ${runtimeShell} "$real" "$javaHome" ${ideDir}/packs > "$java"
-        chmod +x "$java"
-      done
+      ${javaWrapper { sys = "${subset}/sys"; inherit ideDir; }}
     '';
   };
   generator = (callPackage ../mplab-x/generator.nix { }) {
