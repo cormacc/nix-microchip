@@ -24,16 +24,6 @@ See https://github.com/cormacc/dotagents for more info.
 If the update is routine, we could potentially schedule a task to pickup and add new compiler versions.
 
 
-** TODO Fix nix flake check: overlay argument names
-:PROPERTIES:
-:CUSTOM_ID: d1547c9b-5b14-4ab8-88e3-963d4d3d78a7
-:CREATED: [2026-10-20 Tue 17:02]
-:END:
-:LOGBOOK:
-- Created [2026-10-20 Tue 17:02]
-:END:
-nix flake check --no-build fails with "overlay does not take an argument named 'final'" (measured 2026-10-20 at HEAD a13ccfe and with the working tree). flake.nix defines overlays.default as self: super: ...; the flake checker expects final: prev:.
-
 ** TODO Pass installer options and pack names through for bundled and tool packs
 :PROPERTIES:
 :CUSTOM_ID: d69d03e5-6247-4fe6-8410-a1fdcf680717

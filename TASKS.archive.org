@@ -381,3 +381,18 @@ CLOSED: [2026-10-22 Thu 20:55]
 - State "DONE" from "TODO" [2026-10-22 Thu 20:55]
 :END:
 pkgs/mplab-x/default.nix and pkgs/xc-cli/default.nix (withMplabProjects) each replace sys/java/*/bin/java with the same wrapper script (-Djava.home, -Dpackslib.packsfolder). Move it to one function, e.g. in pkgs/mplab-x/rootfs.nix, so that a change reaches both. Found at closure of task b0aa04ab (design/log/2026-headless-mplab-build.org).
+
+** DONE Fix nix flake check: overlay argument names
+CLOSED: [2026-10-22 Thu 20:58]
+:PROPERTIES:
+:CUSTOM_ID: d1547c9b-5b14-4ab8-88e3-963d4d3d78a7
+:CREATED: [2026-10-20 Tue 17:02]
+:ARCHIVED: [2026-10-22 Thu 20:58]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-20 Tue 17:02]
+- State "DONE" from "TODO" [2026-10-22 Thu 20:58]
+:END:
+nix flake check --no-build fails with "overlay does not take an argument named 'final'" (measured 2026-10-20 at HEAD a13ccfe and with the working tree). flake.nix defines overlays.default as self: super: ...; the flake checker expects final: prev:.
+Fixed 2026-10-22: the overlay takes final: prev:. nix flake check --no-build exits 0 (1 before, with the error above); through the overlay, xc-cli, mplab-x, mplab-x-unwrapped, xc16 and xc-dsc have the same drvPath as legacyPackages, and fetchMplabPack gives the same pack derivation.

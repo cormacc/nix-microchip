@@ -51,6 +51,6 @@
 
       # Your custom packages and modifications, exported as overlays
       # overlays.default = import ./overlays {inherit inputs;};
-      overlays.default = self: super: import ./pkgs super.pkgs;
+      overlays.default = final: prev: import ./pkgs prev.pkgs;
     };
 }
