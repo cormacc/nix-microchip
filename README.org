@@ -283,6 +283,22 @@ To add the bundled packs to a selection, put =pkgs.mplab-x-unwrapped.packs= in t
 
 The bundled packs contain approximately 2.5 GB of duplicate files, most of them in the debugger tool packs (measured with =jdupes=, 2026-10-21). Nix does not de-duplicate store files by default. =nix store optimise=, or =nix.settings.auto-optimise-store = true;= on NixOS, replaces duplicate files with hard links. This does not make a download from a binary cache smaller.
 
+*** IDE command-line subset
+
+=MPLAB-X 6.35= exposes its measured command-line subset as =mplab-x-unwrapped.commandLineSubset=. It contains only the committed inventory and is not added to =xc-cli= until a later task does so.
+
+To regenerate an inventory after tracing one generator run and one or more builds, first build the unwrapped IDE and record the generator and build traces with =strace -f -e trace=%file,%process=. Then run:
+
+#+begin_src sh
+ide=$(nix build '.#mplab-x-unwrapped' --no-link --print-out-paths)
+bb pkgs/mplab-x-unwrapped/regenerate-headless-files.clj \
+  "$ide/opt/microchip/mplabx/v6.35" \
+  /opt/microchip/mplabx/v6.35 \
+  generator.trace build.trace > pkgs/mplab-x-unwrapped/6.35-headless-files.txt
+#+end_src
+
+The first path is the installed payload, and the second is the IDE path in the traced environment. Give each build trace as an additional final argument. Review the generated inventory before committing it; the script retains the conservative =fixDeps=, =extractobjectdependencies.jar= and =en_msgs.txt= additions.
+
 ** Udev rules
 
 Two types of USB access are related to udev rules:
