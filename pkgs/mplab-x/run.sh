@@ -11,7 +11,7 @@ if [ "$#" -eq 0 ]; then
 fi
 # Nested wrappers run directly only when the active root filesystem contains their identity.
 if [ -n "${MPLAB_X_ENV:-}" ]; then
-  if [ "${#generatorBinds[@]}" -ne 0 ]; then
+  if [ -n "$generatorBindList" ]; then
     printf '%s: cannot run inside environment %q; requires an IDE-bind environment\n' \
       "${0##*/}" "$MPLAB_X_ENV" >&2
     exit 1
