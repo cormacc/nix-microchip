@@ -2,7 +2,7 @@
 #+DATE: 2026-10-22 Thu
 #+PARENT: [[task:b0aa04ab-d641-4239-9d2a-dc12f0d930ba][Build MPLAB-generated projects without MPLAB-X]]
 #+SETUPFILE: ../../TASKS.setup.org
-#+STATUS: Draft
+#+STATUS: Accepted
 #+SPEC: [[proj:README.org]]
 #+SPEC: [[proj:AGENTS.md]]
 
@@ -16,7 +16,7 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 *** In scope
 - A real /opt/microchip/mplabx/v<version> directory in the environment (bind mount), so that the makefile generator writes /opt paths; `-Djava.home` in the existing java wrapper for `MP_JAVA_PATH`. In `mplab-x` and in `xc-cli`.
 - An IDE command-line subset package built from `mplab-x-unwrapped` by a committed file inventory: java, the makefile generator and its jars, `make`, `hexmate`, `fixDeps`, `extractobjectdependencies.jar` and `dat/en_msgs.txt`. A script that regenerates the inventory for a new IDE version.
-- An `xc-cli` argument that adds the subset, and a generator command that passes `-compilers=` for each selected compiler.
+- An `xc-cli` argument `withMplabProjects ? false` that adds the subset, and a generator command `mplab-gen <project>@<conf>...` that passes `-compilers=` for each selected compiler.
 - README.org: the CI workflow (generate, then build), the effect of `nbproject/private`, and committed versus generated makefiles. AGENTS.md: layout.
 *** Out of scope
 - Replacing MPLAB makefiles (CMake, or a Makefile that reads configurations.xml).
