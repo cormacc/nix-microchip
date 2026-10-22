@@ -35,8 +35,8 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 - [X] In that `xc-cli`, the generator command writes `.mk` files that are byte-identical to those that `mplab-x` writes for the same project and private state.
 - [X] In that `xc-cli`, `xc-make` builds both configurations of the downstream xc16 project, and each hex file is byte-identical to the `mplab-x` build.
 - [X] The `-O3` compiles of that build print no Free-mode diagnostic, and `xclm -status` shows `Mode: PRO`.
-- [ ] A Nix derivation generates and builds one configuration in the Nix build sandbox.
-- [ ] README.org documents the generator command, the CI workflow and the `xc-cli` argument.
+- [X] A Nix derivation generates and builds one configuration in the Nix build sandbox.
+- [X] README.org documents the generator command, the CI workflow and the `xc-cli` argument.
 *** Edge cases
 - [X] `xc-cli` without the argument is unchanged: same root filesystem file list, no bind.
 - [X] The generator command with no selected compiler fails with a message.
@@ -143,16 +143,20 @@ CLOSED: [2026-10-22 Thu 13:08]
 :END:
 Acceptance criteria: the `xc-cli` closure, generator, build, licence and edge-case criteria in `** Acceptance`.
 - The `xc-cli` argument adds the subset at /opt/microchip/mplabx/v<version> with the bind from task 17c81b55; `mplab-x` built from that `xc-cli` still uses its full IDE.
-- The generator command runs `prjMakefilesGenerator.sh` with `-compilers=` for each selected compiler and a `-mplabx-userdir` that does not need a writable home directory.
+- The generator command runs `prjMakefilesGenerator.sh` with `-compilers=` for each selected compiler and a temporary `-mplabx-userdir`; a Nix sandbox derivation also sets the Java user home to a writable directory for the pack library.
 - Record the closure size in `* Validation`.
 
-** TODO Document and verify headless MPLAB builds
+** DONE Document and verify headless MPLAB builds
+CLOSED: [2026-10-22 Thu 14:28]
 :PROPERTIES:
 :CUSTOM_ID: c0578012-8a67-44b5-a109-53dd6eeff043
 :CREATED: [2026-10-22 Thu 11:40]
+:STARTED: [2026-10-22 Thu 13:57]
 :END:
 :LOGBOOK:
 - Created [2026-10-22 Thu 11:40]
+- State "STARTED" from "TODO" [2026-10-22 Thu 13:57]
+- State "DONE" from "STARTED" [2026-10-22 Thu 14:28]
 :END:
 Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 - README.org gives a devshell and a Nix derivation example that generate and build an MPLAB project, and explains `nbproject/private` and committed makefiles.
@@ -171,7 +175,11 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 ** 42eb9cbb Add MPLAB project support to xc-cli
 - `withMplabProjects` adds the command-line subset's top-level entries to the root filesystem and uses the existing bound generator-runner option; the root filesystem supplies the wrapped Java tree and packs.
 - `mplab-gen` is one shared wrapper for `xc-cli` and `mplab-x`, so each package supplies its own generator runner, IDE source and selected compiler paths.
-- README.org documents the `xc-cli` argument and generator without the CI examples deferred to c0578012.
+- README.org documents the `xc-cli` argument and generator.
+
+** c0578012 Document and verify headless MPLAB builds
+- The bound generator runner creates the real /opt parent directories when the Nix build sandbox has no host /opt, so Bubblewrap can mount the command-line subset.
+- README.org documents a neutral development shell and Nix derivation, including the CI workflow, the private-state limit, and GUI-generated store paths.
 
 * Validation
 
@@ -195,3 +203,7 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 - With the supplied private state, `xc-make` built both configurations with the expected SHA-256 values. An xc16 `-O3` compile printed no Free-mode diagnostic, and `xclm -status` reported `Mode: PRO`.
 - With decoy compiler paths in `PATH` and `nbproject/private`, generated `MP_CC` still named `/opt/microchip/xc16/v1.61/bin/xc16-gcc`. `mplab-gen` with no compiler exited non-zero with its no-compiler message.
 - XC-DSC 4.00 compiled and linked a dsPIC33CK64MP105 probe with dsPIC33CK-MP_DFP 1.16.521 in `xc-cli` with and without `withMplabProjects`.
+
+** c0578012 Document and verify headless MPLAB builds
+- 2026-10-22: `nix build --impure --file .tmp/c0578012/default.nix --no-link --print-build-logs --print-out-paths` exited 0 in the Nix build sandbox. It generated and built the standalone configuration with xc16 1.61 and dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401, installed the hex file, reported `Mode: PRO`, and checked SHA-256 `0a8196d2d4c8f9f57ba5cf8f46913260c37f66ffc725ac00cd35ee7bed59012d`. The sandbox required `HOME=/tmp/home`, `TMPDIR=/tmp`, and `JAVA_TOOL_OPTIONS=-Duser.home=$HOME`; the project Makefile remained a source input.
+- 2026-10-22: `nix build --impure --file .tmp/c0578012/regression.nix xc16WithoutProjects xc16WithProjects dscWithoutProjects dscWithProjects --no-link --print-build-logs --print-out-paths` exited 0. XC16 1.61 compiled and linked with `Mode: PRO`, and XC-DSC 4.00 compiled and linked the dsPIC33CK64MP105 probe with dsPIC33CK-MP_DFP 1.16.521, each with and without `withMplabProjects`.

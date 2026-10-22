@@ -90,7 +90,8 @@ for p in "$root"/*; do
   name=${p##*/}
   h=/$name
   [[ -n ${top[$name]:-} ]] && continue
-  if [[ -d $p && ! -L $p && -d $h && ! -L $h ]]; then
+  # The build sandbox has no /opt. Generator bind targets need real parent directories.
+  if [[ -d $p && ! -L $p ]] && { [[ -d $h && ! -L $h ]] || { [ "${#generatorBinds[@]}" -ne 0 ] && [ "$h" = /opt ]; }; }; then
     need_alias=
     args+=(--dir "$h")
     merge "$h" "/.host-$name" ""

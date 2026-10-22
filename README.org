@@ -139,7 +139,7 @@ packages = [
 
 With this environment, =xc16-gcc= runs v1.61 and =xc-run /opt/microchip/xc16/v2.10/bin/xc16-gcc= runs v2.10. The selected DFP is at =/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258/xc16= for =-mdfp=.
 
-Set =withMplabProjects = true= on =xc-cli= to add the command-line MPLAB-X subset and =mplab-gen <project>@<configuration>...=. It generates MPLAB makefiles with each selected compiler and binds the subset only for generation. =xc-make= and compiler wrappers do not bind it.
+Set =withMplabProjects = true= on =xc-cli= to add the command-line MPLAB-X subset and =mplab-gen <project>@<configuration>...=. It generates MPLAB makefiles with each selected compiler and binds the subset only for generation. =xc-make= and compiler wrappers do not bind it. See [[#mplab-projects][MPLAB projects]] for development-shell, derivation and CI use.
 
 The =mplab-x= package also supplies these commands:
 - =mplab-x-run <command> [args...]= runs a command inside the MPLAB-X environment. In this environment, each compiler selected by =xc-cli= is at =/opt/microchip/<compiler>/v<version>=, where MPLAB-X expects it.
@@ -249,6 +249,71 @@ cmake --build build
 #+end_src
 
 CMake 4.4.4 configured and built the ELF with these settings. It recognised the compiler as GNU 4.5.1, and needed no compiler-detection workaround.
+
+*** MPLAB projects
+
+Use the command-line MPLAB-X subset for a project with =nbproject/configurations.xml=. Select the compiler and DFP, then set =withMplabProjects = true=:
+
+#+begin_src nix
+let
+  dfp = pkgs.fetchMplabPack {
+    name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+    version = "1.7.401";
+    hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
+  };
+  xc-cli = pkgs.xc-cli.override {
+    compilers = [ pkgs.xc16_1_61 ];
+    packs = [ dfp ];
+    withMplabProjects = true;
+  };
+in pkgs.mkShell {
+  packages = [ xc-cli ];
+}
+#+end_src
+
+From the directory that contains the project, generate then build one configuration:
+
+#+begin_src sh
+mplab-gen firmware@standalone
+xc-make -C firmware -j8 -f Makefile CONF=standalone
+#+end_src
+
+In CI, either generate with =mplab-gen= before each =xc-make= build, or commit and control your own generated makefiles and build them without =mplab-gen=. Keep the same =nbproject/private= state when generation must be reproducible: it can change generated output, including the dependency footer. The compiler selection passed by =mplab-gen= does not use toolchain paths from that directory. Makefiles that the GUI writes contain Nix store paths; regenerate them with =mplab-gen= before committing them.
+
+A Nix derivation needs a writable home directory that the runner binds, a writable =TMPDIR= for parallel Make, and =JAVA_TOOL_OPTIONS= so the pack library uses that home directory. This verified example assumes that =firmware/Makefile= is a project input, not a generated file:
+
+#+begin_src nix
+let
+  dfp = pkgs.fetchMplabPack {
+    name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+    version = "1.7.401";
+    hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
+  };
+  xc-cli = pkgs.xc-cli.override {
+    compilers = [ pkgs.xc16_1_61 ];
+    packs = [ dfp ];
+    withMplabProjects = true;
+  };
+in pkgs.stdenvNoCC.mkDerivation {
+  pname = "mplab-firmware";
+  version = "1";
+  src = ./.;
+  nativeBuildInputs = [ xc-cli ];
+  buildPhase = ''
+    export TMPDIR=/tmp
+    export HOME=/tmp/mplab-home
+    mkdir -p "$HOME"
+    rm -f firmware/nbproject/Makefile-*.mk
+    JAVA_TOOL_OPTIONS="-Duser.home=$HOME" mplab-gen firmware@standalone
+    xc-make -C firmware -j"$NIX_BUILD_CORES" -f Makefile CONF=standalone
+    xclm -status > licence-status.txt
+    grep -F 'Mode: PRO' licence-status.txt
+  '';
+  installPhase = ''
+    install -Dm444 firmware/dist/standalone/production/firmware.production.hex "$out/firmware.hex"
+  '';
+}
+#+end_src
 
 ** Device packs
 
