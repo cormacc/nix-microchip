@@ -44,6 +44,8 @@
 
 let
   allPacks = xc-cli.packs ++ packs;
+  compilerDir = c: "/opt/microchip/${c.pname}/v${c.version}";
+  compilerArgs = lib.concatMapStringsSep " " (c: "-compilers=${compilerDir c}/bin") xc-cli.compilers;
   ideDir = "/opt/microchip/mplabx/v${mplab-x-unwrapped.version}";
   rootfsBuilder = callPackage ./rootfs.nix { };
   fhsMultiPkgs = [ glibc ];
@@ -90,6 +92,7 @@ let
     extraEnvironmentIdentities = [ xc-cli.rootfs ];
     runName = "mplab-x-run";
     makeName = "mplab-make";
+    generatorRunName = "mplab-gen-run";
     extraRootfsCommands = ''
       rsync -rlp --chmod=Du+w ${mplab-x-unwrapped}/etc/ $out/etc/
       # FIXME: This line has started causing issues, but is likely required for programmer support
@@ -102,24 +105,49 @@ let
       # installation's packs symlink resolves to this packs folder.
       mkdir -p $out${ideDir}
       for f in ${mplab-x-unwrapped}${ideDir}/*; do
-        case ''${f##*/} in packs|sys) ;; *) ln -s "$f" $out${ideDir}/ ;; esac
+        case ''${f##*/} in
+          packs|sys) ;;
+          mplab_platform) cp -r "$f" $out${ideDir}/ ;;
+          *) ln -s "$f" $out${ideDir}/ ;;
+        esac
       done
       # The IDE and the CLI scripts (e.g. prjMakefilesGenerator.sh) run ${ideDir}/sys/java. The
       # pack library derives its packs folder from its jar's real path, which is in the store,
       # so a wrapper sets the folder with the packslib.packsfolder property
-      # (com.microchip.packslib.parsers.ConfigParser.getSystemRepoLocation).
+      # (com.microchip.packslib.parsers.ConfigParser.getSystemRepoLocation). The generator also
+      # uses this property for MP_JAVA_PATH in its makefiles.
       cp -rs ${mplab-x-unwrapped}${ideDir}/sys $out${ideDir}/sys
       for java in $out${ideDir}/sys/java/*/bin/java; do
         real=$(readlink "$java")
+        javaHome=''${java#$out${ideDir}/sys/java/}
+        javaHome=${ideDir}/sys/java/''${javaHome%/bin/java}
         chmod u+w "$(dirname "$java")"
         rm "$java"
-        printf '#!%s\nexec %s -Dpackslib.packsfolder=%s "$@"\n' \
-          ${runtimeShell} "$real" ${ideDir}/packs > "$java"
+        printf '#!%s\nexec %s -Djava.home=%s -Dpackslib.packsfolder=%s "$@"\n' \
+          ${runtimeShell} "$real" "$javaHome" ${ideDir}/packs > "$java"
         chmod +x "$java"
       done
     '';
     extraPackCommands = ''
       ln -s ${mplab-x-unwrapped}/share/mplab-x/packs/index.idx "$packsDir/"
+    '';
+  };
+
+  generator = writeShellApplication {
+    name = "mplab-gen";
+    text = ''
+      if [ "$#" -eq 0 ]; then
+        echo "usage: mplab-gen <project>@<configuration>..." >&2
+        exit 2
+      fi
+      compilerCount=${toString (builtins.length xc-cli.compilers)}
+      if [ "$compilerCount" -eq 0 ]; then
+        echo "mplab-gen: no compiler is selected in xc-cli" >&2
+        exit 2
+      fi
+      userdir=$(${coreutils}/bin/mktemp -d /tmp/mplabx-userdir.XXXXXXXX)
+      trap '${coreutils}/bin/rm -rf "$userdir"' EXIT
+      ${lib.getExe environment.generatorRun} ${ideDir}/mplab_platform/bin/prjMakefilesGenerator.sh -f ${compilerArgs} -mplabx-userdir="$userdir" "$@"
     '';
   };
 
@@ -154,5 +182,6 @@ runCommand "mplab-x" {
   ln -s ${lib.getExe ide} $out/bin/mplab_ide
   ln -s ${lib.getExe environment.run} $out/bin/mplab-x-run
   ln -s ${lib.getExe environment.make} $out/bin/mplab-make
+  ln -s ${lib.getExe generator} $out/bin/mplab-gen
 
 ''

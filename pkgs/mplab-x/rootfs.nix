@@ -19,6 +19,7 @@
 , extraPackCommands ? ""
 , runName
 , makeName
+, generatorRunName ? null
 }:
 
 let
@@ -77,14 +78,23 @@ let
 
   environmentIds = [ rootfs ] ++ extraEnvironmentIdentities;
 
-  run = writeShellApplication {
-    name = runName;
+  mkRun = { name, bindMplabx }: writeShellApplication {
+    inherit name;
     text = ''
       root=${rootfs}
       environmentId=${rootfs}
       environmentIdentityList=${lib.concatStringsSep ":" environmentIds}
+      bindMplabx=${if bindMplabx then "1" else "0"}
+      mplabxDir=${ideDir}
       bwrap=${lib.getExe bubblewrap}
     '' + builtins.readFile ./run.sh;
+  };
+
+  run = mkRun { name = runName; bindMplabx = false; };
+
+  generatorRun = if generatorRunName == null then null else mkRun {
+    name = generatorRunName;
+    bindMplabx = true;
   };
 
   make = writeShellApplication {
@@ -104,5 +114,5 @@ let
   '') defaultCompilers;
 in
 {
-  inherit fhsMultiPkgs fhsTargetPkgs make rootfs run wrappers;
+  inherit fhsMultiPkgs fhsTargetPkgs generatorRun make rootfs run wrappers;
 }

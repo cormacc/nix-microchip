@@ -28,8 +28,8 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 ** Acceptance
 *** Core functionality
 - [X] With the IDE bind, the compile cost of the extra mount is measured and recorded (time per compiler call, with and without the bind).
-- [ ] In `mplab-x`, `mplab-gen` writes `.mk` files that contain no `/nix/store` string for the downstream xc16 project (both configurations).
-- [ ] `mplab-make`, `mplab-x-run` and the compiler wrappers run without the bind: their root filesystem and mounts are unchanged.
+- [X] In `mplab-x`, `mplab-gen` writes `.mk` files that contain no `/nix/store` string for the downstream xc16 project (both configurations).
+- [X] `mplab-make`, `mplab-x-run` and the compiler wrappers run without the bind: their root filesystem and mounts are unchanged.
 - [ ] The subset package contains every jar that the generator manifest's `Class-Path` names; its build fails when one is missing.
 - [ ] `xc-cli` with the subset and xc16 1.61 has no `mplab-x-unwrapped` path in its runtime closure.
 - [ ] In that `xc-cli`, the generator command writes `.mk` files that are byte-identical to those that `mplab-x` writes for the same project and private state.
@@ -42,9 +42,9 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 - [ ] The generator command with no selected compiler fails with a message.
 - [ ] Generation does not read toolchains from `nbproject/private` or `PATH` when the command passes `-compilers=`.
 *** Anti-criteria
-- [ ] Must not: modify payload executables or jars.
-- [ ] Must not: add a mount to builds or compiler calls. Only `mplab-gen` runs have the IDE bind.
-- [ ] Must not: change the root filesystem of `xc-cli` or `mplab-x` beyond the bind, the /opt directory chain and the java wrapper.
+- [X] Must not: modify payload executables or jars.
+- [X] Must not: add a mount to builds or compiler calls. Only `mplab-gen` runs have the IDE bind.
+- [X] Must not: change the root filesystem of `xc-cli` or `mplab-x` beyond the bind, the /opt directory chain and the java wrapper.
 
 ** Decisions
 - A bind mount gives the IDE files a real /opt/microchip/mplabx/v<version> path in `mplab-gen` runs only (user decisions, 2026-10-22) :: the generator derives its IDE path from the canonical location of its own jar (`AbstractContext.determine`, `ReleaseContext`) and overwrites `netbeans.home`, so a symlink into the store gives store paths. The bind adds 72.6 ms to each compiler call (median of 35 xc16 1.61 `-O3` compiles: 114.6 ms without, 187.1 ms with), so builds run without it; the generated makefiles reach `make` and `hexmate` at /opt through the existing symlinks. CI can also keep its own generated makefiles and not run `mplab-gen`.
@@ -92,7 +92,8 @@ Acceptance criteria:
 - Median time of at least 30 `-O3` compiles of one file with xc16 1.61 in one environment, with and without the IDE bind, is recorded in `* Validation`.
 - If the bind adds more than 50 ms per compiler call, stop and report to the user before task 17c81b55.
 
-** TODO Give generated makefiles stable IDE paths in mplab-x
+** DONE Give generated makefiles stable IDE paths in mplab-x
+CLOSED: [2026-10-22 Thu 12:17]
 :PROPERTIES:
 :CUSTOM_ID: 17c81b55-9e43-4762-89bc-76cf02f18e74
 :CREATED: [2026-10-22 Thu 11:40]
@@ -102,6 +103,8 @@ Acceptance criteria:
 - Created [2026-10-22 Thu 11:40]
 - State "STARTED" from "TODO" [2026-10-22 Thu 11:46]
 - State "TODO" from "STARTED" [2026-10-22 Thu 11:52]
+- State "STARTED" from "TODO" [2026-10-22 Thu 12:06]
+- State "DONE" from "STARTED" [2026-10-22 Thu 12:17]
 :END:
 Acceptance criteria: the `mplab-x` generator criterion and the anti-criteria in `** Acceptance`.
 - The root filesystem builder gets the bind and the /opt directory chain as an option of a generator command only, so that task 42eb9cbb reuses it; `mplab-x` gets `mplab-gen`.
@@ -150,8 +153,13 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 * Implementation
 ** da0ba85a
 - The user accepted the measurement and chose an IDE bind for generator runs only.
+** 17c81b55
+- `mplab-gen` uses the rootfs builder's bound generator runner; normal runners keep the unbound root filesystem.
 
 * Validation
 ** da0ba85a
 - 2026-10-22: 35 XC16 1.61 =-O3= compiles of one file ran inside one MPLAB-X environment call for each condition. Without the IDE bind, the median was 114.559 ms. With the bind and the real /opt directory chain, the median was 187.131 ms.
 - The median increase was 72.572 ms per compiler call; the user chose the generator-only bind in `mplab-gen`.
+** 17c81b55
+- `mplab-gen` generated six makefiles with 30 `/opt/microchip` lines and no `/nix/store` line. Both configurations built with `mplab-make`; their hex SHA-256 values match the recorded values.
+- The unbound `mplab-x-run` mount list has no rootfs bind. Two 35-compile medians were 114.419/146.976 ms and 161.576/174.223 ms for `mplab-x-run`/`mplab-make`, respectively.
