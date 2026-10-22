@@ -13,7 +13,7 @@ This flake packages proprietary Microchip tools for `x86_64-linux`. Read [README
 - Follow the existing version-file pattern. Change default versions or `flake.lock` only when requested.
 - Retain only the latest verified MPLAB-X version; remove superseded IDE version files and exports when upgrading. Keep legacy compiler versions for reproducible firmware builds.
 - Preserve compiler payloads: ELF patching can trigger licence checks and disable PRO optimisations. See README.org's licence probes.
-- Keep private downstream project details out of public documentation and task records.
+- Keep private downstream project details out of public documentation and task records. Before you push, search the outgoing diff for downstream project names and paths, with a positive control.
 - Use `.tmp/` for experiments. Keep Markdown and Org paragraphs on one logical line.
 
 ## Disk space
