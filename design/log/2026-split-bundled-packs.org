@@ -24,16 +24,16 @@ A local build of `mplab-x`, `xc-cli` or `mplab-x-unwrapped` does not build or st
 
 ** Acceptance
 *** Core functionality
-- [ ] The build-input graphs (`nix-store -q --requisites` of the `.drv`) of default `mplab-x`, default `xc-cli`, `xc-cli` with `withMplabProjects = true` and `mplab-x-unwrapped` do not contain the packs derivation (positive control: each contains its own derivation).
-- [ ] `mplab-x-unwrapped.packs` builds, and its content is identical to the previous `packs` output (NAR hash).
-- [ ] The `mplab-x-unwrapped` file list (`find -printf '%P %l %m\n'`) is identical to the previous `out`; a content difference is limited to `Uninstall_MPLAB_X_IDE_v6.dat`.
-- [ ] `commandLineSubset`: its 355 files are byte-identical to the previous ones.
-- [ ] In `mplab-x`, `mplab-gen` writes `.mk` files with no `/nix/store` line and the selected DFP in `DFP_DIR`.
-- [ ] Regression, basic level (AGENTS.md): `xc16_1_61` (with `xclm -status` `Mode: PRO`) and `xc-dsc_4_00` compile and link in `xc-cli` and in `mplab-x`.
-- [ ] README.org and AGENTS.md describe the separate derivation and the new sizes.
+- [X] The build-input graphs (`nix-store -q --requisites` of the `.drv`) of default `mplab-x`, default `xc-cli`, `xc-cli` with `withMplabProjects = true` and `mplab-x-unwrapped` do not contain the packs derivation (positive control: each contains its own derivation).
+- [X] `mplab-x-unwrapped.packs` builds, and its content is identical to the previous `packs` output (NAR hash).
+- [X] The `mplab-x-unwrapped` file list (`find -printf '%P %l %m\n'`) is identical to the previous `out`; a content difference is limited to `Uninstall_MPLAB_X_IDE_v6.dat`.
+- [X] `commandLineSubset`: its 355 files are byte-identical to the previous ones.
+- [X] In `mplab-x`, `mplab-gen` writes `.mk` files with no `/nix/store` line and the selected DFP in `DFP_DIR`.
+- [X] Regression, basic level (AGENTS.md): `xc16_1_61` (with `xclm -status` `Mode: PRO`) and `xc-dsc_4_00` compile and link in `xc-cli` and in `mplab-x`.
+- [X] README.org and AGENTS.md describe the separate derivation and the new sizes.
 *** Anti-criteria
-- [ ] Must not: change the public attribute names, default versions, default pack selection or `flake.lock`.
-- [ ] Must not: patch payload executables or jars.
+- [X] Must not: change the public attribute names, default versions, default pack selection or `flake.lock`.
+- [X] Must not: patch payload executables or jars.
 
 ** Decisions
 - Separate derivations, with the MCU exclusions for the IDE build (parent decision while the user was away, 2026-10-22; to be confirmed) :: Nix builds every output of a derivation, so a `packs` output costs 14 GB on every local build. The installer has no all-packs switch, but `--8bitmcu 0 --16bitmcu 0 --32bitmcu 0 --othermcu 0` reduced the build-directory peak from 18.1 GB to 7.1 GB and the build time from 204 s to 133 s; the leftover packs (16 directories, e.g. tool packs) are deleted.
@@ -53,14 +53,30 @@ A local build of `mplab-x`, `xc-cli` or `mplab-x-unwrapped` does not build or st
 Measured 2026-10-22 (6.35) with a prototype: build-input graphs of `mplab-x` and `xc-cli` without the packs derivation; packs NAR hash `sha256-H+TXqCbMJ3NziT5ZxNYpP9qxnse150sCd0jm6wk6Md0=`, identical to the previous output; `out` 1.97 GB with the same file list; `mplab-gen` output without store paths; xc16 1.61 PRO.
 
 * Plan
-** TODO Build the bundled packs in a separate derivation
+** DONE Build the bundled packs in a separate derivation
+CLOSED: [2026-10-22 Thu 19:34]
 :PROPERTIES:
 :CUSTOM_ID: b10c6c41-f899-41d2-b503-b338755c7ca1
 :CREATED: [2026-10-22 Thu 19:18]
+:STARTED: [2026-10-22 Thu 19:20]
 :END:
 :LOGBOOK:
 - Created [2026-10-22 Thu 19:18]
+- State "STARTED" from "TODO" [2026-10-22 Thu 19:20]
+- State "DONE" from "STARTED" [2026-10-22 Thu 19:34]
 :END:
 Acceptance criteria: all of `** Acceptance`.
 
 * Implementation
+** b10c6c41
+- Made the installer-built packs a separate `mplab-x-bundled-packs` derivation exposed through `mplab-x-unwrapped.packs`.
+- Disabled the installer MCU groups for the IDE derivation, removed residual packs from its chroot before copying `opt`, and retained `index.idx` with the IDE.
+- Preserved `fhsEnv` in passthru so the 6.35 command-line subset can extend passthru.
+
+* Validation
+** b10c6c41
+- `nix build --impure --file .tmp/b10c6c41/environments.nix unwrapped packs ide cli projects subset --no-link --print-out-paths --max-jobs 2` exited 0.
+- `bb .tmp/b10c6c41/verify.clj` verified the four build-input graphs with positive controls, the packs NAR hash `sha256-H+TXqCbMJ3NziT5ZxNYpP9qxnse150sCd0jm6wk6Md0=`, identical output lists, only the permitted uninstaller-data difference, and 355 byte-identical subset files.
+- `mplab-gen firmware@standalone` exited 0 in `mplab-x`, created four `.mk` files, contained no `/nix/store` lines, and set the selected DFP in `DFP_DIR`; a synthetic store-path line made the guard fail before removal.
+- `nix build --impure --file .tmp/b10c6c41/regression.nix xc16Cli dscCli xc16Ide dscIde --no-link --print-out-paths` exited 0; XC16 reported `Mode: PRO` in both environments.
+- `nix flake check --no-build` exited 1 only at the known `d1547c9b` overlay failure, `overlay does not take an argument named 'final'`.

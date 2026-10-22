@@ -18,7 +18,7 @@ This flake packages proprietary Microchip tools for `x86_64-linux`. Read [README
 
 ## Disk space
 
-The Microchip packages fill the Nix store quickly. `mplab-x-unwrapped` 6.35 writes 16 GB (out 1.97 GB, packs 14.04 GB), and an XC32 6.00 installation is about 9 GB. On 2026-10-22, garbage collection between worker rounds freed 93 to 234 GiB each time, and the user's manual cleanups during the same work freed more than 500 GB (534 GB in one run, user report). One round of parallel workers can use more than 500 GB. Monitor and clean up without a request from the user:
+The Microchip packages fill the Nix store quickly. `mplab-x-unwrapped` 6.35 writes 1.97 GB, and its separate optional `.packs` derivation writes 14.04 GB; an XC32 6.00 installation is about 9 GB. On 2026-10-22, garbage collection between worker rounds freed 93 to 234 GiB each time, and the user's manual cleanups during the same work freed more than 500 GB (534 GB in one run, user report). One round of parallel workers can use more than 500 GB. Monitor and clean up without a request from the user:
 
 - Run `df -h /nix/store` before each build that runs an installer or builds `mplab-x`, and before you delegate build work. If less than 300 GB is free, clean up before you build.
 - While workers build, check `df -h /nix/store` at each collect: use collect timeouts of 15 minutes or less, not one long wait. If less than 200 GB is free, stop new build work and clean up at the next safe point.
@@ -32,7 +32,7 @@ The Microchip packages fill the Nix store quickly. `mplab-x-unwrapped` 6.35 writ
   2. Delete each listed symlink, except those in `.tmp/gcroots/`.
   3. Remove finished worktrees under `.tmp/herdr-orch/worktrees/` with `git worktree remove`.
   4. Run `nix-collect-garbage -d`. The `-d` option also deletes old profile generations; the user accepts this.
-- Keep the `mplab-x-unwrapped` roots in `.tmp/gcroots/` (`nix build '.#mplab-x-unwrapped' '.#mplab-x-unwrapped.packs' --out-link .tmp/gcroots/mplab-x-unwrapped`). Without them, garbage collection deletes the IDE, and the next build runs the installer again.
+- Keep only the `mplab-x-unwrapped` root in `.tmp/gcroots/` (`nix build '.#mplab-x-unwrapped' --out-link .tmp/gcroots/mplab-x-unwrapped`). Build `.packs` with `--no-link` only when needed. Without the IDE root, garbage collection deletes the IDE, and the next build runs the installer again.
 - Delete large scratch files under `.tmp/` (e.g. extracted installers) when the task that made them is finished.
 - In a delegated build assignment, tell the worker to run `df` before each large build, to delete its out-links when it no longer needs them, and to stop with BLOCKED if less than 150 GB is free. The parent runs garbage collection.
 

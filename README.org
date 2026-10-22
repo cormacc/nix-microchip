@@ -321,7 +321,7 @@ A device family pack (DFP) gives the compilers the device headers, linker script
 
 The =mplab-x= environment has one packs folder, =/opt/microchip/mplabx/v<version>/packs=. The IDE and the MPLAB-X command-line scripts (e.g. =prjMakefilesGenerator.sh=) use it, and the makefiles that they generate set =DFP_DIR= to a pack in it, e.g. =/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258=. Packs that the IDE downloads go to =~/.mchp_packs=, as on other Linux installations.
 
-By default, the packs folder has no pack. The =mplab-x-unwrapped= package keeps the packs that its installer bundles in its =packs= output, so its main output does not include them. Use the =packs= argument of =xc-cli= to select device packs for compilers, and use the =packs= argument of =mplab-x= to add IDE-only packs. Use =fetchMplabPack= to pin a pack from Microchip's pack repository:
+By default, the packs folder has no pack. The =mplab-x-unwrapped= package makes the packs that its installer bundles available through its separate =packs= derivation, so its main output does not include them. Use the =packs= argument of =xc-cli= to select device packs for compilers, and use the =packs= argument of =mplab-x= to add IDE-only packs. Use =fetchMplabPack= to pin a pack from Microchip's pack repository:
 
 #+begin_src nix
   let
