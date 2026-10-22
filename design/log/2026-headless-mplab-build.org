@@ -2,7 +2,7 @@
 #+DATE: 2026-10-22 Thu
 #+PARENT: [[task:b0aa04ab-d641-4239-9d2a-dc12f0d930ba][Build MPLAB-generated projects without MPLAB-X]]
 #+SETUPFILE: ../../TASKS.setup.org
-#+STATUS: Accepted
+#+STATUS: Complete
 #+SPEC: [[proj:README.org]]
 #+SPEC: [[proj:AGENTS.md]]
 
@@ -59,6 +59,19 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
   - Whole directories of `mplab_platform`: not measured; larger.
 - The generator command passes `-compilers=/opt/microchip/<pname>/v<version>/bin` for each selected compiler :: without it, the generator found a compiler wrapper through the project's private settings and wrote its store path to `MP_CC` and related variables.
 
+** Shipped
+- `mplab-gen <project>@<conf>...` in `mplab-x`, and in `xc-cli` with `withMplabProjects = true`: runs `prjMakefilesGenerator.sh` with one IDE bind for each top-level IDE entry except `packs` and `sys`, then the root filesystem `packs` and `sys`, with `-compilers=` for each selected compiler and a temporary `-mplabx-userdir`. Generated `.mk` files name /opt paths only. Builds, compiler calls and the other runners have no bind.
+- `mplab-x-unwrapped.commandLineSubset`: 355 files (397,156,378 bytes) from the committed `pkgs/mplab-x-unwrapped/6.35-headless-files.txt`, with a build-time guard for the generator manifest `Class-Path`, and `regenerate-headless-files.clj` for a new IDE version.
+- `xc-cli` with `withMplabProjects = true` and xc16 1.61: 2.77 GiB closure, no `mplab-x-unwrapped` path. With `false`, its root filesystem store path is unchanged.
+- The java wrapper adds `-Djava.home`, so `MP_JAVA_PATH` names /opt.
+- MODIFIED README.org: `** Command-line use` (`mplab-gen`), `*** MPLAB projects` (devshell and Nix derivation examples, CI workflow, `nbproject/private`, GUI-written makefiles), the IDE subset subsection. MODIFIED AGENTS.md: the Git-flake evaluation rule and the disk-space guidance.
+
+** Gotchas
+- A bind of the IDE directory adds 72.6 ms to each compiler call, much more than the README.org figure for other mounts, so only generator runs have it.
+- The unwrapped IDE's `packs` entry is a symlink to /opt/.../packs: a bind of the whole IDE directory hides the assembled packs folder (packs bound first: `Too many levels of symbolic links`), and bwrap cannot mount onto that symlink (packs bound after). Hence one bind for each top-level entry.
+- `writeShellApplication` enables `nounset`: a runner must not read a variable before it is set on the nested-call path.
+- `builtins.getFlake (toString <dir>)` copies the repository with `.tmp/` (33 GB) into the store on each evaluation; use `git+file://` (AGENTS.md).
+
 ** Risks
 - The inventory covers the generator and the build of one xc16 project. Other project types, compilers and error paths can need other files.
 - `nbproject/private` changes the generated output (e.g. the dependency footer). A comparison needs the same private state.
@@ -66,6 +79,7 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 - The subset still needs the installer at build time: a cold build without a binary cache runs the 16 GB installer.
 
 ** Follow-ups
+- Share the java wrapper code of `mplab-x` and `xc-cli`: [[task:f9ea7bd0-5802-44c9-b684-9f34a396558e][task f9ea7bd0]].
 
 * Context
 Measured 2026-10-22 on a downstream xc16 project (two configurations, XC16 1.61, dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401) with a prototype:
