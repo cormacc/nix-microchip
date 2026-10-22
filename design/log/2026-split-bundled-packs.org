@@ -1,6 +1,6 @@
 #+TITLE: Investigate avoiding the bundled packs in a local MPLAB-X build
 #+DATE: 2026-10-22 Thu
-#+PARENT: [[task:a03b91ed-076b-4b84-8272-b7e5b6aa7b38][Investigate avoiding the bundled packs in a local MPLAB-X build]]
+#+PARENT: [[archive:a03b91ed-076b-4b84-8272-b7e5b6aa7b38][Investigate avoiding the bundled packs in a local MPLAB-X build]]
 #+SETUPFILE: ../../TASKS.setup.org
 #+STATUS: Complete
 #+SPEC: [[proj:README.org]]
@@ -52,6 +52,7 @@ A local build of `mplab-x`, `xc-cli` or `mplab-x-unwrapped` does not build or st
 - `Uninstall_MPLAB_X_IDE_v6.dat` differs between installer runs; the rest of `out` is identical.
 
 ** Risks
+- The IDE start from the split build is not checked in the GUI: the user closed the task without a reported GUI check (2026-10-22). CLI checks passed.
 - A build that selects both derivations runs the installer twice.
 - The installer flags can change in a new MPLAB-X version; recheck them on upgrade.
 - `Uninstall_MPLAB_X_IDE_v6.dat` differs between installer runs, so the `mplab-x-unwrapped` store path changes once.
