@@ -47,16 +47,6 @@ nix flake check --no-build fails with "overlay does not take an argument named '
 #+IMPORT: [[plan:2026-split-bundled-packs.org]]
 A local build of mplab-x-unwrapped writes both outputs, out (1.97 GB) and packs (14.04 GB), because Nix builds every output of a derivation; the installer tarball (1.16 GB) also stays in the store (measured 2026-10-21, 6.35). A closure that selects its packs with fetchMplabPack does not refer to the packs output, so the garbage collector can remove it, but each local build needs the space again; a binary cache avoids it on clients only. Options to investigate (none verified): (1) an installer option that skips the bundled packs, e.g. a component selection in unattended mode (check the installer --help output); (2) extract the installer payload without running the installer and omit packs; (3) delete packs in installPhase and drop the packs output, so the store gets only out (the build directory still needs the space during the build), with the default pack set then from fetchMplabPack pins generated from the bundled versions (pin hashes are the nix hash path of the installed copies, see README.org ** Device packs) or a changed default, which needs a decision because the default pack set must not change without a request. Compare store size, peak build-directory size and build time with the current build, and check that the IDE still starts and that prjMakefilesGenerator.sh still finds the selected packs.
 
-** TODO Provide per-compiler pack sets
-:PROPERTIES:
-:CUSTOM_ID: aebb7421-fa4a-4b4b-b536-97dbdf8ef1b4
-:CREATED: [2026-10-21 Wed 20:38]
-:END:
-:LOGBOOK:
-- Created [2026-10-21 Wed 20:38]
-:END:
-Convenience selections of the bundled packs for each compiler (e.g. all xc16 device packs), deferred from task bf4262f4 (design/log/2026-compiler-only-env.org), which provides only all packs (mplab-x-unwrapped.packs) and fetchMplabPack. A rule from the compiler subdirectory of each pack is not sufficient: of the 147 packs bundled with 6.35, 24 have xc8/, 21 have xc16/ and 45 have xc32/, and 57 have none, including about 40 device packs (PIC32C*, SAM*, MEC*) and arm/CMSIS (measured 2026-10-21). Investigate a rule from the .pdsc files. A set taken from mplab-x-unwrapped.packs needs a local IDE build; a set of fetchMplabPack pins does not.
-
 ** TODO Share the java wrapper code of mplab-x and xc-cli
 :PROPERTIES:
 :CUSTOM_ID: f9ea7bd0-5802-44c9-b684-9f34a396558e
@@ -66,3 +56,13 @@ Convenience selections of the bundled packs for each compiler (e.g. all xc16 dev
 - Created [2026-10-22 Thu 15:02]
 :END:
 pkgs/mplab-x/default.nix and pkgs/xc-cli/default.nix (withMplabProjects) each replace sys/java/*/bin/java with the same wrapper script (-Djava.home, -Dpackslib.packsfolder). Move it to one function, e.g. in pkgs/mplab-x/rootfs.nix, so that a change reaches both. Found at closure of task b0aa04ab (design/log/2026-headless-mplab-build.org).
+
+** TODO Pass installer options and pack names through for bundled and tool packs
+:PROPERTIES:
+:CUSTOM_ID: d69d03e5-6247-4fe6-8410-a1fdcf680717
+:CREATED: [2026-10-22 Thu 20:06]
+:END:
+:LOGBOOK:
+- Created [2026-10-22 Thu 20:06]
+:END:
+Goal: a thin layer with no per-release lists. Users write Microchip installer options and pack names; the flake passes them through. Proposed: (1) an installerArgs argument of mplab-x-unwrapped (default: the four MCU exclusion flags) and of its packs derivation (default: none), passed verbatim to the installer (options from `--help`: --ide, --ipe, --8bitmcu, --16bitmcu, --32bitmcu, --othermcu, and others); e.g. 16-bit device packs only with --8bitmcu 0 --32bitmcu 0 --othermcu 0. (2) The tool packs that the MCU-excluded installer run leaves (measured 2026-10-22, 6.35: 15 *_TP packs, 2.91 GB with arm/CMSIS; ICD3, PICkit 3, REAL ICE and PM3 have no tool pack, their support is in IDE jars) available without the full 14 GB installer run, e.g. a passthru derivation from the same installer flags. (3) A generic selection helper by <vendor>/<name> over any pack collection, so a user selects e.g. "Microchip/PICkit5_TP" without a list in this repository. (4) README.org: fetchMplabPack for tool packs from the repository (latest PICkit5_TP 3.0.1208 is served; the bundled 3.0.1195 and ICD5_TP 3.0.1102 return 403 and are absent from the current .pdsc release lists, so pinned old tool-pack versions can disappear upstream). Check: the installer group packs per option, store sizes, build-input graphs, and that the IDE lists a selected tool pack (GUI, user check). Includes the per-compiler pack sets of task aebb7421 (merged 2026-10-22): convenience selections of the bundled packs for each compiler (e.g. all xc16 device packs), preferably through the installer MCU groups (Microchip per-architecture groups) rather than rules of our own. A rule from the compiler subdirectory of each pack is not sufficient: of the 147 packs bundled with 6.35, 24 have xc8/, 21 have xc16/ and 45 have xc32/, and 57 have none, including about 40 device packs (PIC32C*, SAM*, MEC*) and arm/CMSIS (measured 2026-10-21). Measure which packs each installer MCU group installs. A set from the installer needs a local installer run; a set of fetchMplabPack pins does not.

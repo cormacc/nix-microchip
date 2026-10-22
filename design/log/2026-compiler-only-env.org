@@ -22,7 +22,7 @@ A project runs the XC compilers that it selects, with the device packs that it s
 - README.org: `xc-cli` usage, the changed `mplab-x` defaults, migration from `mplab-xc*`, and the udev/licence sections that name `mplab-x-run`. AGENTS.md: the layout section.
 *** Out of scope
 - MPLAB-generated makefiles without the IDE: `prjMakefilesGenerator.sh`, `hexmate`, `fixDeps` and `mplab_platform` paths ([[task:b0aa04ab-d641-4239-9d2a-dc12f0d930ba][task b0aa04ab]]).
-- Per-compiler pack sets ([[task:aebb7421-fa4a-4b4b-b536-97dbdf8ef1b4][task aebb7421]]).
+- Per-compiler pack sets ([[task:d69d03e5-6247-4fe6-8410-a1fdcf680717][task d69d03e5]], merged from task aebb7421).
 - Pack dependency resolution.
 - Changes to compiler payloads or to `xclm.conf` beyond the existing licence path patch.
 - A compiler call from one environment into an unrelated environment (see `** Decisions`).
@@ -99,7 +99,7 @@ A project runs the XC compilers that it selects, with the device packs that it s
 
 ** Follow-ups
 - IDE-free MPLAB makefile builds: [[task:b0aa04ab-d641-4239-9d2a-dc12f0d930ba][task b0aa04ab]].
-- Per-compiler pack sets: [[task:aebb7421-fa4a-4b4b-b536-97dbdf8ef1b4][task aebb7421]].
+- Per-compiler pack sets: [[task:d69d03e5-6247-4fe6-8410-a1fdcf680717][task d69d03e5]] (merged from task aebb7421).
 
 * Plan
 ** DONE Extract a shared root filesystem builder from mplab-x

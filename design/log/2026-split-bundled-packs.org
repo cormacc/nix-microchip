@@ -19,7 +19,7 @@ A local build of `mplab-x`, `xc-cli` or `mplab-x-unwrapped` does not build or st
 - README.org `** Device packs` and AGENTS.md `## Disk space` (sizes, GC roots).
 *** Out of scope
 - Extraction of the installer payload without the installer (no working extractor found).
-- Convenience pack sets (task aebb7421).
+- Convenience pack sets and tool packs ([[task:d69d03e5-6247-4fe6-8410-a1fdcf680717][task d69d03e5]], merged from task aebb7421).
 - A newer MPLAB-X version.
 
 ** Acceptance
