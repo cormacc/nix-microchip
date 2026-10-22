@@ -154,7 +154,7 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 ** da0ba85a
 - The user accepted the measurement and chose an IDE bind for generator runs only.
 ** 17c81b55
-- `mplab-gen` uses the rootfs builder's bound generator runner; normal runners keep the unbound root filesystem.
+- `mplab-gen` passes its IDE, packs and Java binds to the rootfs builder's bound generator runner; normal runners keep the unbound root filesystem.
 
 * Validation
 ** da0ba85a
@@ -162,4 +162,4 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 - The median increase was 72.572 ms per compiler call; the user chose the generator-only bind in `mplab-gen`.
 ** 17c81b55
 - `mplab-gen` generated six makefiles with 30 `/opt/microchip` lines and no `/nix/store` line. Both configurations built with `mplab-make`; their hex SHA-256 values match the recorded values.
-- The unbound `mplab-x-run` mount list has no rootfs bind. Two 35-compile medians were 114.419/146.976 ms and 161.576/174.223 ms for `mplab-x-run`/`mplab-make`, respectively.
+- The unbound `mplab-x-run` mount list has no rootfs bind. Five alternating 15-compile round medians (master/branch, ms) were 114.825/111.537, 119.595/114.078, 118.682/187.145, 195.462/189.830 and 116.380/115.337. The overall medians of these round medians were 118.682/115.337 ms.

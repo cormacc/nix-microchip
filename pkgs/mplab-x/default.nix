@@ -93,6 +93,11 @@ let
     runName = "mplab-x-run";
     makeName = "mplab-make";
     generatorRunName = "mplab-gen-run";
+    generatorBinds = [
+      { source = "$root${ideDir}/packs"; target = "${ideDir}/packs"; }
+      { source = "$root${ideDir}/sys"; target = "${ideDir}/sys"; }
+      { source = "${mplab-x-unwrapped}${ideDir}"; target = ideDir; }
+    ];
     extraRootfsCommands = ''
       rsync -rlp --chmod=Du+w ${mplab-x-unwrapped}/etc/ $out/etc/
       # FIXME: This line has started causing issues, but is likely required for programmer support
@@ -105,11 +110,7 @@ let
       # installation's packs symlink resolves to this packs folder.
       mkdir -p $out${ideDir}
       for f in ${mplab-x-unwrapped}${ideDir}/*; do
-        case ''${f##*/} in
-          packs|sys) ;;
-          mplab_platform) cp -r "$f" $out${ideDir}/ ;;
-          *) ln -s "$f" $out${ideDir}/ ;;
-        esac
+        case ''${f##*/} in packs|sys) ;; *) ln -s "$f" $out${ideDir}/ ;; esac
       done
       # The IDE and the CLI scripts (e.g. prjMakefilesGenerator.sh) run ${ideDir}/sys/java. The
       # pack library derives its packs folder from its jar's real path, which is in the store,

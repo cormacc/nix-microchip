@@ -20,6 +20,7 @@
 , runName
 , makeName
 , generatorRunName ? null
+, generatorBinds ? [ ]
 }:
 
 let
@@ -78,23 +79,23 @@ let
 
   environmentIds = [ rootfs ] ++ extraEnvironmentIdentities;
 
-  mkRun = { name, bindMplabx }: writeShellApplication {
+  mkRun = { name, binds }: writeShellApplication {
     inherit name;
     text = ''
       root=${rootfs}
       environmentId=${rootfs}
       environmentIdentityList=${lib.concatStringsSep ":" environmentIds}
-      bindMplabx=${if bindMplabx then "1" else "0"}
+      generatorBinds=(${lib.concatMapStringsSep " " (bind: ''"${bind.source}" "${bind.target}"'') binds})
       mplabxDir=${ideDir}
       bwrap=${lib.getExe bubblewrap}
     '' + builtins.readFile ./run.sh;
   };
 
-  run = mkRun { name = runName; bindMplabx = false; };
+  run = mkRun { name = runName; binds = [ ]; };
 
   generatorRun = if generatorRunName == null then null else mkRun {
     name = generatorRunName;
-    bindMplabx = true;
+    binds = generatorBinds;
   };
 
   make = writeShellApplication {
