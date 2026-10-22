@@ -300,3 +300,38 @@ CLOSED: [2026-10-21 Wed 16:55]
 :END:
 #+IMPORT: [[plan:2026-device-packs.org]]
 mplab-x-unwrapped ships 146 packs in opt/microchip/mplabx/v<version>/packs: 14 GB of its 16.0 GB (measured 2026-10-21, 6.35). The IDE version also fixes the DFP version that a build uses: a makefile that the 6.20 IDE generated names dsPIC33E-GM-GP-MC-GU-MU_DFP 1.5.258, and 6.35 ships 1.7.401, so an IDE upgrade changes firmware builds without notice. Approach: package each DFP and tool pack as its own pinned derivation from its .atpack (a zip) at https://packs.download.microchip.com/Microchip.<pack>.<version>.atpack, e.g. dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 is a 24 MB download (HTTP 200; a non-existent version gave 403) and 292 MB installed. Remove packs/ from mplab-x-unwrapped and let the mplab-x rootfs assemble packs/ from a packs argument, with the same selection pattern as the compilers argument. The compiler-only environment uses the same pack derivations. Not verified: whether the IDE accepts a partial packs/ and needs a regenerated packs/index.idx; which tool packs (*_TP) programmer support needs; whether the IDE pack manager falls back to ~/.mchp_packs. Related footprint data (2026-10-21): jdupes finds 2.47 GB of duplicate files in mplab-x-unwrapped, 2.09 GB of it in the six debugger tool packs (Snap_TP, PKOB4_TP, ICD5_TP, PICkit4_TP, PICkit5_TP, ICE4_TP, ~342 MB each); nix store optimise (auto-optimise-store) recovers this on disk but not in NAR transfers. xc32 6.00 is 9.3 GB, 6.9 GB of it pic32c, with 746 MB of duplicates. GUI libraries add ~1.7 GB to the mplab-x closure (mesa 1.1 GB). Store compression is not available natively, and squashfs would need FUSE, which mplab-x-run avoids. Document the de-duplication option in README.org as part of this task.
+
+** DONE Provide a compiler-only environment without MPLAB-X
+CLOSED: [2026-10-22 Thu 16:33]
+:PROPERTIES:
+:CUSTOM_ID: bf4262f4-b2fd-4680-a20e-8d823f6178eb
+:CREATED: [2026-10-21 Wed 13:35]
+:STARTED: [2026-10-21 Wed 21:15]
+:ARCHIVED: [2026-10-22 Thu 16:33]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 13:35]
+- State "STARTED" from "TODO" [2026-10-21 Wed 21:15]
+- State "DONE" from "STARTED" [2026-10-22 Thu 16:33]
+:END:
+#+IMPORT: [[plan:2026-compiler-only-env.org]]
+The XC compiler packages cannot run directly on NixOS: they are unpatched to keep PRO mode, and xc16-gcc 1.61 run from its store path fails with "Could not start dynamically linked executable" (measured 2026-10-21). Their only runtime environment is mplab-x-run, whose root filesystem includes mplab-x-unwrapped (16.0 GB of a 19.6 GB closure; the xc16 1.61 closure is 1.9 GB). mplab-xc8, mplab-xc16, mplab-xc32 and mplab-xc-dsc in pkgs/default.nix are all mplab-x with a different default compiler. Possible approach: reuse pkgs/mplab-x/run.sh (it needs only root and bwrap) with a small root filesystem: 64-bit and 32-bit glibc, 32-bit libstdc++ for sim30, and the compilers at /opt/microchip/<pname>/v<version>, plus the same CLI wrappers. Not verified: the libraries that xc8, xc32 and xc-dsc need beyond glibc, and whether xclm or the compilers read anything from the IDE installation (e.g. /opt/microchip/mplabcomm). Verify PRO mode for each licensed compiler with the README.org licence probes, including an empty-licence control. Targets: user Makefiles, CMake and Nix derivations, and an xc-make equivalent of mplab-make. Support for MPLAB-generated makefiles is the follow-on task "Build MPLAB-generated projects without MPLAB-X". Select device packs with fetchMplabPack and assemble them at /opt/microchip/mplabx/v<version>/packs as the mplab-x rootfs does (pkgs/mplab-x/default.nix, linkPack), which is the DFP_DIR path in generated makefiles, from "Package device and tool packs separately from MPLAB-X": XC8 3.10 and later, XC32 and XC-DSC 4.00 need -mdfp (README.org * Usage ** Command-line use), and MPLAB-generated makefiles pass -mdfp for xc16 too: in a typical downstream xc16 project, all 516 compile recipes and the link and xc16-bin2hex steps pass -mdfp="${DFP_DIR}/xc16" (measured 2026-10-21). A build of that kind cannot start without a packaged DFP, so this task depended on the packs task (DONE 2026-10-21, archived). Expected closure: the selected compilers plus glibc and libstdc++, without the ~1.7 GB of GUI libraries in the mplab-x rootfs (measured 2026-10-21).
+
+** DONE Build MPLAB-generated projects without MPLAB-X
+CLOSED: [2026-10-22 Thu 16:33]
+:PROPERTIES:
+:CUSTOM_ID: b0aa04ab-d641-4239-9d2a-dc12f0d930ba
+:CREATED: [2026-10-21 Wed 15:02]
+:BLOCKED-BY: task:bf4262f4-b2fd-4680-a20e-8d823f6178eb
+:STARTED: [2026-10-22 Thu 09:14]
+:ARCHIVED: [2026-10-22 Thu 16:33]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-21 Wed 15:02]
+- State "STARTED" from "TODO" [2026-10-22 Thu 09:14]
+- State "DONE" from "STARTED" [2026-10-22 Thu 16:33]
+:END:
+#+IMPORT: [[plan:2026-headless-mplab-build.org]]
+Goal: CI builds a firmware image from an MPLAB project, the equivalent of mplab-make, in the compiler-only environment without mplab-x-unwrapped. Findings from one downstream xc16 project (2026-10-21): (1) its .gitignore excludes nbproject/Makefile-*.mk, so a clean checkout has only configurations.xml and project.xml, and CI must generate the makefiles with mplab_platform/bin/prjMakefilesGenerator.sh (Java from sys/java, 254 MB, plus lib/PrjMakefilesGenerator.jar and the module classpath that common-vars.sh sets) or the project must commit them; (2) Makefile-local-<conf>.mk contains absolute /nix/store/...-mplab-x-unwrapped-<version> paths in PATH_TO_IDE_BIN, PATH, MP_JAVA_PATH and DEP_GEN, so each IDE build invalidates the generated files (DFP_DIR is /opt/microchip/mplabx/v<version>/packs/... since task 77c12e60); (3) the post-build recipe in Makefile-<conf>.mk calls hexmate with a literal IDE path and --edf=<IDE>/mplab_platform/dat/en_msgs.txt, which a make variable override cannot replace; (4) each compile passes -mdfp="${DFP_DIR}/xc16"; (5) mplab_platform/bin supplies make, fixDeps and hexmate (43 MB directory), and make and fixDeps need only glibc; xc16 1.61 ships no hexmate or fixDeps. Measured 2026-10-21 (task 77c12e60): in mplab-x-run, prjMakefilesGenerator.sh generates the makefiles of that project with no GUI, and mplab-make then builds the hex file. Possible approach: make the IDE write stable /opt/microchip/mplabx/v<version>/... paths instead of store paths (prjMakefilesGenerator.sh started from the /opt path still wrote store paths for PATH_TO_IDE_BIN and MP_JAVA_PATH, measured 2026-10-21; the cause is not known), then give the compiler-only rootfs a small stub at that path with the needed bin/ tools, dat/en_msgs.txt and the selected packs. Choose how CI gets the makefiles: commit them, run a headless generator subset (the modules that it needs are not identified), or replace them (CMake, or a Makefile that reads configurations.xml). CI risks: mplab-x-run needs unprivileged user namespaces, which container runners can block (not verified for the target runner; a firmware build as a Nix derivation is an alternative), and the unfree installers need a private binary cache or a download on each cold build.

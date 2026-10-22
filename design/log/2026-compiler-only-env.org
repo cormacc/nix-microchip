@@ -1,6 +1,6 @@
 #+TITLE: Provide a compiler-only environment without MPLAB-X
 #+DATE: 2026-10-21 Wed
-#+PARENT: [[task:bf4262f4-b2fd-4680-a20e-8d823f6178eb][Provide a compiler-only environment without MPLAB-X]]
+#+PARENT: [[archive:bf4262f4-b2fd-4680-a20e-8d823f6178eb][Provide a compiler-only environment without MPLAB-X]]
 #+SETUPFILE: ../../TASKS.setup.org
 #+STATUS: Complete
 #+SPEC: [[proj:README.org]]
@@ -93,7 +93,7 @@ A project runs the XC compilers that it selects, with the device packs that it s
 - The xc16 2.10 installer URL at the base revision of the licence patch returns 403, and xc32 5.10 and xc-dsc 3.31 arrived with that patch, so their unpatched controls copy the compiler and restore `/opt/microchip/xclm/license` in `etc/xclm.conf`.
 
 ** Risks
-- The IDE is not checked in the GUI with no packs or with an `xc-cli` override (the toolchain list was not observed).
+- GUI check: the user ran it in a downstream dev shell (`mplab-x` built from an `xc-cli` with xc16 1.61 and 1.21) and then confirmed closeout (user report, 2026-10-22). The agents did not observe the toolchain list.
 - Downstream projects that use `mplab-xc16`, the `mplab-x` `compilers` argument or the `mplab-x` default compiler fail to evaluate or lose their compiler after the update. README.org gives the migration.
 - A devshell with `mplab-x` and no `xc-cli` has no command-line compilers; README.org examples list both.
 

@@ -1,6 +1,6 @@
 #+TITLE: Build MPLAB-generated projects without MPLAB-X
 #+DATE: 2026-10-22 Thu
-#+PARENT: [[task:b0aa04ab-d641-4239-9d2a-dc12f0d930ba][Build MPLAB-generated projects without MPLAB-X]]
+#+PARENT: [[archive:b0aa04ab-d641-4239-9d2a-dc12f0d930ba][Build MPLAB-generated projects without MPLAB-X]]
 #+SETUPFILE: ../../TASKS.setup.org
 #+STATUS: Complete
 #+SPEC: [[proj:README.org]]
