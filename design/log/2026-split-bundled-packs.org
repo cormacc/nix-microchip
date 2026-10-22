@@ -2,7 +2,7 @@
 #+DATE: 2026-10-22 Thu
 #+PARENT: [[task:a03b91ed-076b-4b84-8272-b7e5b6aa7b38][Investigate avoiding the bundled packs in a local MPLAB-X build]]
 #+SETUPFILE: ../../TASKS.setup.org
-#+STATUS: Accepted
+#+STATUS: Complete
 #+SPEC: [[proj:README.org]]
 #+SPEC: [[proj:AGENTS.md]]
 
@@ -42,6 +42,15 @@ A local build of `mplab-x`, `xc-cli` or `mplab-x-unwrapped` does not build or st
   - Extract the payload: the BitRock `.run` has no known extractor (`7z l` cannot open it).
   - One full installation shared by both derivations: it would store the 14 GB again.
 
+** Shipped
+- `mplab-x-unwrapped` has one output (1.97 GB), built with `--8bitmcu 0 --16bitmcu 0 --32bitmcu 0 --othermcu 0`; the leftover tool packs are removed before the copy. `mplab-x`, `xc-cli` (also with `withMplabProjects`) and `mplab-x-unwrapped` no longer build the bundled packs.
+- `mplab-x-unwrapped.packs` is the separate `mplab-x-bundled-packs` derivation (full installer, 14.04 GB), with the same content (NAR hash) as the previous `packs` output.
+- MODIFIED README.org `** Device packs`; MODIFIED AGENTS.md `## Disk space` (sizes, GC root).
+
+** Gotchas
+- The installer has no switch for all packs: the MCU flags leave 16 pack directories (e.g. tool packs, CMSIS).
+- `Uninstall_MPLAB_X_IDE_v6.dat` differs between installer runs; the rest of `out` is identical.
+
 ** Risks
 - A build that selects both derivations runs the installer twice.
 - The installer flags can change in a new MPLAB-X version; recheck them on upgrade.
@@ -80,3 +89,6 @@ Acceptance criteria: all of `** Acceptance`.
 - `mplab-gen firmware@standalone` exited 0 in `mplab-x`, created four `.mk` files, contained no `/nix/store` lines, and set the selected DFP in `DFP_DIR`; a synthetic store-path line made the guard fail before removal.
 - `nix build --impure --file .tmp/b10c6c41/regression.nix xc16Cli dscCli xc16Ide dscIde --no-link --print-out-paths` exited 0; XC16 reported `Mode: PRO` in both environments.
 - `nix flake check --no-build` exited 1 only at the known `d1547c9b` overlay failure, `overlay does not take an argument named 'final'`.
+- Docs: README.org `** Device packs` describes the separate `packs` derivation and keeps the `nix build '.#mplab-x-unwrapped.packs' --print-out-paths` hash instruction; AGENTS.md `## Disk space` gives 1.97 GB for `mplab-x-unwrapped` and 14.04 GB for the optional `.packs`, and roots only `mplab-x-unwrapped`.
+- Anti-criteria (parent, after the merge): `git diff 86e1c07 HEAD -- flake.lock pkgs/default.nix flake.nix` is empty (control: 201 diff lines for `common.nix`); `nix eval --raw '.#<attr>.name'` gives `mplab-x-unwrapped-6.35`, `mplab-x-bundled-packs-6.35` (`.packs`), `mplab-x-command-line-subset-6.35`, `mplab-x-build-fhs-env` (`.fhsEnv`), `mplab-x` and `xc-cli`; the `pkgs/` diff has no `patchelf`, `autoPatchelf`, `substituteInPlace` or `sed -i` (control: 3 `installerFlags` lines), and `dontFixup = true` stays.
+- Two independent reviews of `ac29d9f` (OpenAI sol and terra) approved, with no P0-P2 finding; the P3 evidence gap that both reported is closed by the two items above.
