@@ -2,7 +2,7 @@
 #+DATE: 2026-10-21 Wed
 #+PARENT: [[task:bf4262f4-b2fd-4680-a20e-8d823f6178eb][Provide a compiler-only environment without MPLAB-X]]
 #+SETUPFILE: ../../TASKS.setup.org
-#+STATUS: Accepted
+#+STATUS: Complete
 #+SPEC: [[proj:README.org]]
 #+SPEC: [[proj:AGENTS.md]]
 
@@ -78,9 +78,22 @@ A project runs the XC compilers that it selects, with the device packs that it s
   Rejected:
   - Run the compiler from its store path when nested: the compiler then depends on the other root filesystem's libraries, without a test.
 
+** Shipped
+- `xc-cli` (`pkgs/xc-cli/default.nix`): `xc-run`, `xc-make` and a wrapper for each executable of the first compiler of each pname; no default compiler or pack. With xc16 1.61 the closure is 2.1 GiB and has no `mplab-x-unwrapped` path.
+- `pkgs/mplab-x/rootfs.nix`: the root filesystem builder that `xc-cli` and `mplab-x` share. It de-duplicates the compiler list.
+- BREAKING: `mplab-x` takes an `xc-cli`, has no `compilers` argument and no compiler wrappers, and its `packs` argument adds IDE-only packs. Evaluation fails when the IDE versions differ. `mplab-xc8`, `mplab-xc16`, `mplab-xc32` and `mplab-xc-dsc` are removed.
+- `MPLAB_X_ENV` lists the root filesystem identities of the environment. A nested call runs directly only when its own identity is in the list; otherwise it exits 1 with both identities.
+- No library beyond glibc and `gcc.cc.lib` was necessary for the 11 packaged compilers.
+- MODIFIED README.org: `** Command-line use` (`xc-cli`, nested calls, `PATH` filter), `*** Nix derivations and CMake`, the `mplab-x` migration, the licence probes and the device pack limits. MODIFIED AGENTS.md: layout.
+
+** Gotchas
+- A second bwrap call inside the environment fails with `bwrap: setting up uid map: Operation not permitted`, so a wrapper cannot start its own environment from inside another one.
+- xc-dsc 3.31 rejects dsPIC33CK64MP105 without a DFP (`c30_device.info` not found).
+- In the Nix build sandbox the licence manager prints `sh: line 1: mount: command not found` and no USB messages; the exit status and PRO mode are not affected.
+- The xc16 2.10 installer URL at the base revision of the licence patch returns 403, and xc32 5.10 and xc-dsc 3.31 arrived with that patch, so their unpatched controls copy the compiler and restore `/opt/microchip/xclm/license` in `etc/xclm.conf`.
+
 ** Risks
-- xc8, xc32 and xc-dsc can need libraries beyond glibc, libstdc++ and libgcc. Only xc16 1.61 and 1.21 were measured (`DT_NEEDED`: glibc, 32-bit libstdc++ and libgcc_s), and neither names /opt/microchip.
-- The IDE with an empty packs folder is not tested; a GUI check is in the removal task.
+- The IDE is not checked in the GUI with no packs or with an `xc-cli` override (the toolchain list was not observed).
 - Downstream projects that use `mplab-xc16`, the `mplab-x` `compilers` argument or the `mplab-x` default compiler fail to evaluate or lose their compiler after the update. README.org gives the migration.
 - A devshell with `mplab-x` and no `xc-cli` has no command-line compilers; README.org examples list both.
 
