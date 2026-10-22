@@ -97,13 +97,15 @@ Acceptance criteria: the `mplab-x` generator criterion and the anti-criteria in 
 - In `mplab-x`, xc16 1.61 compiles and links, and `xclm -status` shows `Mode: PRO`.
 - README.org states that the generated makefiles name /opt paths.
 
-** TODO Package the IDE command-line subset
+** STARTED Package the IDE command-line subset
 :PROPERTIES:
 :CUSTOM_ID: 43d8ee2c-5cb5-4e22-9a6d-62b3d965b0bd
 :CREATED: [2026-10-22 Thu 11:40]
+:STARTED: [2026-10-22 Thu 11:46]
 :END:
 :LOGBOOK:
 - Created [2026-10-22 Thu 11:40]
+- State "STARTED" from "TODO" [2026-10-22 Thu 11:46]
 :END:
 Acceptance criteria: the subset manifest criterion in `** Acceptance`.
 - The inventory for 6.35 is a committed text file next to the `mplab-x-unwrapped` version file; the subset derivation copies the listed files (real files, not store symlinks) and keeps the empty directories that generated paths traverse with `..`.
