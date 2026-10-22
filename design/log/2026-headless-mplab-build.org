@@ -29,18 +29,18 @@ CI and developers generate and build an MPLAB-X project (`nbproject/configuratio
 *** Core functionality
 - [X] With the IDE bind, the compile cost of the extra mount is measured and recorded (time per compiler call, with and without the bind).
 - [X] In `mplab-x`, `mplab-gen` writes `.mk` files that contain no `/nix/store` string for the downstream xc16 project (both configurations).
-- [ ] `mplab-make`, `mplab-x-run` and the compiler wrappers run without the bind: their root filesystem and mounts are unchanged.
+- [X] `mplab-make`, `mplab-x-run` and the compiler wrappers run without the bind: their root filesystem and mounts are unchanged.
 - [X] The subset package contains every jar that the generator manifest's `Class-Path` names; its build fails when one is missing.
-- [ ] `xc-cli` with the subset and xc16 1.61 has no `mplab-x-unwrapped` path in its runtime closure.
-- [ ] In that `xc-cli`, the generator command writes `.mk` files that are byte-identical to those that `mplab-x` writes for the same project and private state.
-- [ ] In that `xc-cli`, `xc-make` builds both configurations of the downstream xc16 project, and each hex file is byte-identical to the `mplab-x` build.
-- [ ] The `-O3` compiles of that build print no Free-mode diagnostic, and `xclm -status` shows `Mode: PRO`.
+- [X] `xc-cli` with the subset and xc16 1.61 has no `mplab-x-unwrapped` path in its runtime closure.
+- [X] In that `xc-cli`, the generator command writes `.mk` files that are byte-identical to those that `mplab-x` writes for the same project and private state.
+- [X] In that `xc-cli`, `xc-make` builds both configurations of the downstream xc16 project, and each hex file is byte-identical to the `mplab-x` build.
+- [X] The `-O3` compiles of that build print no Free-mode diagnostic, and `xclm -status` shows `Mode: PRO`.
 - [ ] A Nix derivation generates and builds one configuration in the Nix build sandbox.
 - [ ] README.org documents the generator command, the CI workflow and the `xc-cli` argument.
 *** Edge cases
-- [ ] `xc-cli` without the argument is unchanged: same root filesystem file list, no bind.
-- [ ] The generator command with no selected compiler fails with a message.
-- [ ] Generation does not read toolchains from `nbproject/private` or `PATH` when the command passes `-compilers=`.
+- [X] `xc-cli` without the argument is unchanged: same root filesystem file list, no bind.
+- [X] The generator command with no selected compiler fails with a message.
+- [X] Generation does not read toolchains from `nbproject/private` or `PATH` when the command passes `-compilers=`.
 *** Anti-criteria
 - [X] Must not: modify payload executables or jars.
 - [X] Must not: add a mount to builds or compiler calls. Only `mplab-gen` runs have the IDE bind.
@@ -129,13 +129,17 @@ Acceptance criteria: the subset manifest criterion in `** Acceptance`.
 - A committed script regenerates the inventory from a traced generator run and build; its use is documented.
 - The subset size is recorded in `* Validation`.
 
-** TODO Add MPLAB project support to xc-cli
+** DONE Add MPLAB project support to xc-cli
+CLOSED: [2026-10-22 Thu 13:08]
 :PROPERTIES:
 :CUSTOM_ID: 42eb9cbb-88b6-45d6-9566-0288e64e9198
 :CREATED: [2026-10-22 Thu 11:40]
+:STARTED: [2026-10-22 Thu 12:33]
 :END:
 :LOGBOOK:
 - Created [2026-10-22 Thu 11:40]
+- State "STARTED" from "TODO" [2026-10-22 Thu 12:33]
+- State "DONE" from "STARTED" [2026-10-22 Thu 13:08]
 :END:
 Acceptance criteria: the `xc-cli` closure, generator, build, licence and edge-case criteria in `** Acceptance`.
 - The `xc-cli` argument adds the subset at /opt/microchip/mplabx/v<version> with the bind from task 17c81b55; `mplab-x` built from that `xc-cli` still uses its full IDE.
@@ -161,6 +165,14 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 - The derivation copies each inventory file with symlinks dereferenced, retains the two generator path directories, and checks every jar named by `PrjMakefilesGenerator.jar`'s manifest before copying.
 - Added `pkgs/mplab-x-unwrapped/regenerate-headless-files.clj`, which selects successful generator and build file accesses from traces and retains the three conservative build additions.
 
+** 17c81b55 Give generated makefiles stable IDE paths in mplab-x
+- The bound generator runner binds each top-level unwrapped IDE entry except `packs` and `sys`, then binds the root filesystem `packs` and wrapped `sys`; normal runners retain the unbound root filesystem.
+
+** 42eb9cbb Add MPLAB project support to xc-cli
+- `withMplabProjects` adds the command-line subset's top-level entries to the root filesystem and uses the existing bound generator-runner option; the root filesystem supplies the wrapped Java tree and packs.
+- `mplab-gen` is one shared wrapper for `xc-cli` and `mplab-x`, so each package supplies its own generator runner, IDE source and selected compiler paths.
+- README.org documents the `xc-cli` argument and generator without the CI examples deferred to c0578012.
+
 * Validation
 
 ** 43d8ee2c Package the IDE command-line subset
@@ -169,14 +181,17 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 - The regeneration script run with the downstream xc16 project generator trace and both build traces produced 355 lines byte-identical to `pkgs/mplab-x-unwrapped/6.35-headless-files.txt`.
 
 ** da0ba85a
-- The user accepted the measurement and chose an IDE bind for generator runs only.
-** 17c81b55
-- `mplab-gen` passes its IDE, packs and Java binds to the rootfs builder's bound generator runner; normal runners keep the unbound root filesystem.
-
-* Validation
-** da0ba85a
 - 2026-10-22: 35 XC16 1.61 =-O3= compiles of one file ran inside one MPLAB-X environment call for each condition. Without the IDE bind, the median was 114.559 ms. With the bind and the real /opt directory chain, the median was 187.131 ms.
 - The median increase was 72.572 ms per compiler call; the user chose the generator-only bind in `mplab-gen`.
+
 ** 17c81b55
-- `mplab-gen` generated six makefiles with 30 `/opt/microchip` lines and no `/nix/store` line. Both configurations built with `mplab-make`; their hex SHA-256 values match the recorded values.
-- The unbound `mplab-x-run` mount list has no rootfs bind. Five alternating 15-compile round medians (master/branch, ms) were 114.825/111.537, 119.595/114.078, 118.682/187.145, 195.462/189.830 and 116.380/115.337. The overall medians of these round medians were 118.682/115.337 ms.
+- At `d07186d` and `38eb4bc`, default and xc16 1.61 `mplab-x` root filesystem file lists were identical. The xc16 1.61 full closure sizes were 5,896,269,184 and 5,896,278,552 bytes respectively.
+- The `mplab-gen-run` closure contained the unwrapped IDE `out` path positive control and did not contain its `packs` output.
+- Five alternating 15-compile round medians (master/branch, ms) were 114.825/111.537, 119.595/114.078, 118.682/187.145, 195.462/189.830 and 116.380/115.337. The overall medians of these round medians were 118.682/115.337 ms.
+
+** 42eb9cbb
+- `xc-cli` with xc16 1.61, the DFP and the subset had a 2,969,020,904-byte closure. Its runtime closure contained the subset positive control and no `mplab-x-unwrapped` path. The false-option root filesystem file list and closure size matched `38eb4bc`.
+- After removing `nbproject/private` before each run, full-IDE and subset generation wrote six byte-identical makefiles with no `/nix/store` line. A devshell containing both packages resolved `mplab-gen` to `xc-cli`.
+- With the supplied private state, `xc-make` built both configurations with the expected SHA-256 values. An xc16 `-O3` compile printed no Free-mode diagnostic, and `xclm -status` reported `Mode: PRO`.
+- With decoy compiler paths in `PATH` and `nbproject/private`, generated `MP_CC` still named `/opt/microchip/xc16/v1.61/bin/xc16-gcc`. `mplab-gen` with no compiler exited non-zero with its no-compiler message.
+- XC-DSC 4.00 compiled and linked a dsPIC33CK64MP105 probe with dsPIC33CK-MP_DFP 1.16.521 in `xc-cli` with and without `withMplabProjects`.

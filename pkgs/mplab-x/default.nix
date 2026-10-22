@@ -44,8 +44,6 @@
 
 let
   allPacks = xc-cli.packs ++ packs;
-  compilerDir = c: "/opt/microchip/${c.pname}/v${c.version}";
-  compilerArgs = lib.concatMapStringsSep " " (c: "-compilers=${compilerDir c}/bin") xc-cli.compilers;
   ideDir = "/opt/microchip/mplabx/v${mplab-x-unwrapped.version}";
   rootfsBuilder = callPackage ./rootfs.nix { };
   fhsMultiPkgs = [ glibc ];
@@ -130,22 +128,9 @@ let
     '';
   };
 
-  generator = writeShellApplication {
-    name = "mplab-gen";
-    text = ''
-      if [ "$#" -eq 0 ]; then
-        echo "usage: mplab-gen <project>@<configuration>..." >&2
-        exit 2
-      fi
-      compilerCount=${toString (builtins.length xc-cli.compilers)}
-      if [ "$compilerCount" -eq 0 ]; then
-        echo "mplab-gen: no compiler is selected in xc-cli" >&2
-        exit 2
-      fi
-      userdir=$(${coreutils}/bin/mktemp -d /tmp/mplabx-userdir.XXXXXXXX)
-      trap '${coreutils}/bin/rm -rf "$userdir"' EXIT
-      ${lib.getExe environment.generatorRun} ${ideDir}/mplab_platform/bin/prjMakefilesGenerator.sh -f ${compilerArgs} -mplabx-userdir="$userdir" "$@"
-    '';
+  generator = (callPackage ./generator.nix { }) {
+    inherit environment ideDir;
+    compilers = xc-cli.compilers;
   };
 
   ide = writeShellApplication {

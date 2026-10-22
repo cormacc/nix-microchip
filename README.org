@@ -139,12 +139,14 @@ packages = [
 
 With this environment, =xc16-gcc= runs v1.61 and =xc-run /opt/microchip/xc16/v2.10/bin/xc16-gcc= runs v2.10. The selected DFP is at =/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258/xc16= for =-mdfp=.
 
+Set =withMplabProjects = true= on =xc-cli= to add the command-line MPLAB-X subset and =mplab-gen <project>@<configuration>...=. It generates MPLAB makefiles with each selected compiler and binds the subset only for generation. =xc-make= and compiler wrappers do not bind it.
+
 The =mplab-x= package also supplies these commands:
 - =mplab-x-run <command> [args...]= runs a command inside the MPLAB-X environment. In this environment, each compiler selected by =xc-cli= is at =/opt/microchip/<compiler>/v<version>=, where MPLAB-X expects it.
 - =mplab-make [args...]= runs the packaged GNU Make inside the MPLAB-X environment. It forwards arguments and preserves its exit status; ordinary =make= is unchanged.
-- =mplab-gen <project>@<configuration>...= generates MPLAB makefiles with each compiler selected by =xc-cli=.
+- =mplab-gen <project>@<configuration>...= generates MPLAB makefiles with each compiler selected by =xc-cli=. This generator uses the full IDE.
 
-=mplab-gen= alone binds the IDE at =/opt/microchip/mplabx/v<version>=. The generated makefiles name =/opt/microchip/...= paths, not Nix store paths. =mplab-make=, =mplab-x-run= and compiler wrappers run without this bind.
+Each =mplab-gen= alone binds its IDE or command-line subset at =/opt/microchip/mplabx/v<version>=. The generated makefiles name =/opt/microchip/...= paths, not Nix store paths. =mplab-make=, =mplab-x-run=, =xc-make= and compiler wrappers run without this bind.
 
 Before it starts, =mplab_ide= removes each =PATH= directory that contains =mplab-x-run= or =xc-run=. This prevents the IDE from registering wrapper directories as duplicate toolchains.
 
