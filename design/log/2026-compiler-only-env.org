@@ -48,10 +48,10 @@ A project runs the XC compilers that it selects, with the device packs that it s
 *** Edge cases
 - [X] `xc-cli` with no override builds, and `xc-run true` exits 0.
 - [X] Two versions of one compiler: the wrapper runs the first, and `xc-run /opt/microchip/<pname>/v<other>/bin/<exe>` runs the other.
-- [ ] An `xc-cli` wrapper called inside its own environment (e.g. from a Makefile under `xc-make`) runs the compiler without a new bwrap call.
-- [ ] An `xc-cli` wrapper called inside an `mplab-x` environment built from that `xc-cli` (e.g. from a Makefile under `mplab-make`) runs the compiler without a new bwrap call.
-- [ ] A wrapper called inside an unrelated environment exits non-zero with a message that names both environments.
-- [ ] `mplab_ide` removes `xc-cli` bin directories from `PATH` as it does for `mplab-x` bin directories.
+- [X] An `xc-cli` wrapper called inside its own environment (e.g. from a Makefile under `xc-make`) runs the compiler without a new bwrap call.
+- [X] An `xc-cli` wrapper called inside an `mplab-x` environment built from that `xc-cli` (e.g. from a Makefile under `mplab-make`) runs the compiler without a new bwrap call.
+- [X] A wrapper called inside an unrelated environment exits non-zero with a message that names both environments.
+- [X] `mplab_ide` removes `xc-cli` bin directories from `PATH` as it does for `mplab-x` bin directories.
 *** Anti-criteria
 - [X] Must not: modify compiler payloads.
 - [X] Must not: add a mount to the environment (README.org: each block-device mount costs each compile an `xclm` search).
@@ -162,13 +162,17 @@ Acceptance criteria: the `mplab-x` criteria (wrappers, default packs, override, 
 - GUI check, reported apart from the CLI checks: the IDE starts with no packs, and with an `xc-cli` override, lists the selected compiler.
 - The commit is marked BREAKING.
 
-** TODO Handle calls between environments
+** DONE Handle calls between environments
+CLOSED: [2026-10-22 Thu 00:45]
 :PROPERTIES:
 :CUSTOM_ID: 851cbd89-8c33-4c6d-aa10-b00b3f0a99a6
 :CREATED: [2026-10-21 Wed 20:38]
+:STARTED: [2026-10-22 Thu 00:38]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 20:38]
+- State "STARTED" from "TODO" [2026-10-22 Thu 00:38]
+- State "DONE" from "STARTED" [2026-10-22 Thu 00:45]
 :END:
 Acceptance criteria: the own-environment, `mplab-x`-environment, unrelated-environment and `mplab_ide` `PATH` edge cases in `** Acceptance`.
 Constraint: the environment marker (`MPLAB_X_ENV` in `run.sh`) names the `xc-cli` that the root filesystem contains, so that a wrapper can tell a compatible environment from an unrelated one.
@@ -207,6 +211,11 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - The Nix derivation selects xc16 1.61 with `xc-cli`, builds a hex file and fails if `xclm -status` does not report PRO mode.
 - The CMake 4.4.4 project uses `CMAKE_SYSTEM_NAME=Generic`, `CMAKE_SYSTEM_PROCESSOR=dspic` and `CMAKE_C_COMPILER=xc16-gcc`; no compiler-detection workaround was necessary.
 
+** 851cbd89
+- The marker lists root filesystem identities. `xc-cli` sets its own root filesystem identity; `mplab-x` sets its own root filesystem identity and the selected `xc-cli` root filesystem identity.
+- A nested runner executes directly only when the active marker lists that runner's own root filesystem identity. An `xc-cli` wrapper can therefore run in either root, but an MPLAB-X runner cannot run in a compiler-only root. A mismatch exits 1 and reports the active and required root filesystem identities.
+- `mplab_ide` filters `PATH` directories that contain either runner command before it starts the IDE.
+
 * Validation
 - 2026-10-21: `nix build '.#mplab-x' --out-link .tmp/c5ae-after-mplab-x` exited 0 after the root filesystem extraction.
 - 2026-10-21: `find <rootfs> -printf '%P %l\\n' | sort` produced 78,221 entries before and after; `diff -u` exited 0.
@@ -235,3 +244,13 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 ** 49e324f0
 - 2026-10-22: `nix build --impure --file .tmp/xc-cli-sandbox/default.nix --out-link .tmp/xc-cli-sandbox-example-result` exited 0. It compiled and linked xc16 1.61 with `-O3`, installed a 6,988-byte hex file, and `xclm -status` reported `Mode: PRO`. The sandbox log contained `sh: line 1: mount: command not found` from the licence manager and no USB access diagnostics.
 - 2026-10-22: CMake 4.4.4 configured with `nix develop --impure --file .tmp/xc-cli-cmake-shell.nix -c cmake -S .tmp/xc-cli-cmake -B .tmp/xc-cli-cmake-build -DCMAKE_TOOLCHAIN_FILE="$PWD/.tmp/xc-cli-cmake/toolchain.cmake"` and `cmake --build .tmp/xc-cli-cmake-build` exited 0 in that development shell. CMake recognised `xc16-gcc` as GNU 4.5.1 and built a 94,292-byte ELF.
+
+** 851cbd89
+- 2026-10-22: `xc-make -C .tmp -f 851cbd89-Makefile all` with xc16 1.61 compiled and linked successfully. `strace -f -e trace=execve` recorded one `/bwrap` execution, the initial environment only.
+- 2026-10-22: `mplab-make -C .tmp -f 851cbd89-Makefile -B all` in `mplab-x.override { xc-cli = xc-cli.override { compilers = [ xc16_1_61 ]; }; }` compiled and linked successfully. The same trace recorded one `/bwrap` execution.
+- 2026-10-22: `xclm -status` in each environment exited 0 and listed xc16 `Mode: PRO`; expected USB access diagnostics were present.
+- 2026-10-22: an xc16 1.21 wrapper under an xc16 1.61 `xc-run` exited 1 and reported both distinct xc-cli root filesystem identities.
+- 2026-10-22: a traced `mplab_ide` wrapper retained `/usr/bin` and removed the selected xc-cli and mplab-x bin directories from `PATH` before its final `exec`.
+- 2026-10-22: `xc-cli` and `mplab-x` overrides with xc16 1.61 built successfully. `nix flake check --no-build` evaluated both packages, then exited 1 at the pre-existing `overlays.default` `final` argument error.
+- 2026-10-22: `xc-make` and `mplab-make` each compiled and linked an xc16 1.61 Makefile; `strace -f -e trace=execve` recorded one `/bwrap` execution for each. `xclm -status` in each environment exited 0 and listed xc16 `Mode: PRO`.
+- 2026-10-22: the MPLAB-X marker listed its own and its selected xc-cli root filesystem identities. An `mplab-x-run` call inside that xc-cli environment exited 1 and reported the active and required root identities; an xc16 1.21 wrapper in the xc16 1.61 environment did the same.

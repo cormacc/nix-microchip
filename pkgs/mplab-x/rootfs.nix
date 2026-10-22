@@ -14,6 +14,7 @@
 , compilers
 , packs
 , packsVersion
+, extraEnvironmentIdentities ? [ ]
 , extraRootfsCommands ? ""
 , extraPackCommands ? ""
 , runName
@@ -72,10 +73,14 @@ let
     '') compilers}
   '';
 
+  environmentIds = [ rootfs ] ++ extraEnvironmentIdentities;
+
   run = writeShellApplication {
     name = runName;
     text = ''
       root=${rootfs}
+      environmentId=${rootfs}
+      environmentIdentityList=${lib.concatStringsSep ":" environmentIds}
       bwrap=${lib.getExe bubblewrap}
     '' + builtins.readFile ./run.sh;
   };
