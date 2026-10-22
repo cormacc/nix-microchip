@@ -93,11 +93,7 @@ let
     runName = "mplab-x-run";
     makeName = "mplab-make";
     generatorRunName = "mplab-gen-run";
-    generatorBinds = [
-      { source = "$root${ideDir}/packs"; target = "${ideDir}/packs"; }
-      { source = "$root${ideDir}/sys"; target = "${ideDir}/sys"; }
-      { source = "${mplab-x-unwrapped}${ideDir}"; target = ideDir; }
-    ];
+    generatorBindSource = "${mplab-x-unwrapped}${ideDir}";
     extraRootfsCommands = ''
       rsync -rlp --chmod=Du+w ${mplab-x-unwrapped}/etc/ $out/etc/
       # FIXME: This line has started causing issues, but is likely required for programmer support

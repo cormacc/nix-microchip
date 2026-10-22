@@ -25,6 +25,15 @@ if [ -n "${MPLAB_X_ENV:-}" ]; then
   exit 1
 fi
 
+generatorBinds=()
+if [ -n "$generatorBindList" ]; then
+  while IFS=$'\t' read -r source target; do
+    generatorBinds+=("$source" "$target")
+  done < "$generatorBindList"
+  generatorBinds+=("$root$mplabxDir/packs" "$mplabxDir/packs")
+  generatorBinds+=("$root$mplabxDir/sys" "$mplabxDir/sys")
+fi
+
 shopt -s dotglob nullglob
 
 # uid 0 is the mapping with which the PRO licence probes passed. The new root is a tmpfs
