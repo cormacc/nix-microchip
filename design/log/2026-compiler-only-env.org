@@ -43,8 +43,8 @@ A project runs the XC compilers that it selects, with the device packs that it s
 - [X] The `mplab-x` `packs` argument adds its packs to the packs of its `xc-cli`.
 - [X] Evaluation fails with a message when the IDE version of `xc-cli` differs from `mplab-x-unwrapped.version`.
 - [X] The flake exports no `mplab-xc8`, `mplab-xc16`, `mplab-xc32` or `mplab-xc-dsc`.
-- [ ] A Nix derivation compiles and links with `xc-cli` in the Nix build sandbox.
-- [ ] A CMake project with a toolchain file that names the `xc-cli` wrappers configures and builds.
+- [X] A Nix derivation compiles and links with `xc-cli` in the Nix build sandbox.
+- [X] A CMake project with a toolchain file that names the `xc-cli` wrappers configures and builds.
 *** Edge cases
 - [X] `xc-cli` with no override builds, and `xc-run true` exits 0.
 - [X] Two versions of one compiler: the wrapper runs the first, and `xc-run /opt/microchip/<pname>/v<other>/bin/<exe>` runs the other.
@@ -173,13 +173,17 @@ Acceptance criteria: the `mplab-x` criteria (wrappers, default packs, override, 
 Acceptance criteria: the own-environment, `mplab-x`-environment, unrelated-environment and `mplab_ide` `PATH` edge cases in `** Acceptance`.
 Constraint: the environment marker (`MPLAB_X_ENV` in `run.sh`) names the `xc-cli` that the root filesystem contains, so that a wrapper can tell a compatible environment from an unrelated one.
 
-** TODO Verify xc-cli in a Nix derivation and a CMake project
+** DONE Verify xc-cli in a Nix derivation and a CMake project
+CLOSED: [2026-10-22 Thu 01:02]
 :PROPERTIES:
 :CUSTOM_ID: 49e324f0-6835-444a-b8d8-0d8cdf5e0a8a
 :CREATED: [2026-10-21 Wed 20:38]
+:STARTED: [2026-10-22 Thu 00:38]
 :END:
 :LOGBOOK:
 - Created [2026-10-21 Wed 20:38]
+- State "STARTED" from "TODO" [2026-10-22 Thu 00:38]
+- State "DONE" from "STARTED" [2026-10-22 Thu 01:02]
 :END:
 Acceptance criteria: the Nix derivation and CMake criteria in `** Acceptance`.
 - README.org has a minimal example for each, taken from the verified test.
@@ -198,6 +202,10 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 ** ef7bb5be
 - No library was added to `fhsMultiPkgs` or `fhsTargetPkgs`: every compile and link probe completed with the existing glibc and `gcc.cc.lib` root filesystem. `readelf -d` recorded the dynamic dependencies of every executable in each selected compiler output before the probes.
 - xc-dsc 3.31 could not find `c30_device.info` and rejected dsPIC33CK64MP105 without a DFP. It compiled and linked with dsPIC33CK-MP_DFP 1.16.521 at `-mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33CK-MP_DFP/1.16.521/xc16`.
+
+** 49e324f0
+- The Nix derivation selects xc16 1.61 with `xc-cli`, builds a hex file and fails if `xclm -status` does not report PRO mode.
+- The CMake 4.4.4 project uses `CMAKE_SYSTEM_NAME=Generic`, `CMAKE_SYSTEM_PROCESSOR=dspic` and `CMAKE_C_COMPILER=xc16-gcc`; no compiler-detection workaround was necessary.
 
 * Validation
 - 2026-10-21: `nix build '.#mplab-x' --out-link .tmp/c5ae-after-mplab-x` exited 0 after the root filesystem extraction.
@@ -223,3 +231,7 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - 2026-10-21: in the xc16 1.61 override, compile, link and `xclm -status` exited 0; the status named xc16 `Mode: PRO`. Each probe printed the expected USB access diagnostics.
 - 2026-10-21: with `DISPLAY=:0` and `WAYLAND_DISPLAY=wayland-1`, the default and xc16 override IDE commands each stayed running for 20 seconds (timeout 124). The override then logged `java.net.SocketException: Connection reset`; the GUI toolchain list was not observed, so the GUI criterion remains unverified.
 - 2026-10-21: `nix flake check --no-build` evaluated packages including `xc-cli` and `mplab-x`, then failed at the existing `overlays.default` argument-name error recorded in TASKS.org.
+
+** 49e324f0
+- 2026-10-22: `nix build --impure --file .tmp/xc-cli-sandbox/default.nix --out-link .tmp/xc-cli-sandbox-example-result` exited 0. It compiled and linked xc16 1.61 with `-O3`, installed a 6,988-byte hex file, and `xclm -status` reported `Mode: PRO`. The sandbox log contained `sh: line 1: mount: command not found` from the licence manager and no USB access diagnostics.
+- 2026-10-22: CMake 4.4.4 configured with `nix develop --impure --file .tmp/xc-cli-cmake-shell.nix -c cmake -S .tmp/xc-cli-cmake -B .tmp/xc-cli-cmake-build -DCMAKE_TOOLCHAIN_FILE="$PWD/.tmp/xc-cli-cmake/toolchain.cmake"` and `cmake --build .tmp/xc-cli-cmake-build` exited 0 in that development shell. CMake recognised `xc16-gcc` as GNU 4.5.1 and built a 94,292-byte ELF.

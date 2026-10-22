@@ -180,6 +180,69 @@ Limits:
 - The licensed compilers print =Error getting handle for device N: Access denied (insufficient permissions)= on stderr for each USB device that the user cannot open. Microchip's udev rules do not remove all of these messages. The exit status is not affected. See [[#udev-rules][Udev rules]].
 - XC8 3.10 and later, XC32 and XC-DSC 4.00 need a device pack (=-mdfp=). XC-DSC 3.31 needs one for a device without built-in support, e.g. dsPIC33CK64MP105 (measured 2026-10-21). See [[#device-packs][Device packs]].
 
+*** Nix derivations and CMake
+
+A derivation can use =xc-cli= as a native build input. This example compiles, links and produces =main.hex= in the Nix build sandbox; =xclm -status= confirms PRO mode.
+
+#+begin_src nix
+let
+  xc-cli = pkgs.xc-cli.override {
+    compilers = with pkgs; [ xc16_1_61 ];
+  };
+in pkgs.stdenvNoCC.mkDerivation {
+  pname = "xc16-firmware";
+  version = "1";
+  src = ./.;
+  nativeBuildInputs = [ xc-cli ];
+  buildPhase = ''
+    xc16-gcc -mcpu=33EP512MU810 -O3 -c main.c -o main.o
+    xc16-gcc -mcpu=33EP512MU810 main.o -Wl,-Tp33EP512MU810.gld -o main.elf
+    xc16-bin2hex main.elf
+    xclm -status > licence-status.txt
+    grep -F 'Mode: PRO' licence-status.txt
+  '';
+  installPhase = ''
+    install -Dm444 main.hex $out/main.hex
+  '';
+}
+#+end_src
+
+For a CMake project, put =xc-cli=, =cmake= and =gnumake= in the development shell:
+
+#+begin_src nix
+let
+  xc-cli = pkgs.xc-cli.override {
+    compilers = with pkgs; [ xc16_1_61 ];
+  };
+in pkgs.mkShell {
+  packages = [ xc-cli pkgs.cmake pkgs.gnumake ];
+}
+#+end_src
+
+Use this =CMakeLists.txt= and =toolchain.cmake=:
+
+#+begin_src cmake
+cmake_minimum_required(VERSION 3.20)
+project(xc_cli_cmake C)
+
+add_executable(probe main.c)
+target_compile_options(probe PRIVATE -mcpu=33EP512MU810)
+target_link_options(probe PRIVATE -Wl,-Tp33EP512MU810.gld)
+#+end_src
+
+#+begin_src cmake
+set(CMAKE_SYSTEM_NAME Generic)
+set(CMAKE_SYSTEM_PROCESSOR dspic)
+set(CMAKE_C_COMPILER xc16-gcc)
+#+end_src
+
+#+begin_src sh
+cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$PWD/toolchain.cmake"
+cmake --build build
+#+end_src
+
+CMake 4.4.4 configured and built the ELF with these settings. It recognised the compiler as GNU 4.5.1, and needed no compiler-detection workaround.
+
 ** Device packs
 
 A device family pack (DFP) gives the compilers the device headers, linker scripts and device data. MPLAB-generated makefiles pass =-mdfp= to each compile, link and =xc16-bin2hex= step. XC8 3.10 and later, XC32 and XC-DSC 4.00 need =-mdfp= for all devices. A tool pack (TP) gives MPLAB-X the support for a programmer or debugger.
