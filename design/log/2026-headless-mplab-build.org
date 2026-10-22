@@ -72,13 +72,16 @@ Measured 2026-10-22 on a downstream xc16 project (two configurations, XC16 1.61,
 - At build time the makefiles ran only `make` (needs `libdl`, `libc`) and `hexmate` (static) from the IDE; `fixDeps`, `extractobjectdependencies.jar` and `en_msgs.txt` were not read.
 
 * Plan
-** TODO Measure the compile cost of an IDE bind mount
+** WAITING Measure the compile cost of an IDE bind mount
 :PROPERTIES:
 :CUSTOM_ID: da0ba85a-fcee-44bf-88c9-7dbcea46838c
 :CREATED: [2026-10-22 Thu 11:40]
+:STARTED: [2026-10-22 Thu 11:46]
 :END:
 :LOGBOOK:
 - Created [2026-10-22 Thu 11:40]
+- State "STARTED" from "TODO" [2026-10-22 Thu 11:46]
+- State "WAITING" from "STARTED" [2026-10-22 Thu 11:52]
 :END:
 Acceptance criteria:
 - Median time of at least 30 `-O3` compiles of one file with xc16 1.61 in one environment, with and without the IDE bind, is recorded in `* Validation`.
@@ -88,9 +91,12 @@ Acceptance criteria:
 :PROPERTIES:
 :CUSTOM_ID: 17c81b55-9e43-4762-89bc-76cf02f18e74
 :CREATED: [2026-10-22 Thu 11:40]
+:STARTED: [2026-10-22 Thu 11:46]
 :END:
 :LOGBOOK:
 - Created [2026-10-22 Thu 11:40]
+- State "STARTED" from "TODO" [2026-10-22 Thu 11:46]
+- State "TODO" from "STARTED" [2026-10-22 Thu 11:52]
 :END:
 Acceptance criteria: the `mplab-x` generator criterion and the anti-criteria in `** Acceptance`.
 - The root filesystem builder gets the bind and the /opt directory chain as an option, so that task 42eb9cbb reuses it.
@@ -136,3 +142,10 @@ Acceptance criteria: the Nix derivation and README criteria in `** Acceptance`.
 - Keep private downstream project details out of README.org and the record.
 
 * Implementation
+** da0ba85a
+- The measured bind candidate was reverted because its median compile cost exceeded the 50 ms limit. Task 17c81b55 remains TODO.
+
+* Validation
+** da0ba85a
+- 2026-10-22: 35 XC16 1.61 =-O3= compiles of one file ran inside one MPLAB-X environment call for each condition. Without the IDE bind, the median was 114.559 ms. With the bind and the real /opt directory chain, the median was 187.131 ms.
+- The median increase was 72.572 ms per compiler call, which exceeds the 50 ms limit. No task is DONE.
