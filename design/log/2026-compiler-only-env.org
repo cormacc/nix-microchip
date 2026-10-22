@@ -216,6 +216,9 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - A nested runner executes directly only when the active marker lists that runner's own root filesystem identity. An `xc-cli` wrapper can therefore run in either root, but an MPLAB-X runner cannot run in a compiler-only root. A mismatch exits 1 and reports the active and required root filesystem identities.
 - `mplab_ide` filters `PATH` directories that contain either runner command before it starts the IDE.
 
+** Review fixes
+- `rootfs` de-duplicates selected compiler derivations before it creates compiler directories and wrappers, so `xc-cli` and `mplab-x` accept duplicate selections without changing their single-selection root filesystem.
+
 * Validation
 - 2026-10-21: `nix build '.#mplab-x' --out-link .tmp/c5ae-after-mplab-x` exited 0 after the root filesystem extraction.
 - 2026-10-21: `find <rootfs> -printf '%P %l\\n' | sort` produced 78,221 entries before and after; `diff -u` exited 0.
@@ -254,3 +257,8 @@ Pointer: the `mplab-x-run` Nix sandbox test in README.org `** Command-line use` 
 - 2026-10-22: `xc-cli` and `mplab-x` overrides with xc16 1.61 built successfully. `nix flake check --no-build` evaluated both packages, then exited 1 at the pre-existing `overlays.default` `final` argument error.
 - 2026-10-22: `xc-make` and `mplab-make` each compiled and linked an xc16 1.61 Makefile; `strace -f -e trace=execve` recorded one `/bwrap` execution for each. `xclm -status` in each environment exited 0 and listed xc16 `Mode: PRO`.
 - 2026-10-22: the MPLAB-X marker listed its own and its selected xc-cli root filesystem identities. An `mplab-x-run` call inside that xc-cli environment exited 1 and reported the active and required root identities; an xc16 1.21 wrapper in the xc16 1.61 environment did the same.
+
+** Review fixes
+- 2026-10-22: before the fix, `nix build --impure --expr '<xc-cli override with [ xc16 xc16_1_61 ]>'` exited 1 at `xc-cli-rootfs` with a duplicate `xc16/v1.61` symlink; after the fix, that `xc-cli` override and `mplab-x.override { xc-cli = <that xc-cli>; }` each exited 0. The single-xc16-1.61 root filesystem lists each had 9,943 entries and `diff -u` exited 0.
+- 2026-10-22: `bb .tmp/review-fixes/licence-probes.bb` exited 0 in `xc-cli`: xc16 1.21's patched `-O3` probe had no `restricted license` diagnostic while its copied-compiler control, with `/opt/microchip/xclm/license` restored in `etc/xclm.conf`, did; xc16 1.61's patched `xclm -status` listed `Mode: PRO` while the matching control did not.
+- 2026-10-22: `nix eval --impure --json` compared all 11 compiler `outPath` values at `9c0b9eb` and HEAD and `jq` reported `true`; `git diff 9c0b9eb..HEAD -- pkgs/mplab-x/run.sh pkgs/mplab-x/rootfs.nix` had no added `--bind`, `--ro-bind`, `--dev-bind` or `--tmpfs` flag; `nix-store -q --requisites` of the xc16 1.61 `xc-cli` override derivation included the xc16 derivation and no `mplab-x-unwrapped` derivation; and `git diff 9c0b9eb..HEAD -- pkgs/default.nix` changed only the environment exports while `diff -u` of the xc16, xc8, xc32 and xc-dsc default aliases exited 0.

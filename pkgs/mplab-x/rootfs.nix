@@ -36,10 +36,12 @@ let
     done
   '';
 
+  uniqueCompilers = lib.unique compilers;
+
   defaultCompilers = lib.attrValues (lib.foldl'
     (acc: c: if acc ? ${c.pname} then acc else acc // { ${c.pname} = c; })
     { }
-    compilers);
+    uniqueCompilers);
 
   fhsEnv = buildFHSEnv {
     name = "${name}-fhs-env";
@@ -70,7 +72,7 @@ let
     ${lib.concatMapStrings (c: ''
       mkdir -p $out/opt/microchip/${c.pname}
       ln -s ${c} $out${compilerDir c}
-    '') compilers}
+    '') uniqueCompilers}
   '';
 
   environmentIds = [ rootfs ] ++ extraEnvironmentIdentities;
