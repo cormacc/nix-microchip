@@ -85,7 +85,11 @@ let
     '';
     dontFixup = true;
 
-    passthru = { inherit fhsEnv; packs = bundledPacks; };
+    passthru = {
+      inherit fhsEnv;
+      packs = bundledPacks;
+      inherit devicePacks toolPacks installerHelp;
+    };
 
     meta = with lib; {
       homepage =
@@ -98,6 +102,62 @@ let
     };
   };
 
+  packOptions = [ "8bitmcu" "16bitmcu" "32bitmcu" "othermcu" ];
+
+  filteredPacks = { pname, installerFlags, toolPacksOnly }:
+    unwrapped.overrideAttrs (_: {
+      inherit pname installerFlags;
+      installPhase = ''
+        runHook preInstall
+
+        packsDir=chroot/opt/microchip/mplabx/v${version}/packs
+        index="$TMPDIR/index.idx"
+        if ! grep -F '<pdsc ' "$packsDir/index.idx" > "$index"; then
+          echo "No pack entries in $packsDir/index.idx" >&2
+          exit 1
+        fi
+
+        count=0
+        while IFS= read -r entry; do
+          case "$entry" in
+            *atmel:tool-name=*) isToolPack=true ;;
+            *) isToolPack=false ;;
+          esac
+          if [ "$isToolPack" != ${if toolPacksOnly then "true" else "false"} ]; then
+            continue
+          fi
+
+          case "$entry" in
+            *' name="'*)
+              pdsc="''${entry#* name=\"}"
+              pdsc="''${pdsc%%\"*}"
+              ;;
+            *)
+              echo "Pack entry has no name: $entry" >&2
+              exit 1
+              ;;
+          esac
+          pdscPath=$(find "$packsDir" -type f -name "$pdsc" -print -quit)
+          if [ -z "$pdscPath" ]; then
+            continue
+          fi
+          packDir=$(dirname "$pdscPath")
+          relativePackDir="''${packDir#"$packsDir"/}"
+          mkdir -p "$out/$(dirname "$relativePackDir")"
+          mv "$packDir" "$out/$relativePackDir"
+          count=$((count + 1))
+        done < "$index"
+
+        if [ ${if toolPacksOnly then "$count -eq 0" else "$count -le 1"} ]; then
+          echo "Installer produced no ${if toolPacksOnly then "tool" else "device"} packs" >&2
+          exit 1
+        fi
+
+        runHook postInstall
+      '';
+      passthru = { };
+    });
+
   bundledPacks = unwrapped.overrideAttrs (_: {
     pname = "mplab-x-bundled-packs";
     installerFlags = "";
@@ -109,6 +169,60 @@ let
       mkdir -p $out
       mv $packsDir/* $out/
 
+      runHook postInstall
+    '';
+    passthru = { };
+  });
+
+  devicePacks = { mcuOptions }:
+    let
+      normalisedOptions = lib.sort builtins.lessThan (lib.unique mcuOptions);
+      unknownOptions = lib.filter (option: !(lib.elem option packOptions)) normalisedOptions;
+      installerFlags = lib.concatMapStringsSep " " (option:
+        "--${option} ${if lib.elem option normalisedOptions then "1" else "0"}") packOptions;
+    in
+    assert lib.assertMsg (unknownOptions == [ ])
+      "Unknown MPLAB X MCU option: ${lib.concatStringsSep ", " unknownOptions}";
+    filteredPacks {
+      pname = "mplab-x-device-packs-${lib.concatStringsSep "-" normalisedOptions}";
+      inherit installerFlags;
+      toolPacksOnly = false;
+    };
+
+  toolPacks = filteredPacks {
+    pname = "mplab-x-tool-packs";
+    installerFlags = lib.concatMapStringsSep " " (option: "--${option} 0") packOptions;
+    toolPacksOnly = true;
+  };
+
+  installerHelp = unwrapped.overrideAttrs (_: {
+    pname = "mplab-x-installer-help";
+    buildPhase = ''
+      runHook preBuild
+
+      rsync -a ${fhsEnv.fhsenv}/ chroot/
+      find chroot -type d -exec chmod 755 {} \;
+      echo "root:x:0:0:root:/root:/bin/bash" > chroot/etc/passwd
+      echo "root:x:0:root" > chroot/etc/group
+      mkdir -p chroot/tmp/home $out
+
+      bwrap \
+        --bind chroot / \
+        --ro-bind /nix /nix \
+        --ro-bind MPLABX-v${version}-linux-installer.run /installer \
+        --setenv HOME /tmp/home \
+        -- /bin/fakeroot /installer --help > $out/help.txt
+      bwrap \
+        --bind chroot / \
+        --ro-bind /nix /nix \
+        --ro-bind MPLABX-v${version}-linux-installer.run /installer \
+        --setenv HOME /tmp/home \
+        -- /bin/fakeroot /installer --version > $out/version.txt
+
+      runHook postBuild
+    '';
+    installPhase = ''
+      runHook preInstall
       runHook postInstall
     '';
     passthru = { };
