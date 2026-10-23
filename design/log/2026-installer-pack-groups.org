@@ -1,6 +1,6 @@
 #+TITLE: Refine tool package installation and bundling options
 #+DATE: 2026-10-23 Fri
-#+PARENT: [[task:d69d03e5-6247-4fe6-8410-a1fdcf680717][Refine tool package installation and bundling options]]
+#+PARENT: [[archive:d69d03e5-6247-4fe6-8410-a1fdcf680717][Refine tool package installation and bundling options]]
 #+SETUPFILE: ../../TASKS.setup.org
 #+STATUS: Complete
 #+SPEC: [[proj:README.org]]
@@ -198,6 +198,7 @@ Acceptance criteria: the two `doc/packaging.org` criteria.
 - The risk describes the aggregate device-pack guard, and the recorded 16-bit count and revised compile criterion are corrected.
 
 * Validation
+- GUI check (user report, 2026-10-23): in a downstream dev shell with `mplab-x` at `98cee80` (default tool packs), the user's check of `mplab_ide` and `mplab_ipe` passed. The agents did not observe it.
 - Anti-criterion, no pack list: `git ls-files pkgs bb bb.edn flake.nix | xargs grep -E '[A-Za-z0-9-]+_(TP|DFP)\b'` matched no line (control: the record matched 13 lines).
 ** Review fixes
 - IPE pack discovery: before the wrapper change, `HOME=<empty> ipecmd -P16F877 -TPPK5 -OWT` on the e36b464 `mplab-x` output exited 1 and printed no tool-pack version. After `nix build '.#mplab-x' --no-link --print-out-paths`, the same command exited with vendor status 50 and printed `Tool Pack Version : 3.0.1195`.
@@ -256,4 +257,3 @@ Acceptance criteria: the two `doc/packaging.org` criteria.
 :DECIDED: [2026-10-23 Fri 10:55]
 :END:
 Decision (user, 2026-10-23): no; `--othermcu` comes only with the default device packs.
-

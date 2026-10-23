@@ -22,23 +22,3 @@ See https://github.com/cormacc/dotagents for more info.
 - Created [2026-10-20 Tue 13:13]
 :END:
 If the update is routine, we could potentially schedule a task to pickup and add new compiler versions.
-
-
-** STARTED Refine tool package installation and bundling options
-:PROPERTIES:
-:CUSTOM_ID: d69d03e5-6247-4fe6-8410-a1fdcf680717
-:CREATED: [2026-10-22 Thu 20:06]
-:STARTED: [2026-10-23 Fri 11:04]
-:END:
-:LOGBOOK:
-- Created [2026-10-22 Thu 20:06]
-- State "STARTED" from "TODO" [2026-10-23 Fri 11:04]
-:END:
-#+IMPORT: [[plan:2026-installer-pack-groups.org]]
-Currently we install only those toolpacks specified explicitly via xc-cli customisation options.
-
-Let's change this so that when no toolpacks are specified explicitly, all toolpacks for the specified compiler architecture(s) are installed by default, using the --<x>bitmcu arguments to the installer. This is a more convenient/user friendly option.
-
-The --othermcu support packs should always installed -- they're small in context (4.8MB).
-
-If there are other toolpacks relating to debugging tools etc. these should probably be included with the mplab-x package instead. That should also expose the mplab_ipe binary on installation (?should that also be offered as a standalone package?).
