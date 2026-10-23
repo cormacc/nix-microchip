@@ -56,10 +56,10 @@ in stdenvNoCC.mkDerivation rec {
         "--LicenseType FreeMode --netservername localhost"} \
       --mode unattended \
       --prefix $out
-  '' + lib.optionalString needsLicense ''
-
-    # Point xclm at the packaged licence instead of the host's /opt/microchip/xclm/license.
-    # XC-DSC 3.31 enforces the swxc16-pro feature; see README "Compiler licence".
+  ''
+  # Point xclm at the packaged licence instead of the host's /opt/microchip/xclm/license.
+  # XC-DSC 3.31 enforces the swxc16-pro feature; see doc/licence.org.
+  + lib.optionalString needsLicense ''
     chmod u+w "$out/etc/xclm.conf"
     substituteInPlace "$out/etc/xclm.conf" \
       --replace-fail 'xclm:path="/opt/microchip/xclm/license' 'xclm:path="${microchip-xclm-license}'
