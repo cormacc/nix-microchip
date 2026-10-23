@@ -22,3 +22,23 @@ See https://github.com/cormacc/dotagents for more info.
 - Created [2026-10-20 Tue 13:13]
 :END:
 If the update is routine, we could potentially schedule a task to pickup and add new compiler versions.
+
+** TODO Add Gitlab CI firmware build example
+:PROPERTIES:
+:CUSTOM_ID: 0c9e2e15-323b-492a-b654-7ebb6e5bac05
+:CREATED: [2026-10-23 Fri 13:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 13:44]
+:END:
+A documented .gitlab-ci.yml example that builds firmware with this flake: a Nix derivation or devshell build with xc-cli, as in README.org (Nix derivations and CMake; MPLAB projects). The runner needs unprivileged user namespaces (doc/environment.org, Limits).
+
+** TODO Add Github CI firmware build example
+:PROPERTIES:
+:CUSTOM_ID: 54183995-fb94-4261-be53-cf371b847c76
+:CREATED: [2026-10-23 Fri 13:44]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 13:44]
+:END:
+A documented GitHub Actions workflow example that builds firmware with this flake: a Nix derivation or devshell build with xc-cli, as in README.org (Nix derivations and CMake; MPLAB projects). The runner needs unprivileged user namespaces (doc/environment.org, Limits).

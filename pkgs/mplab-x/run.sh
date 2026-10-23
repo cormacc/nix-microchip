@@ -11,10 +11,17 @@ if [ "$#" -eq 0 ]; then
 fi
 # Nested wrappers run directly only when the active root filesystem contains their identity.
 if [ -n "${MPLAB_X_ENV:-}" ]; then
+  # A generator runner needs no binds where each bind target is already a real path (e.g. in a
+  # mkCiImage container): the generator derives its paths from the real path of its jar.
   if [ -n "$generatorBindList" ]; then
-    printf '%s: cannot run inside environment %q; requires an IDE-bind environment\n' \
-      "${0##*/}" "$MPLAB_X_ENV" >&2
-    exit 1
+    while IFS=$'\t' read -r _ target; do
+      parent=${target%/*}
+      if [ -L "$target" ] || [ ! -e "$target" ] || [ "$(cd -P -- "$parent" 2>/dev/null && pwd -P)" != "$parent" ]; then
+        printf '%s: cannot run inside environment %q; requires an IDE-bind environment\n' \
+          "${0##*/}" "$MPLAB_X_ENV" >&2
+        exit 1
+      fi
+    done < "$generatorBindList"
   fi
   IFS=: read -ra environmentIds <<< "$MPLAB_X_ENV"
   for id in "${environmentIds[@]}"; do

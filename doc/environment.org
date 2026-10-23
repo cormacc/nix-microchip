@@ -14,7 +14,17 @@ The environment includes 32-bit glibc and libstdc++, for XC16 before 1.50 (32-bi
 
 =mount= in the environment is a stub that prints nothing and exits 0: it is first on =PATH=, before the host's =mount=. =xclm= runs =mount= on each licence check to list mount points, and the shipped licence (=hostid=ANY=) needs none. A real =mount= made each xc16 1.61 compile slower: with the host's =mount=, the median compile took 349 ms, and with the stub 51 ms (on the test host, measured 2026-10-23). Without any =mount=, each licensed compile prints =mount: command not found= twice. A build script that runs =mount= in the environment sees no mount points.
 
+* Container images
+
+=mkCiImage= (see [[file:../README.org][README.org]]) puts the root filesystem of an =xc-cli= environment at the root of a Docker image, for CI runners that cannot create user namespaces. The image differs from the bubblewrap environment:
+
+- Commands run without bubblewrap. The image sets =MPLAB_X_ENV= to the root filesystem, so each =xc-cli= wrapper runs its command directly, as a nested call does. The image sets =LD_LIBRARY_PATH=/lib32= and the =mount= stub first on =PATH=, as the bubblewrap environment does, and =HOME=/root=.
+- No host directory is merged. The container gets only the directories that =docker run= mounts, e.g. the project checkout.
+- =mplab-gen= runs directly, because the image has real copies of the IDE entries that =mplab-gen= binds in the bubblewrap environment. Its generator runner checks that each of these paths is a real path, and exits non-zero otherwise.
+- =/etc/passwd= and =/etc/group= come from =dockerTools.fakeNss=, so the =root= user has the home directory =/root=, which the pack library needs.
+- Commands run as =root=. A non-root container user is not tested.
+
 * Limits
 
-- The environment needs unprivileged user namespaces. It does not need FUSE. In a test derivation in the Nix build sandbox on NixOS, =mplab-x-run= compiled and linked with xc16 1.61 and 1.21, =xc16-bin2hex= made a hex file, and =xclm -status= reported PRO mode (measured 2026-10-21).
+- The environment needs unprivileged user namespaces. Docker's default seccomp profile blocks them: =bwrap --unshare-user= failed with =No permissions to create a new namespace= (measured 2026-10-23, Docker 29.9.1). On such a runner, use a =mkCiImage= image (see Container images above). The environment does not need FUSE. In a test derivation in the Nix build sandbox on NixOS, =mplab-x-run= compiled and linked with xc16 1.61 and 1.21, =xc16-bin2hex= made a hex file, and =xclm -status= reported PRO mode (measured 2026-10-21).
 - The licensed compilers print =Error getting handle for device N: Access denied (insufficient permissions)= on stderr for each USB device that the user cannot open. Microchip's udev rules do not remove all of these messages. The exit status is not affected. See [[file:licence.org][Compiler licence]].

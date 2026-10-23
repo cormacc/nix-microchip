@@ -1,0 +1,203 @@
+#+TITLE: Add a container image helper for xc-cli
+#+DATE: 2026-10-23 Fri
+#+PARENT: [[archive:3e04ba37-dd33-4670-9d4f-c0c4c900bd13][Add a container image helper for xc-cli]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Complete
+#+SPEC: [[proj:README.org]]
+#+SPEC: [[proj:doc/environment.org]]
+
+* Intent
+An exported `mkCiImage` builds a Docker image from an `xc-cli` selection, for CI runners whose seccomp profile blocks unprivileged user namespaces. In the image, the commands of the devshell (`xc16-gcc`, `xc-make`, `xc-run`, `mplab-gen`) run unchanged without bwrap, and produce the same output.
+
+* Summary
+*Level:* production · *Tests:* smoke · *Docs:* README
+
+** Scope
+*** In scope
+- `mkCiImage { xc-cli; extraPackages ? [ ]; name ? "xc-cli"; tag ? null; }`, exported in `legacyPackages` and the overlay like `fetchMplabPack`.
+- `mplab-gen` in the image for `xc-cli` with `withMplabProjects = true`: a `run.sh` path for real IDE directories, and real copies of the IDE entries that `mplab-gen-run` binds.
+- A stub `mount` that lists no mount points, first on `PATH` in every bwrap environment (`run.sh`) and in the image.
+- README.org (helper, image size, seccomp reason) and doc/environment.org (Limits: seccomp, image environment).
+*** Out of scope
+- An `mplab-x` (IDE) image.
+- A non-root container user.
+- A binary cache or image registry publishing.
+- The GitLab and GitHub CI example tasks (0c9e2e15, 54183995); they can use the helper later.
+- Changes to the bwrap environment other than the `mount` stub on `PATH` and the generator-runner check.
+
+** Acceptance
+*** Core functionality
+- [X] `mkCiImage` returns a `dockerTools.streamLayeredImage` whose root filesystem contains the entries of `xc-cli.passthru.rootfs`.
+- [X] `mkCiImage` is in `legacyPackages.x86_64-linux` and the overlay, not in `packages`.
+- [X] The image sets `MPLAB_X_ENV` to the `xc-cli` environment identity.
+- [X] Under Docker's default seccomp profile and without `--privileged`, `xc16-gcc` compiles and links a test file in the image.
+- [X] Under the same conditions, `xc-make` and `xc-run` run in the image.
+- [X] `xclm -status` in the image reports `Mode: PRO` for xc16 1.61.
+- [X] `extraPackages` executables are on the image `PATH`.
+- [X] With `withMplabProjects = true`, `mplab-gen <project>@<conf>` exits 0 in the image.
+- [X] The `.mk` files that `mplab-gen` writes in the image contain `/opt/microchip/` and no `/nix/store`.
+- [X] `xc-make` in the image builds a hex for an MPLAB project.
+- [X] That hex is byte-identical to the hex that the devshell `mplab-gen` and `xc-make` build for the same project, configuration and `nbproject/private` state.
+- [-] The `xc-cli` root filesystem contains `/usr/bin/mount`. Reversed 2026-10-23 (user decision): util-linux made each compile without a host `mount` about 104 ms slower (see `* Validation`); a stub on `PATH` replaces it.
+- [X] Inside an `xc-run` environment, `command -v mount` names the stub and `mount` prints nothing and exits 0.
+- [X] An xclm compile under bwrap prints no `mount: command not found`.
+- [X] An xclm compile in the image prints no `mount: command not found`.
+- [X] README.org describes `mkCiImage`, its arguments, how to load the image, and the approximate image size.
+- [X] doc/environment.org Limits states that Docker's default seccomp profile blocks the environment and names the image as the alternative.
+*** Edge cases
+- [X] xc16 1.21 (32-bit) compiles and links in the image.
+- [X] `sim30` (32-bit) starts in the image, because the image sets `LD_LIBRARY_PATH=/lib32`.
+- [X] `mkCiImage` with `withMplabProjects = false` builds, and its image has no copy of the IDE subset.
+- [X] `xc-run mplab-gen <project>@<conf>` inside an `xc-cli` bwrap environment still exits 1 with the existing `requires an IDE-bind environment` message.
+- [X] `mplab-x-run mplab-gen <project>@<conf>` inside an `mplab-x` bwrap environment still exits 1, with either package's `mplab-gen`.
+*** Anti-criteria
+- [X] Must not: add a mount to the bwrap environment of builds or compiler calls.
+- [X] Must not: change the `xc-cli` or `mplab-x` root filesystem store path.
+- [X] Must not: patch or modify a compiler payload.
+- [X] Must not: add the IDE subset copy to the `xc-cli` closure outside the image.
+- [X] Must not: name a private downstream project in this record, README.org or doc/.
+
+** Decisions
+- The image root is the `xc-cli` root filesystem, plus `dockerTools.fakeNss`, `/tmp` (mode 1777) and `/root` :: one root filesystem for bwrap and the image keeps them in step. `fakeNss` gives Java a `user.home` for the pack library; the root filesystem has no `/etc/passwd`, `/tmp` or `/root` (measured on an existing `xc-cli` root filesystem).
+- `xc-cli` and `extraPackages` are on `PATH` through a `buildEnv`, not merged into the image root :: the root filesystem's `/bin` is a symlink to `/usr/bin`, so a merged package `bin` collides with it.
+- The image sets `MPLAB_X_ENV=<rootfs>`, `LD_LIBRARY_PATH=/lib32` and `HOME=/root` :: `run.sh` runs a wrapper directly when `MPLAB_X_ENV` contains its identity, so it does not set `LD_LIBRARY_PATH` itself in the image.
+- The image layer replaces each IDE entry that `mplab-gen-run` binds (all top-level subset entries except `packs` and `sys`) with a dereferenced copy :: the generator derives its IDE path from the real path of its jar (design/log/2026-headless-mplab-build.org); in the `xc-cli` root filesystem, `mplab_platform` is a symlink into the store. `packs` and `sys` are already real directories, as in the bwrap binds.
+  Rejected:
+  - Real copies in the root filesystem: bwrap shows root filesystem entries as symlinks into the store, so the generator still needs its binds; the copy would add about 400 MB to every `xc-cli` closure.
+  - Rewriting store paths in the generated makefiles: rejected already in design/log/2026-headless-mplab-build.org (two mechanisms for one problem).
+- Inside an environment, the generator runner runs its command directly only when `MPLAB_X_ENV` contains its identity and each bind target resolves to itself (`cd -P` then `pwd -P`) :: the check uses the property that the binds supply, so the `xc-cli` and `mplab-x` bwrap environments keep their refusal.
+  Rejected:
+  - A separate identity or flag variable for the image: it asserts real paths without checking them.
+- `xc-cli.passthru` gains `generatorBindList` (null without `withMplabProjects`) and `mountStub` from `rootfs.nix` :: the image copies exactly the entries that the bwrap generator runner binds, with no second copy of that selection logic.
+- A stub `mount` (`rootfs.nix` `mountStub`, exits 0 with no output) is first on `PATH` in each bwrap environment and in the image (user decision, 2026-10-23) :: xclm runs `mount` on each licence check to list mount points; the licence has `hostid=ANY`, so it needs none. The stub removes the `mount: command not found` noise in environments without a host `mount`, and costs about 3.5 ms per compile. Where a host `mount` was visible, compiles were 349 ms (median) with it and 51 ms with the stub on this host.
+  Rejected:
+  - util-linux in the root filesystem: about 104 ms more per compile where no host `mount` is on `PATH` (Nix build sandbox, image).
+  - Keep the message: CI logs need a filter or documentation.
+  - Stub at `/usr/bin/mount` in the root filesystem: on NixOS the host `mount` comes first on `PATH`, so behaviour differs between hosts.
+  - Stub in the image only: Nix sandbox builds keep the message.
+
+** Shipped
+- `mkCiImage { xc-cli; extraPackages ? [ ]; name ? "xc-cli"; tag ? null; }` (`pkgs/mk-ci-image/default.nix`), in `legacyPackages` and the overlay. With xc16 1.61, one DFP and `withMplabProjects = true`, the image is 3.25 GB.
+- `mplab-gen` runs in the image: the image has real copies of the generator bind entries, and the generator runner runs directly where each bind target is a real path.
+- A stub `mount` first on `PATH` in every bwrap environment and in the image: no `mount: command not found` noise, and faster licensed compiles where a host `mount` is visible (349 ms to 51 ms median for xc16 1.61 on the test host).
+- `xc-cli.passthru` gains `generatorBindList` and `mountStub`.
+- MODIFIED README.org: CI container images section.
+- MODIFIED doc/environment.org: the `mount` stub, Container images, and the seccomp limit.
+- MODIFIED AGENTS.md: layout entry for `pkgs/mk-ci-image/default.nix`.
+
+** Gotchas
+- On a NixOS host, the bwrap environment finds the host `mount` through `/run/current-system/sw/bin` on `PATH`, so the `mount: command not found` message appears only in the Nix build sandbox and in containers. Probe with `env -i PATH=/usr/bin:/bin` to reproduce it.
+- The `.generated_files/flags` hashes in `Makefile-<conf>.mk` depend on the project path, so makefiles that `mplab-gen` writes at different paths differ; the hex does not.
+
+** Risks
+- A command run in the environment that calls `mount` (e.g. a build script, or an MPLAB-X tool that looks for a mounted programmer drive) sees no mount points. doc/environment.org documents this.
+- A licence bound to a removable-media hostid would not be found. The shipped licence has `hostid=ANY`.
+- Only a root container user is tested. A runner that sets a non-root user can fail.
+
+** Follow-ups
+- The GitLab and GitHub CI example tasks (0c9e2e15, 54183995) can use `mkCiImage` instead of a runner with unprivileged user namespaces.
+
+* Plan
+** DONE Silence xclm's mount call with a stub on PATH
+CLOSED: [2026-10-23 Fri 16:08]
+:PROPERTIES:
+:CUSTOM_ID: 46854ef8-c808-4803-8ebd-bbcee511ef33
+:CREATED: [2026-10-23 Fri 15:50]
+:STARTED: [2026-10-23 Fri 15:57]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-10-23 Fri 15:57]
+- State "WAITING" from "STARTED" [2026-10-23 Fri 15:59]
+- State "STARTED" from "WAITING" [2026-10-23 Fri 16:07]
+- State "DONE" from "STARTED" [2026-10-23 Fri 16:08]
+:END:
+Acceptance criteria: the bwrap `mount` message, stub and root filesystem criteria in `** Acceptance`, and:
+- Median time of at least 30 `-O3` compiles of one file with xc16 1.61, with and without the change, alternated in rounds (ABAB), is recorded in `* Validation`.
+- `xclm -status` under bwrap still reports `Mode: PRO` for xc16 1.61.
+- If the median increases by more than 10 ms per compiler call, or a licence result changes, stop and report to the user before task 74095c21.
+- Pointer: `pkgs/mplab-x/rootfs.nix` `mountStub`, `pkgs/mplab-x/run.sh`.
+
+** DONE Add mkCiImage for the compiler wrappers
+CLOSED: [2026-10-23 Fri 16:11]
+:PROPERTIES:
+:CUSTOM_ID: 74095c21-07f5-4734-946b-4bf6aa0c538a
+:CREATED: [2026-10-23 Fri 15:50]
+:BLOCKED-BY: 46854ef8-c808-4803-8ebd-bbcee511ef33
+:STARTED: [2026-10-23 Fri 16:08]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-10-23 Fri 16:08]
+- State "DONE" from "STARTED" [2026-10-23 Fri 16:11]
+:END:
+Acceptance criteria: the `mkCiImage`, export, `MPLAB_X_ENV`, wrapper, PRO, `extraPackages`, image `mount`, xc16 1.21 and `sim30` criteria in `** Acceptance`, and:
+- `nix flake check --no-build` shows no new failure.
+- Test with `$(nix build --no-link --print-out-paths <image>) | docker load`, `docker run --rm` with no `--security-opt` and no `--privileged`, then `docker rmi`.
+- Pointer: `pkgs/default.nix` `fetchMplabPack` for the function export pattern.
+
+** DONE Run mplab-gen in the image
+CLOSED: [2026-10-23 Fri 16:14]
+:PROPERTIES:
+:CUSTOM_ID: 9e82cf4a-35c6-4ced-a5f8-42e4cb2b8e8d
+:CREATED: [2026-10-23 Fri 15:50]
+:BLOCKED-BY: 74095c21-07f5-4734-946b-4bf6aa0c538a
+:STARTED: [2026-10-23 Fri 16:11]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-10-23 Fri 16:11]
+- State "DONE" from "STARTED" [2026-10-23 Fri 16:14]
+:END:
+Acceptance criteria: the `mplab-gen`, `.mk` path, hex, byte-identical hex, `withMplabProjects = false` and bwrap refusal criteria in `** Acceptance`.
+- Pointer: `pkgs/mplab-x/run.sh` (the `MPLAB_X_ENV` block) and `pkgs/mplab-x/rootfs.nix` `generatorBindList`.
+
+** DONE Document the image helper
+CLOSED: [2026-10-23 Fri 16:16]
+:PROPERTIES:
+:CUSTOM_ID: a06d7de6-f103-4935-92c5-9e3dda962c0c
+:CREATED: [2026-10-23 Fri 15:50]
+:BLOCKED-BY: 9e82cf4a-35c6-4ced-a5f8-42e4cb2b8e8d
+:STARTED: [2026-10-23 Fri 16:14]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-10-23 Fri 16:14]
+- State "DONE" from "STARTED" [2026-10-23 Fri 16:16]
+:END:
+Acceptance criteria: the README.org and doc/environment.org criteria in `** Acceptance`.
+- The README.org example is the image that task 9e82cf4a verified, with private project names removed.
+
+** DONE Run the thorough regression test
+CLOSED: [2026-10-23 Fri 16:24]
+:PROPERTIES:
+:CUSTOM_ID: 1b328085-880d-4b5e-b9e9-8cebda2e4d52
+:CREATED: [2026-10-23 Fri 15:50]
+:BLOCKED-BY: 9e82cf4a-35c6-4ced-a5f8-42e4cb2b8e8d
+:STARTED: [2026-10-23 Fri 16:16]
+:END:
+:LOGBOOK:
+- State "STARTED" from "TODO" [2026-10-23 Fri 16:16]
+- State "DONE" from "STARTED" [2026-10-23 Fri 16:24]
+:END:
+Acceptance criteria:
+- Thorough level (AGENTS.md, Regression testing) in `xc-cli` and `mplab-x`: `xc16_1_61`, `xc8_4_00`, `xc32_6_00`, `xc-dsc_4_00` compile and link, with the `doc/licence.org` probe for each licensed compiler.
+- `xc16_1_21`, `xc8_3_10`, `xc32_5_10` and `xc-dsc_3_31` pass their listed checks, because `run.sh` changes and the `mount` stub changes what xclm reads.
+- `df -h /nix/store` is checked before each build round, and garbage collection runs between rounds, with free space before and after recorded.
+
+* Implementation
+- `pkgs/mplab-x/rootfs.nix`: `mountStub` is `writeShellScriptBin "mount" "exit 0"`; the builder returns it and `generatorBindList`. `run.sh` prepends `$mountStubBin` to `PATH` only where it starts bwrap; a nested call inherits the outer `PATH`.
+- `pkgs/mplab-x/run.sh`: inside an environment, a generator runner reads its bind list and refuses unless each target is not a symlink, exists, and has a parent that `cd -P` resolves to itself. It then applies the existing identity check.
+- `pkgs/mk-ci-image/default.nix`: `contents = [ xc-cli.rootfs dockerTools.fakeNss ]`. `streamLayeredImage` merges contents with `symlinkJoin` (`lndir`), which keeps each root filesystem symlink as a symlink, so `extraCommands` removes each generator bind target and copies its source with `cp -rL`. `PATH` is the stub, a `buildEnv` of `xc-cli` and `extraPackages`, then `/usr/bin:/usr/sbin`.
+- The command-line subset is in the image twice: the root filesystem symlinks keep its store path in the closure, and the layer has the 274 MB copy of `mplab_platform`.
+
+* Validation
+- 2026-10-23, before this plan: Docker 29.9.1 with its default seccomp profile refused `bwrap --unshare-user` ("No permissions to create a new namespace"); with `seccomp=unconfined` it exited 0. An existing `xc-cli` root filesystem imported with `docker import`, with `/nix/store` mounted read-only, ran xc16 1.61: `xclm -status` reported `Mode: PRO`, an `-O3` compile produced an object, and the compile printed `mount: command not found` twice.
+- 2026-10-23, task 46854ef8 (`xc-cli` with xc16 1.61 and the 1.7.401 DFP, before and after util-linux in `fhsTargetPkgs`): on this NixOS host, the bwrap environment finds the host `mount` through `PATH` (`/run/current-system/sw/bin`), so neither root filesystem printed `mount: command not found`. With `env -i PATH=/usr/bin:/bin`, the root filesystem without util-linux printed the message twice for a compile and for `xclm -status`; the one with util-linux printed none. `xclm -status` reported `Mode: PRO` for xc16 in both.
+- 2026-10-23, compile time with `PATH=/usr/bin:/bin`, 10 `-O3` compiles for each round inside one `xc-run` call, rounds ABAB: round medians without util-linux 46.8, 30.5, 30.1, 49.0 ms; with util-linux 336.1, 95.9, 136.4, 237.9 ms. Overall medians (n=40): 33.9 ms without, 137.8 ms with. The gate (10 ms) failed.
+- 2026-10-23, the same compiles with the host `PATH` (host `mount` visible in both), two rounds: round medians 413.5, 287.3 ms (root filesystem without util-linux) and 277.3, 243.5 ms (with). So the cost comes from `mount` being found at all, and util-linux adds it only where no host `mount` is on `PATH` (Nix build sandbox, container image).
+- 2026-10-23, option C probe (root filesystem without util-linux, xc16 1.61, `PATH=<stub>:/usr/bin:/bin`, the stub a `#!/bin/sh` script that exits 0): an `-O3` compile and `xclm -status` printed no `mount` message; `xclm -status` reported `Mode: PRO` for xc16. A logging stub recorded 2 calls for each compile. Positive control: a copy of xc16 1.61 whose `xclm.conf` named an empty licence directory printed `Options have been disabled due to restricted license` under the same stub; the packaged compiler printed nothing. xclm reads mount points from a `mount` pipe (`enumerate_mountpoints`, `No candidate mount found` in its strings); the licence has `hostid=ANY`.
+- 2026-10-23, compile time, no `mount` against the stub, rounds ABAB of 10: round medians 34.3, 34.3, 35.8, 35.8 ms (no `mount`) and 38.9, 37.1, 38.3, 40.0 ms (stub). Overall medians (n=40): 35.2 and 38.7 ms.
+- 2026-10-23, task 74095c21: `mkCiImage` with xc16 1.61 and 1.21, the 1.7.401 DFP and `extraPackages = [ hello ]` loaded into Docker 29.9.1 as a 3.4 GB image. `docker info` reported the builtin seccomp profile; `docker run` had no `--security-opt` and no `--privileged`. In the image, as uid 0: xc16 1.61 `-O3` compiled and linked a test file (`-Wl,-Tp33EP512MU810.gld`), `xc16-bin2hex` wrote a hex, `xc-make` compiled, `xc-run xc16-gcc --version` ran, `xclm -status` reported `Mode: PRO` for xc16, xc16 1.21 `-O3` compiled and linked through `xc-run`, and `hello` ran. No output contained `mount` or `restricted license`. Each root filesystem entry to depth 4 was in the image; the other entries were `/nix/store`, `fakeNss` (`/etc/passwd`, `/etc/group`, `/etc/nsswitch.conf`, `/var/empty`), `/root`, `/tmp` and Docker's own files.
+- 2026-10-23, controls: with `-e MPLAB_X_ENV=`, `xc16-gcc --version` exited 1 (the wrapper ran bwrap: `Exceeded maximum number of arguments 9000`). With `-e LD_LIBRARY_PATH=`, xc16 1.21 still compiled, but `sim30` exited 127 (`libstdc++.so.6: cannot open shared object file`); with `/lib32` it started.
+- 2026-10-23: `nix flake check --no-build` passed; `packages.x86_64-linux` has no `mkCiImage`, and `legacyPackages` and the overlay have it as a function.
+- 2026-10-23, the image of task 9e82cf4a with a third copy of the project mounted at `/src` (the README.org example path): `mplab-gen` and `xc-make` exited 0, and the hex had the same SHA-256 `f21e2300…7af746`. No `.mk` file named `/nix/store`. Three `.mk` files were byte-identical to the development-shell copy; in `Makefile-standalone.mk`, 514 lines differed, each in a `.generated_files/flags` hash, which depends on the project path.
+- 2026-10-23, task 1b328085: one `xc-cli` with xc16 1.61 and 1.21, xc8 4.00 and 3.10, xc32 6.00 and 5.10, and xc-dsc 4.00 and 3.31, with PIC18F-K_DFP 1.17.312, PIC32MX_DFP 1.7.380 and dsPIC33CK-MP_DFP 1.16.521, and an `mplab-x` built from it. In one `xc-run` call with the host `PATH`, one with `PATH=/usr/bin:/bin`, and one `mplab-x-run` call, each compiler compiled and linked a test file at `-O3` (PIC18F47K40, dsPIC33EP512MU810, PIC32MX795F512L, dsPIC33CK64MP105) and exited 0, with no Free-mode diagnostic (`restricted license`, `(2051)`, `requires the MPLAB XC32 PRO compiler`) and no `mount` line. `xclm -status` reported `Product: xc16 … Mode: PRO` and `Product: xc32 … Mode: cpp`.
+- 2026-10-23, Free-mode controls: a `mkCiImage` image (14.3 GB) of the five licensed compilers ran the same probe. With the licence, no diagnostic; with an empty directory bound over the `microchip-xclm-license` store path, xc16 1.61 and 1.21, xc8 3.10, xc32 5.10 and xc-dsc 3.31 each printed their Free-mode diagnostic, and `xclm -status` had no `Mode: PRO` or `Mode: cpp` line.
+- 2026-10-23: `nix derivation show -r` gave the same `mplab-x-rootfs` and `xc-cli-rootfs` derivations for `.#mplab-x` and `.#xc-cli` at 7633a85 and in the working tree.

@@ -276,6 +276,45 @@ in pkgs.stdenvNoCC.mkDerivation {
 }
 #+end_src
 
+*** CI container images
+
+The =xc-cli= and =mplab-x= commands run in a bubblewrap environment that needs unprivileged user namespaces. Docker's default seccomp profile blocks them, so these commands fail in a Docker CI job that does not use =--privileged= or a changed seccomp profile. For such a runner, =mkCiImage= builds a Docker image from an =xc-cli= package. The image root is the root filesystem of the =xc-cli= environment, so the commands of the development shell run in the image without bubblewrap. =mkCiImage= is a function in =legacyPackages= and the overlay:
+
+#+begin_src nix
+let
+  dfp = pkgs.fetchMplabPack {
+    name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+    version = "1.7.401";
+    hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
+  };
+  xc-cli = pkgs.xc-cli.override {
+    compilers = [ pkgs.xc16_1_61 ];
+    packs = [ dfp ];
+    withMplabProjects = true;
+  };
+in {
+  packages.x86_64-linux.ci-image = pkgs.mkCiImage {
+    inherit xc-cli;
+    extraPackages = [ pkgs.git ];
+  };
+}
+#+end_src
+
+- =xc-cli= :: the compiler and pack selection.
+- =extraPackages= :: packages whose =bin= directories are also on the image =PATH=. The default is =[ ]=.
+- =name= :: the image name. The default is ="xc-cli"=.
+- =tag= :: the image tag. The default, =null=, gives a tag that Nix derives from the image contents.
+
+The package is a script that writes the image to stdout. Load the image, then run the commands of the development shell in it:
+
+#+begin_src sh
+$(nix build --no-link --print-out-paths '.#ci-image') | docker load
+docker run --rm -v "$PWD:/src" -w /src xc-cli:<tag> \
+  sh -c 'mplab-gen firmware@standalone && xc-make -C firmware -j8 -f Makefile CONF=standalone'
+#+end_src
+
+With xc16 1.61, the 1.7.401 DFP and =withMplabProjects = true=, the image was 3.25 GB. It built an MPLAB project under Docker's default seccomp profile, without =--privileged=, to a hex file byte-identical to the development-shell build (measured 2026-10-23, Docker 29.9.1). For =mplab-gen=, the image contains a real copy of the command-line IDE files (274 MB), because the makefile generator derives its paths from its own location. The image runs commands as =root=; a non-root container user is not tested. See [[file:doc/environment.org][Runtime environment]] for the differences from the bubblewrap environment.
+
 ** Device packs
 
 A device family pack (DFP) gives the compilers the device headers, linker scripts and device data. MPLAB-generated makefiles pass =-mdfp= to each compile, link and =xc16-bin2hex= step. XC8 3.10 and later, XC32 and XC-DSC 4.00 need =-mdfp= for all devices; XC-DSC 3.31 needs it for a device without built-in support, e.g. dsPIC33CK64MP105 (measured 2026-10-21). A tool pack (TP) gives MPLAB-X the support for a programmer or debugger.

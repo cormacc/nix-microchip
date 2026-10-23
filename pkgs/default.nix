@@ -24,4 +24,6 @@ pkgs : rec {
    mplab-x-unwrapped = mplab-x-unwrapped_6_35;
    xc-cli = pkgs.callPackage ./xc-cli { inherit mplab-x-unwrapped; };
    mplab-x = pkgs.callPackage ./mplab-x { inherit mplab-x-unwrapped xc-cli; };
+   # A function, not a package: mkCiImage { xc-cli; extraPackages ? [ ]; name ? "xc-cli"; tag ? null; }.
+   mkCiImage = pkgs.callPackage ./mk-ci-image { };
 }

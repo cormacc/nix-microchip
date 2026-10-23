@@ -419,3 +419,30 @@ Let's change this so that when no toolpacks are specified explicitly, all toolpa
 The --othermcu support packs should always installed -- they're small in context (4.8MB).
 
 If there are other toolpacks relating to debugging tools etc. these should probably be included with the mplab-x package instead. That should also expose the mplab_ipe binary on installation (?should that also be offered as a standalone package?).
+
+** DONE Add a container image helper for xc-cli
+CLOSED: [2026-10-23 Fri 16:32]
+:PROPERTIES:
+:CUSTOM_ID: 3e04ba37-dd33-4670-9d4f-c0c4c900bd13
+:CREATED: [2026-10-23 Fri 15:27]
+:STARTED: [2026-10-23 Fri 15:57]
+:ARCHIVED: [2026-10-23 Fri 16:32]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 15:27]
+- State "STARTED" from "TODO" [2026-10-23 Fri 15:57]
+- State "DONE" from "STARTED" [2026-10-23 Fri 16:32]
+:END:
+#+IMPORT: [[plan:2026-10-23-xc-cli-ci-image.org]]
+A Docker image built from an xc-cli selection, for CI runners without unprivileged user namespaces. Docker's default seccomp profile blocks `bwrap --unshare-user` (measured 2026-10-23, Docker 29.9.1). The xc-cli rootfs imported as an image ran xc16 1.61 in PRO mode under that profile.
+
+Acceptance criteria:
+- An exported function (e.g. `mkCiImage { xc-cli; extraPackages ? [ ]; }`) returns a `dockerTools.streamLayeredImage` whose root is `xc-cli.passthru.rootfs`.
+- The image sets `MPLAB_X_ENV` so that the xc-cli wrappers (`xc16-gcc`, `xc-make`, `xc-run`) run in it without bwrap.
+- With `withMplabProjects = true`, `mplab-gen <project>@<conf>` runs in the image and writes makefiles that name `/opt/microchip/...` paths and no `/nix/store` path.
+- The xc-cli rootfs contains `mount` (util-linux): an xclm compile prints no `mount: command not found`.
+- Under default seccomp and without `--privileged`, an MPLAB project builds a hex in the image.
+- README.org and doc/environment.org describe the helper and the seccomp limit.
+
+Related: the Gitlab CI firmware build example task (0c9e2e15) can use this helper instead of a runner with user namespaces.

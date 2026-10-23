@@ -60,6 +60,9 @@ runCommand "xc-cli" {
     inherit compilers fhsMultiPkgs fhsTargetPkgs ideVersion withMplabProjects;
     packs = resolvedPacks;
     rootfs = environment.rootfs;
+    # Lines of <source>\t<target>: the IDE entries that mplab-gen needs at real /opt paths. null
+    # without withMplabProjects.
+    inherit (environment) generatorBindList mountStub;
   };
   meta.mainProgram = "xc-run";
 } ''

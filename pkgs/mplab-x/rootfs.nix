@@ -129,5 +129,5 @@ let
   '') defaultCompilers;
 in
 {
-  inherit fhsMultiPkgs fhsTargetPkgs generatorRun make mountStub rootfs run wrappers;
+  inherit fhsMultiPkgs fhsTargetPkgs generatorBindList generatorRun make mountStub rootfs run wrappers;
 }
