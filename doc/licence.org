@@ -1,0 +1,42 @@
+#+TITLE: Compiler licence (PRO optimisations)
+
+This document is the reference for the compiler licence. The package source is the authority; [[file:../README.org][README.org]] gives the summary, and its package table shows which versions of each compiler check the licence.
+
+* Licence
+
+Microchip states that previously paid MPLAB XC PRO versions are free (https://www.microchip.com/en-us/tools-resources/develop/mplab-xc-compilers), and issues the licence from the "software products" section of myMicrochip (https://www.microchipdirect.com/software-products). Without a licence the compilers run in Free mode, which limits the optimisation levels.
+
+The licence is shipped as the =microchip-xclm-license= package (=pkgs/xclm-license/=). Its =microchip.lic= is the licence block that Microchip's =linux.sh= installer writes into =/opt/microchip/xclm/license/=. It lists seven permanent features with =hostid=ANY=: =swxc8-pro=, =swxc16-pro=, =swxc32-cpp=, =swxc8-fs=, =swxc16-fs=, =swxc32-fs= and =swanaly-ts=. Of these, the packaged compilers use =swxc8-pro= (XC8 2.50 and 3.10), =swxc16-pro= (XC16 1.21, 1.61 and 2.10, and XC-DSC 3.31) and =swxc32-cpp= (XC32 5.10). The file has no XC-DSC feature.
+
+Each XC8, XC16, XC32 5.10 and XC-DSC 3.31 package rewrites the =xclm:path= attribute in its =etc/xclm.conf= to the store path of =microchip-xclm-license=. The compilers then run in PRO mode without any manual licence step, with or without the =mplab-x= wrapper.
+
+* Licensed versions
+
+These results come from the probes below.
+
+- XC8 :: 2.50 and 3.10 enforce licensing. 4.00 does not: it ships no =xclm= and no =etc/xclm.conf=, so there is nothing to patch, and =-O3= gives no licence diagnostic.
+- XC16 :: 1.21, 1.61 and 2.10 enforce licensing. The =xclm -status= of 1.21 lists the node-locked licences (e.g. =Product:swxc16-pro Version:1.0 Key:swxc16-pro-permanent=) and has no =Mode: PRO= line, so use the =-O3= probe. Without the licence, =-O3= prints =Options have been disabled due to restricted license= and =Visit http://www.microchip.com/ to purchase a new key.=; with it, nothing.
+- XC-DSC :: 3.31 enforces licensing, and it uses the =swxc16-pro= feature. The installer needs =--LicenseType FreeMode --netservername localhost=. With only =swxc16-pro= in the licence directory, =-O3= and =-Os= print no diagnostic. With no licence, or with any other single feature of the file, they print =Options have been disabled due to restricted license= and =Visit https://www.microchip.com/compilers to purchase a new key.=. =xclm -status= shows no =xc-dsc= product line, so use the compile probe for this compiler. =-O0= to =-O2= print nothing in either mode. 4.00 does not enforce licensing: it ships no =xclm= and no =etc/xclm.conf=, and =-O3= and =-Os= give no licence diagnostic. Microchip documents that v4.00 and later need no key.
+- XC32 :: 5.10 enforces licensing, and it uses the =swxc32-cpp= feature (=swxc32-pro-permanent=). The installer needs =--LicenseType FreeMode --netservername localhost=. =xclm -status= shows =Product: xc32 ... Mode: cpp Key: swxc32-pro-permanent=; the mode is =cpp=, not =PRO=. Without the licence, =-O3= prints =Compiler option (Optimization level > 2) ignored because this feature requires the MPLAB XC32 PRO compiler=, and =-Os= prints the same with =(Optimize for size)=. Each is followed by a note to visit http://www.microchip.com/MPLABXCcompilers. With the licence, they print nothing. 5.19 and 6.00 do not enforce licensing: neither installs =xclm= or =etc/xclm.conf=, the installers have no licence options, and the compiler lists its licence options (=-mskip-license-check= and others) as obsolete. =-O3= and =-Os= give no licence diagnostic. No Free-mode build of these versions was available as a negative control. Microchip documents that v6.00 and later need no key, and 5.19 is the XC32 Functional Safety release. The XC32 6.00 release notes list no release between 5.10 and 5.19.
+
+* Licence probes
+
+To check that a compiler runs in PRO mode, use either probe. The compilers are dynamically linked, so run them inside the =mplab-x= environment (e.g. with =mplab-x-run= or the command-line wrappers) or an equivalent FHS environment.
+- =xclm -status=: for a licensed compiler, the output includes a line for its own product with =Mode: PRO=, for example =Product: xc16 ... Mode: PRO Key: swxc16-pro-permanent=. In Free mode the output has no such line.
+- An =-O3= compile: in Free mode, =xc16-gcc= prints =Options have been disabled due to restricted license=. In Free mode, =xc8-cc= (2.50 and 3.10) prints the advisory =(2051) the current license does not permit the selected optimization level, using optimization level 2=. The xc8 advisory does not change the exit status (0), so search the output for =(2051)=. =xc8-cc= 3.10 and 4.00 also need a device pack (=-mdfp=). =xc-dsc-gcc= 3.31 prints the same two lines as =xc16-gcc= for =-O3= and =-Os=, and it needs a DFP for the dsPIC33CK64MP105 probe. =xc32-gcc= 5.10 (which prints the diagnostics quoted above) and =xc-dsc-gcc= 4.00 need a device pack (=-mdfp=) too.
+
+If Microchip reissues or revokes the licence, the compilers can fall back to Free mode and no automatic check reports it, so repeat the probes after an update. To use a reissued licence, replace =pkgs/xclm-license/microchip.lic= with the new file. No other file changes.
+
+Host-level installation of the licence (a =systemd.tmpfiles.rules= symlink to =${microchip-xclm-license}=) for unwrapped use is a possible follow-up that this overlay does not provide.
+
+* Licence dongle scan messages
+
+The licence manager of the licensed compilers (=xclm=) opens every USB device on the bus to look for a licence dongle. For each device that the user cannot open, it prints a message on stderr, in the MPLAB-X build console and on the command line.
+
+#+begin_example
+Error getting handle for device 0: Access denied (insufficient permissions)
+#+end_example
+
+These messages do not change the exit status and do not stop a build. Microchip's rules do not remove them, because the rules apply only to Microchip, Atmel and J-Link devices. On a test host with 28 USB devices and Microchip's rules installed, one xc16 1.61 compile printed 26 messages. The user had write access to the other 2 devices: one by a =MODE="666"= rule and one by a =uaccess= ACL (measured 2026-10-21). xc16 1.61's =xclm= does not accept the =<xclm:Dongle xclm:enabled="false" />= element from xc8 3.10's =xclm.conf=. It prints =Unrecognized value in xclm config file: xclm:Dongle= and continues the scan.
+
+The optional =uaccess= rule in README.org's udev section removes the messages for the user of an active local session.

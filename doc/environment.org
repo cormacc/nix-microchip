@@ -1,0 +1,18 @@
+#+TITLE: Runtime environment
+
+This document describes the bubblewrap environment that =xc-cli= and =mplab-x= run commands in. [[file:../README.org][README.org]] describes the commands. The source of the environment is =pkgs/mplab-x/rootfs.nix= and =pkgs/mplab-x/run.sh=.
+
+* Set-up cost and nested calls
+
+Each call from outside the environment sets up the environment again. With xc16 1.61, a wrapped =-O3= compile of a small file took approximately 0.2 s, and =mplab-x-run true= took approximately 0.03 s (measured 2026-10-21). For a build that calls the compiler many times, run the whole build in one environment with =mplab-make=, or use =mplab-x-run ./build.sh= for a build script. An =xc-cli= wrapper runs directly inside either an =xc-cli= environment or an =mplab-x= environment built from the same =xc-cli=; ten compiles took 1.8 s in total, including the set-up. An =mplab-x-run= or =mplab-make= call inside an =xc-cli= environment exits non-zero, even when both use the same =xc-cli=, because that environment does not contain the IDE root filesystem. Any other runner whose root filesystem is absent also exits non-zero and names the active and required environments, because it cannot create a nested bubblewrap environment.
+
+* File system
+
+The environment shows these host directories, writable: =/dev=, =/home=, =/nix=, =/proc=, =/run=, =/sys=, =/tmp=, =/var= and the working directory. Other top-level host directories (e.g. =/boot=, =/mnt= and =/srv=) are not visible, so a build cannot use an absolute path in them. =/etc=, =/usr= and =/opt= merge the MPLAB-X root filesystem with the host, and the root filesystem has precedence. The root filesystem is read-only. Do not add mounts to the environment without a measurement: on each call, =xclm= searches each block-device mount for licence files, so each mount makes each compile slower (approximately 16 ms on the test host).
+
+The environment includes 32-bit glibc and libstdc++, for XC16 before 1.50 (32-bit) and for =sim30= (32-bit in every XC16 version).
+
+* Limits
+
+- The environment needs unprivileged user namespaces. It does not need FUSE. In a test derivation in the Nix build sandbox on NixOS, =mplab-x-run= compiled and linked with xc16 1.61 and 1.21, =xc16-bin2hex= made a hex file, and =xclm -status= reported PRO mode (measured 2026-10-21).
+- The licensed compilers print =Error getting handle for device N: Access denied (insufficient permissions)= on stderr for each USB device that the user cannot open. Microchip's udev rules do not remove all of these messages. The exit status is not affected. See [[file:licence.org][Compiler licence]].

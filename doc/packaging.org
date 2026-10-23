@@ -90,3 +90,5 @@ These closure-size measurements use =nix path-info -S= on realised paths on 2026
 | =xc-cli= with =xc16= and dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 |          2.50 | 2,683,095,400   |
 | =xc-cli= with no compiler                                    |          0.36 | 386,383,872     |
 | Default =mplab-x=                                            |          6.14 | 6,596,188,896   |
+
+The bundled packs contain approximately 2.5 GB of duplicate files, most of them in the debugger tool packs (measured with =jdupes=, 2026-10-21). Nix does not de-duplicate store files by default. =nix store optimise=, or =nix.settings.auto-optimise-store = true;= on NixOS, replaces duplicate files with hard links. This does not make a download from a binary cache smaller.

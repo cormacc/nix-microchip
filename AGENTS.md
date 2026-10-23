@@ -7,13 +7,13 @@ This flake packages proprietary Microchip tools for `x86_64-linux`. Read [README
 - `flake.nix` exports packages and the overlay; `pkgs/default.nix` registers versions and defaults.
 - `pkgs/<tool>/<version>.nix` contains the version and installer hash; `common.nix` contains shared packaging logic.
 - `pkgs/mplab-x/rootfs.nix` builds the shared runtime filesystem and command wrappers. `pkgs/xc-cli/default.nix` provides the compiler-only environment. `pkgs/mplab-x/default.nix` provides the IDE environment. `pkgs/mplab-x/run.sh` builds each environment with bubblewrap.
-- `bb.edn` and `bb/` provide checkout tasks. `doc/packaging.org` documents packaging options and closure sizes.
+- `bb.edn` and `bb/` provide checkout tasks. `doc/packaging.org` documents packaging options and closure sizes, `doc/environment.org` the runtime environment, and `doc/licence.org` the compiler licence and its probes.
 
 ## Changes
 
 - Follow the existing version-file pattern. Change default versions or `flake.lock` only when requested.
 - Retain only the latest verified MPLAB-X version; remove superseded IDE version files and exports when upgrading. Keep legacy compiler versions for reproducible firmware builds.
-- Preserve compiler payloads: ELF patching can trigger licence checks and disable PRO optimisations. See README.org's licence probes.
+- Preserve compiler payloads: ELF patching can trigger licence checks and disable PRO optimisations. See the licence probes in `doc/licence.org`.
 - Keep private downstream project details out of public documentation and task records. Before you push, search the outgoing diff for downstream project names and paths, with a positive control.
 - Use `.tmp/` for experiments. Keep Markdown and Org paragraphs on one logical line.
 
@@ -46,7 +46,7 @@ The Microchip packages fill the Nix store quickly. `mplab-x-unwrapped` 6.35 writ
 
 ## Regression testing
 
-Test compilers in `xc-cli`, and also in `mplab-x` when the change affects it. For each compiler, compile and link one test file, and run the README.org licence probe for a licensed compiler. Choose one level:
+Test compilers in `xc-cli`, and also in `mplab-x` when the change affects it. For each compiler, compile and link one test file, and run the `doc/licence.org` licence probe for a licensed compiler. Choose one level:
 
 - Basic, for most changes: one licensed compiler, the production XC16 (`xc16_1_61`), and one licence-free compiler, the latest XC-DSC (`xc-dsc_4_00`, which needs a DFP).
 - Thorough, for changes to `pkgs/mplab-x/rootfs.nix`, `run.sh`, the FHS library lists or `flake.lock`: one version of each compiler: the production XC16 (`xc16_1_61`, used in place of the latest XC16), and the latest `xc8_4_00`, `xc32_6_00` and `xc-dsc_4_00`.
