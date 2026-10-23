@@ -1,0 +1,92 @@
+#+TITLE: Packaging options and closure sizes
+
+This document is for users who configure this flake. The package source is the authority for option behaviour.
+
+* xc-cli
+
+=xc-cli= defaults to no compilers. Set =compilers= to a list of compiler packages. The unversioned attributes (=xc8=, =xc16=, =xc32= and =xc-dsc=) select the latest packaged version. Versioned attributes, such as =xc16_1_61=, keep a firmware build on a specified compiler version. The first selected compiler of each family provides the unversioned command wrappers, such as =xc16-gcc=. Use =xc-run= to run another selected compiler by its full path.
+
+=packs= defaults to =null=. With selected compilers, this installs the device packs from their installer MCU options and =othermcu=: =xc8= selects =8bitmcu=; =xc16= and =xc-dsc= select =16bitmcu=; and =xc32= selects =32bitmcu=. The flake runs the installer once for each selected MCU-option combination. Set =packs= to a list to use exactly those packs. Set =packs = [ ]= to install no packs.
+
+=withMplabProjects= defaults to =false=. Set it to =true= to add the command-line MPLAB-X subset and =mplab-gen=. =ideVersion= defaults to =mplab-x-unwrapped.version= and sets the MPLAB-X path used by the environment.
+
+#+BEGIN_SRC nix
+pkgs.xc-cli.override {
+  compilers = with pkgs; [ xc16_1_61 xc16_2_10 ];
+}
+#+END_SRC
+
+* mplab-x
+
+=mplab-x= takes =xc-cli=. It defaults to =xc-cli= with no compiler. Pass a configured =xc-cli= when the IDE must use compiler commands.
+
+=toolPacks= defaults to =null= and installs all bundled tool packs. Set it to a list of bundled tool-pack names, such as =[ "PICkit5_TP" ]=, to select those names. Set =toolPacks = [ ]= to install no tool pack.
+
+=packs= defaults to =[ ]=. It adds extra packs to the packs from =xc-cli= and =toolPacks=. Use it for a pack from =fetchMplabPack=, including a newer device or tool pack.
+
+The package provides =mplab_ipe= for the IPE GUI and =ipecmd= for the IPE command line. It also provides =mplab-x-run=, =mplab-make= and =mplab-gen=.
+
+* mplab-x-unwrapped pack outputs
+
+=mplab-x-unwrapped.devicePacks { mcuOptions }= builds device packs and =arm/CMSIS= for the specified installer MCU options. The valid values are =8bitmcu=, =16bitmcu=, =32bitmcu= and =othermcu=. =mplab-x-unwrapped.toolPacks= contains the bundled tool packs. =mplab-x-unwrapped.packs= contains all bundled packs. =mplab-x-unwrapped.installerHelp= contains the installer help and version output. =mplab-x-unwrapped.commandLineSubset= contains the command-line MPLAB-X files used by =withMplabProjects=.
+
+The measurements below are from MPLAB-X 6.35 on 2026-10-23. Each device-pack row includes =othermcu= and =arm/CMSIS=. The DFP count does not include =arm/CMSIS=. The installer also installs 15 tool packs on every run; =toolPacks= keeps those 15 packs and is 2.69 GiB.
+
+| MCU options            | DFPs | Directories | Size (GiB) |
+|------------------------+------+-------------+------------|
+| =8bitmcu=, =othermcu=  |   27 |          28 |       2.72 |
+| =16bitmcu=, =othermcu= |   24 |          25 |       2.84 |
+| =32bitmcu=, =othermcu= |   84 |          85 |       4.87 |
+
+* Device-pack compiler option
+
+A compiler does not search the packs folder. Pass =-mdfp=/opt/microchip/mplabx/v<version>/packs/<vendor>/<name>/<version>/<compiler-dir>=, for example the =xc16= directory for both XC16 and XC-DSC. MPLAB-generated makefiles pass this option from =DFP_DIR=.
+
+* fetchMplabPack
+
+=fetchMplabPack= fetches one pack. Set =name=, =version= and =hash=; =vendor= defaults to ="Microchip"=. It removes the archive manifest so its output matches a pack installed by MPLAB-X.
+
+#+BEGIN_SRC nix
+pkgs.fetchMplabPack {
+  name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+  version = "1.7.401";
+  hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
+}
+#+END_SRC
+
+To get a hash, set =hash = lib.fakeHash;=, build the expression and copy the hash from the error. For an installed bundled pack, run =nix hash path= on its =<vendor>/<name>/<version>= directory. =fetchMplabPack= is in =legacyPackages= and in the overlay, not in =packages=.
+
+* Checkout tasks
+
+Run these tasks from a checkout with =nix develop=. The development shell provides Babashka.
+
+#+BEGIN_SRC sh
+nix develop -c bb installer-help
+nix develop -c bb packs [--online] [filter]
+nix develop -c bb project-config <dir>
+#+END_SRC
+
+=installer-help= prints the packaged installer help and version. =packs= lists bundled packs by default, or the Microchip online index with =--online=; the optional filter selects pack names. =project-config= reads an MPLAB project directory and prints an =xc-cli.override= block with its versioned compiler and pinned packs.
+
+The printed block requires a =pkgs= binding that includes this flake's packages. In a downstream flake, add =microchip.overlays.default= to the package set's =overlays= list, as in the README example, then use the block where that =pkgs= is in scope. To use this flake directly, with its input named =microchip=, use this scope:
+
+#+BEGIN_SRC nix
+let
+  pkgs = microchip.legacyPackages.x86_64-linux;
+in
+# Paste the project-config output here.
+#+END_SRC
+
+* Closure sizes
+
+These closure-size measurements use =nix path-info -S= on realised paths on 2026-10-23, with MPLAB-X 6.35. Values are GiB, where 1 GiB is 1,073,741,824 bytes.
+
+| Selection                                                    | Closure (GiB) | Closure (bytes) |
+|--------------------------------------------------------------+---------------+-----------------|
+| =xc-cli= with =xc8= and default device packs                 |          3.53 | 3,786,544,224   |
+| =xc-cli= with =xc16= and default device packs                |          5.06 | 5,435,906,832   |
+| =xc-cli= with =xc32= and default device packs                |         13.93 | 14,955,809,008  |
+| =xc-cli= with =xc-dsc= and default device packs              |          4.11 | 4,415,098,128   |
+| =xc-cli= with =xc16= and dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 |          2.50 | 2,683,095,400   |
+| =xc-cli= with no compiler                                    |          0.36 | 386,383,872     |
+| Default =mplab-x=                                            |          6.14 | 6,596,188,896   |

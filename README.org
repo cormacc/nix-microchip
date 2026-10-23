@@ -15,7 +15,7 @@
 # Startup options : Want to view rendered versions of latex fragments (equations etc.) by default
 #+STARTUP:: latexpreview
 
-A Nix overlay for microchip development -- intended for use in per-project environment flakes, home-manager configuration and/or NixOS configuration (for udev rules).
+A Nix overlay for microchip development -- intended for use in per-project environment flakes, home-manager configuration and/or NixOS configuration (for udev rules). See [[file:doc/packaging.org][Packaging options and closure sizes]] to configure compilers and packs.
 
 * Table of Contents                                         :TOC_2_gh:noexport:
 - [[#overview][Overview]]
@@ -101,17 +101,15 @@ N.B. I'm using nixpkgs-unstable, as that's what I'm tracking for NixOS on my dev
           let
             xc-cli = pkgs.xc-cli.override {
               compilers = with pkgs; [ xc16_1_61 ];
-              packs = [ pkgs.mplab-x-unwrapped.packs ];
             };
             mplab-x = pkgs.mplab-x.override {
               inherit xc-cli;
-              packs = [ ];
             };
           in {
             default = pkgs.mkShell {
               buildInputs = with pkgs; [
-                xc-cli # XC16 1.61 and the bundled device packs
-                mplab-x # IDE with the same XC16 and packs, and no IDE-only packs
+                xc-cli # XC16 1.61 and its default device packs
+                mplab-x # IDE with the same XC16 and bundled tool packs
                 cmake clang-tools #editor support (emacs/lsp)
               ];
             };
@@ -122,7 +120,7 @@ N.B. I'm using nixpkgs-unstable, as that's what I'm tracking for NixOS on my dev
 
 ** Command-line use
 
-Use =xc-cli= for a compiler-only environment. It has no default compilers or packs, so select both with its =compilers= and =packs= arguments. It supplies =xc-run <command> [args...]=, =xc-make [args...]= and a wrapper for each executable of the first selected compiler of each family. =xc-make= runs GNU Make in the environment, forwards its arguments and preserves its exit status.
+Use =xc-cli= for a compiler-only environment. It has no default compilers. When compilers are selected, its default packs are their device packs and the =othermcu= packs. It supplies =xc-run <command> [args...]=, =xc-make [args...]= and a wrapper for each executable of the first selected compiler of each family. =xc-make= runs GNU Make in the environment, forwards its arguments and preserves its exit status. See [[file:doc/packaging.org][Packaging options and closure sizes]] for pack selection.
 
 #+begin_src nix
 packages = [
@@ -147,6 +145,7 @@ The =mplab-x= package also supplies these commands:
 - =mplab-x-run <command> [args...]= runs a command inside the MPLAB-X environment. In this environment, each compiler selected by =xc-cli= is at =/opt/microchip/<compiler>/v<version>=, where MPLAB-X expects it.
 - =mplab-make [args...]= runs the packaged GNU Make inside the MPLAB-X environment. It forwards arguments and preserves its exit status; ordinary =make= is unchanged.
 - =mplab-gen <project>@<configuration>...= generates MPLAB makefiles with each compiler selected by =xc-cli=. This generator uses the full IDE.
+- =mplab_ipe= starts the IPE GUI, and =ipecmd= runs the IPE command line.
 
 Each =mplab-gen= alone binds its IDE or command-line subset at =/opt/microchip/mplabx/v<version>=. The generated makefiles name =/opt/microchip/...= paths, not Nix store paths. =mplab-make=, =mplab-x-run=, =xc-make= and compiler wrappers run without this bind.
 
@@ -160,7 +159,6 @@ Set the compiler and device-pack selection on =xc-cli=, then pass that package t
   let
     xc-cli = pkgs.xc-cli.override {
       compilers = with pkgs; [ xc16_1_61 xc16_2_10 ];
-      packs = [ pkgs.mplab-x-unwrapped.packs ];
     };
   in [
     xc-cli
@@ -170,7 +168,7 @@ Set the compiler and device-pack selection on =xc-cli=, then pass that package t
 
 With this devshell, MPLAB-X can use both versions, =xc16-gcc= from =xc-cli= runs v1.61, and =mplab-x-run /opt/microchip/xc16/v2.10/bin/xc16-gcc= runs v2.10.
 
-BREAKING: =mplab-xc8=, =mplab-xc16=, =mplab-xc32= and =mplab-xc-dsc= are removed. Replace each with an =xc-cli.override= that selects its compiler and packs, and pass that =xc-cli= to =mplab-x.override=. The =mplab-x= =compilers=, =xc8=, =xc16=, =xc32= and =xc-dsc= arguments are removed. The default =mplab-x= has no compiler or pack, so a devshell that needs compiler commands must include its selected =xc-cli= as well as =mplab-x=.
+BREAKING: =mplab-xc8=, =mplab-xc16=, =mplab-xc32= and =mplab-xc-dsc= are removed. Replace each with an =xc-cli.override= that selects its compiler and packs, and pass that =xc-cli= to =mplab-x.override=. The =mplab-x= =compilers=, =xc8=, =xc16=, =xc32= and =xc-dsc= arguments are removed. The default =mplab-x= has no compiler and includes bundled tool packs, so a devshell that needs compiler commands must include its selected =xc-cli= as well as =mplab-x=.
 
 Use =mplab-make= for MPLAB-generated makefiles. Their local settings prepend the IDE's unwrapped =bin= directory to =PATH=, so a recursive =make= or another bundled tool can fail on NixOS outside the environment, even when the compiler commands are wrapped. For example, from a project's firmware directory:
 
@@ -323,35 +321,7 @@ A device family pack (DFP) gives the compilers the device headers, linker script
 
 The =mplab-x= environment has one packs folder, =/opt/microchip/mplabx/v<version>/packs=. The IDE and the MPLAB-X command-line scripts (e.g. =prjMakefilesGenerator.sh=) use it, and the makefiles that they generate set =DFP_DIR= to a pack in it, e.g. =/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258=. Packs that the IDE downloads go to =~/.mchp_packs=, as on other Linux installations.
 
-By default, the packs folder has no pack. The =mplab-x-unwrapped= package makes the packs that its installer bundles available through its separate =packs= derivation, so its main output does not include them. Use the =packs= argument of =xc-cli= to select device packs for compilers, and use the =packs= argument of =mplab-x= to add IDE-only packs. Use =fetchMplabPack= to pin a pack from Microchip's pack repository:
-
-#+begin_src nix
-  let
-    xc-cli = pkgs.xc-cli.override {
-      compilers = with pkgs; [ xc16_1_61 ];
-      packs = [
-        (pkgs.fetchMplabPack {
-          name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
-          version = "1.5.258";
-          hash = "sha256-GdndiTwmMizusNoGvP3TleTiD9E5LidbJoUEEjS0se0=";
-        })
-      ];
-    };
-  in pkgs.mplab-x.override {
-    inherit xc-cli;
-    packs = [ pkgs.mplab-x-unwrapped.packs ];
-  }
-#+end_src
-
-This =xc-cli= gives XC16 1.61 the DFP. The =mplab-x= package adds the bundled packs for IDE use. Pin the pack version that the project's =nbproject/configurations.xml= names in its =<pack>= element. The bundled packs change with the IDE version: MPLAB-X 6.35 bundles dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401, not 1.5.258.
-
-=fetchMplabPack= takes =name=, =version=, =hash= and =vendor= (default ="Microchip"=). It downloads =https://packs.download.microchip.com/<vendor>.<name>.<version>.atpack=. Its output is the pack root, so a derivation can use the pack directly, e.g. =-mdfp=${pack}/xc16=. The output does not include the archive manifest =package.content=, so its hash is the =nix hash path= of an installed copy of the same pack version. To get the hash, either:
-- run =nix hash path= on the pack in the bundled packs, e.g. =$(nix build '.#mplab-x-unwrapped.packs' --print-out-paths)/Microchip/<name>/<version>=; or
-- set =hash = lib.fakeHash;=, build, and copy the hash from the error message.
-
-The flake exports =fetchMplabPack= in =legacyPackages= and in the overlay. It is a function, so it is not in =packages=.
-
-To add the bundled packs to a selection, put =pkgs.mplab-x-unwrapped.packs= in the list. Two packs at the same =<vendor>/<name>/<version>= make the build fail.
+When =xc-cli= has a compiler, its default packs are the device packs for that compiler and the =othermcu= packs. The default =mplab-x= adds all bundled tool packs. =mplab-x-unwrapped.packs= remains the separate derivation for all packs bundled by the installer. Use =fetchMplabPack= to pin a pack from Microchip's repository. See [[file:doc/packaging.org][Packaging options and closure sizes]] for pack selection, compiler =-mdfp= paths and pack hashes.
 
 The bundled packs contain approximately 2.5 GB of duplicate files, most of them in the debugger tool packs (measured with =jdupes=, 2026-10-21). Nix does not de-duplicate store files by default. =nix store optimise=, or =nix.settings.auto-optimise-store = true;= on NixOS, replaces duplicate files with hard links. This does not make a download from a binary cache smaller.
 
