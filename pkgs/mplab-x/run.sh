@@ -1,5 +1,5 @@
-# Runs its arguments as a command inside the MPLAB-X root filesystem. default.nix prepends
-# the assignments of root (the root filesystem, merged at build time) and bwrap.
+# Runs its arguments as a command inside the MPLAB-X root filesystem. rootfs.nix prepends
+# the assignments of root (the root filesystem, merged at build time), mountStubBin and bwrap.
 #
 # The compilers must run unmodified in this environment: an autoPatchelf'd compiler detects
 # the change and drops to Free mode, and a default buildFHSEnv sandbox makes xclm fail
@@ -115,6 +115,8 @@ done
 args+=(--remount-ro /)
 
 export MPLAB_X_ENV=$environmentIdentityList
+# First on PATH, so that xclm finds no mount points (see mountStub in rootfs.nix).
+export PATH="$mountStubBin${PATH:+:}${PATH:-}"
 # The 32-bit loader does not search /lib32 by itself (sim30 needs libstdc++ from there).
 # 64-bit programs skip the 32-bit libraries in it.
 export LD_LIBRARY_PATH="/lib32${LD_LIBRARY_PATH:+:}${LD_LIBRARY_PATH:-}"

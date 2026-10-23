@@ -12,6 +12,8 @@ The environment shows these host directories, writable: =/dev=, =/home=, =/nix=,
 
 The environment includes 32-bit glibc and libstdc++, for XC16 before 1.50 (32-bit) and for =sim30= (32-bit in every XC16 version).
 
+=mount= in the environment is a stub that prints nothing and exits 0: it is first on =PATH=, before the host's =mount=. =xclm= runs =mount= on each licence check to list mount points, and the shipped licence (=hostid=ANY=) needs none. A real =mount= made each xc16 1.61 compile slower: with the host's =mount=, the median compile took 349 ms, and with the stub 51 ms (on the test host, measured 2026-10-23). Without any =mount=, each licensed compile prints =mount: command not found= twice. A build script that runs =mount= in the environment sees no mount points.
+
 * Limits
 
 - The environment needs unprivileged user namespaces. It does not need FUSE. In a test derivation in the Nix build sandbox on NixOS, =mplab-x-run= compiled and linked with xc16 1.61 and 1.21, =xc16-bin2hex= made a hex file, and =xclm -status= reported PRO mode (measured 2026-10-21).

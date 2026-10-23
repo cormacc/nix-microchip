@@ -6,6 +6,7 @@
 , rsync
 , runCommand
 , writeShellApplication
+, writeShellScriptBin
 }:
 
 { name
@@ -77,6 +78,11 @@ let
     '') uniqueCompilers}
   '';
 
+  # xclm lists mount points with `mount` on each licence check. The licence has hostid=ANY, so
+  # it needs none, and a real `mount` costs each compiler call about 100 ms or more; without one,
+  # each call prints "mount: command not found". Measured in design/log/2026-10-23-xc-cli-ci-image.org.
+  mountStub = writeShellScriptBin "mount" "exit 0";
+
   environmentIds = [ rootfs ] ++ extraEnvironmentIdentities;
 
   generatorBindList = if generatorBindSource == null then null else runCommand "${name}-generator-binds" { } ''
@@ -94,6 +100,7 @@ let
       environmentIdentityList=${lib.concatStringsSep ":" environmentIds}
       generatorBindList=${if generator then generatorBindList else ""}
       mplabxDir=${ideDir}
+      mountStubBin=${mountStub}/bin
       bwrap=${lib.getExe bubblewrap}
     '' + builtins.readFile ./run.sh;
   };
@@ -122,5 +129,5 @@ let
   '') defaultCompilers;
 in
 {
-  inherit fhsMultiPkgs fhsTargetPkgs generatorRun make rootfs run wrappers;
+  inherit fhsMultiPkgs fhsTargetPkgs generatorRun make mountStub rootfs run wrappers;
 }
