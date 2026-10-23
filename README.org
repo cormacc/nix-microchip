@@ -33,28 +33,24 @@ A Nix overlay for microchip development -- intended for use in per-project envir
 - [[#llm-usage-statement][LLM usage statement]]
 
 * Overview
-This provides Nix packages for Microchip PIC24/dsPIC33 development. =xc-cli= runs selected compilers without the MPLAB-X IDE, and =mplab-x= provides the IDE with the selection from =xc-cli=. It should be readily adaptable to provide similar packages for XC8 and/or XC32.
+This provides Nix packages for embedded firmware development for the Microchip 8-, 16- and 32-bit PIC families. =xc-cli= runs selected compilers without the MPLAB-X IDE, and =mplab-x= provides the IDE with the selection from =xc-cli=.
 
-The packages included here are primarily the work of https://github.com/nyadiia, in a merge request raised against nixpkgs here:
+The packages included here are derived from original work by https://github.com/nyadiia, in a merge request raised against nixpkgs here:
 [[https://github.com/NixOS/nixpkgs/pull/301317]]
 
-I've refactored them a bit and packaged as a flake for instant gratification.
+I initially refactored them a bit and packaged as a flake for instant gratification for use in my own personal NixOS/home-manager based development configurations. In October 2026 I embarked on a major LLM-assisted rewrite to streamline packaging and reduce package size with a view to setting up firmware builds in CI. This was unblocked by Microchip's recent (as of Oct 2026) elimination of the requirement for a paid license to use compiler optimisation.
 
-Currently this provides packages for the following, to meet my own immediate needs:
-- xc16 v1.21
-- xc16 v1.61
-- xc16 v2.10
-- xc8 v2.50
-- xc8 v3.10
-- xc8 v4.00
-- xc32 v5.10
-- xc32 v5.19
-- xc32 v6.00
-- xc-dsc v3.31
-- xc-dsc v4.00
-- mplab-x v6.35 (=mplab-x-unwrapped=)
+Currently this provides packages for the following:
 
-Each compiler has a versioned attribute for each version (e.g. =xc16_1_61=) and an unversioned attribute (=xc8=, =xc16=, =xc32=, =xc-dsc=) for its latest packaged version. Select a versioned attribute to keep a firmware build on one compiler version.
+| Package                     | Latest             | Others                             |
+|-----------------------------+--------------------+------------------------------------|
+| =xc8=                         | 4.00 (=xc8_4_00=)    | 3.10 (=xc8_3_10=), 2.50 (=xc8_2_50=)   |
+| =xc16=                        | 2.10 (=xc16_2_10=)   | 1.61 (=xc16_1_61=), 1.21 (=xc16_1_21=) |
+| =xc-dsc=                      | 4.00 (=xc-dsc_4_00=) | 3.31 (=xc-dsc_3_31=)                 |
+| =xc32=                        | 6.00 (=xc32_6_00=)   | 5.19 (=xc32_5_19=), 5.10 (=xc32_5_10=) |
+| =mplab-x= (=mplab-x-unwrapped=) | 6.35               | none                               |
+
+The unversioned attribute of a compiler (e.g. =xc16=) gives its latest version. Select a versioned attribute (e.g. =xc16_1_61=) to keep a firmware build on one compiler version.
 
 Only the latest verified MPLAB-X version is retained. Legacy compiler versions are retained for reproducible firmware builds; compiler-version requirements do not require us to retain older IDE packages.
 
@@ -74,9 +70,7 @@ N.B. I'm using nixpkgs-unstable, as that's what I'm tracking for NixOS on my dev
 
 #+begin_src nix
   {
-    description = "A Nix-flake-based ceedling (c+ruby) environment";
-    #N.B. microchip compiler not nixpkg-ed, so assuming installed via system package manager
-    #N.B. ruby dependencies controlled via Gemfile, bundler and bundix pfte
+    description = "A Microchip firmware project environment";
 
     inputs = {
       nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -147,7 +141,7 @@ The =mplab-x= package also supplies these commands:
 - =mplab-gen <project>@<configuration>...= generates MPLAB makefiles with each compiler selected by =xc-cli=. This generator uses the full IDE.
 - =mplab_ipe= starts the IPE GUI, and =ipecmd= runs the IPE command line.
 
-Each =mplab-gen= alone binds its IDE or command-line subset at =/opt/microchip/mplabx/v<version>=. The generated makefiles name =/opt/microchip/...= paths, not Nix store paths. =mplab-make=, =mplab-x-run=, =xc-make= and compiler wrappers run without this bind.
+Only =mplab-gen=, =mplab_ipe= and =ipecmd= bind the IDE or command-line subset at =/opt/microchip/mplabx/v<version>=, because the makefile generator and IPE derive their paths from their own location. The generated makefiles name =/opt/microchip/...= paths, not Nix store paths. =mplab-make=, =mplab-x-run=, =xc-make= and compiler wrappers run without this bind.
 
 Before it starts, =mplab_ide= removes each =PATH= directory that contains =mplab-x-run= or =xc-run=. This prevents the IDE from registering wrapper directories as duplicate toolchains.
 
@@ -189,12 +183,13 @@ Limits:
 
 *** Nix derivations and CMake
 
-A derivation can use =xc-cli= as a native build input. This example compiles, links and produces =main.hex= in the Nix build sandbox; =xclm -status= confirms PRO mode.
+A derivation can use =xc-cli= as a native build input. This example compiles, links and produces =main.hex= in the Nix build sandbox; =xclm -status= confirms PRO mode. Its device needs no DFP, so =packs = [ ]= keeps the default device packs out of the build.
 
 #+begin_src nix
 let
   xc-cli = pkgs.xc-cli.override {
     compilers = with pkgs; [ xc16_1_61 ];
+    packs = [ ];
   };
 in pkgs.stdenvNoCC.mkDerivation {
   pname = "xc16-firmware";
@@ -220,6 +215,7 @@ For a CMake project, put =xc-cli=, =cmake= and =gnumake= in the development shel
 let
   xc-cli = pkgs.xc-cli.override {
     compilers = with pkgs; [ xc16_1_61 ];
+    packs = [ ];
   };
 in pkgs.mkShell {
   packages = [ xc-cli pkgs.cmake pkgs.gnumake ];
