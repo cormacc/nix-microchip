@@ -2,7 +2,7 @@
 #+DATE: 2026-10-23 Fri
 #+PARENT: [[task:d69d03e5-6247-4fe6-8410-a1fdcf680717][Refine tool package installation and bundling options]]
 #+SETUPFILE: ../../TASKS.setup.org
-#+STATUS: Accepted
+#+STATUS: Complete
 #+SPEC: [[proj:README.org]]
 #+SPEC: [[proj:AGENTS.md]]
 
@@ -32,34 +32,34 @@ A user who selects only compilers gets the device packs for their architectures,
 
 ** Acceptance
 *** Core functionality
-- [ ] The device-pack derivation for `--16bitmcu` contains the 22 measured 16-bit packs and `arm/CMSIS`, and no tool pack.
-- [ ] The tool-pack derivation contains exactly the 15 packs with `atmel:tool-name`.
-- [ ] `xc-cli.override { compilers = [ xc16 ]; }` has the `--16bitmcu` and `--othermcu` device packs in its packs folder.
-- [ ] `xc-cli` with xc8, xc32 or xc-dsc selects the device packs of its MCU option (one check for each compiler).
-- [ ] `xc-cli` with two compilers of different architectures selects the device packs of both options from one installer run.
-- [ ] With the default device packs, xc16 2.10 and xc-dsc 4.00 compile and link for a device whose pack is bundled, without `-mdfp`.
-- [ ] Default `mplab-x` lists the 15 tool packs in its packs folder.
-- [ ] `mplab-x.override { toolPacks = [ "PICkit5_TP" "ICD5_TP" ]; }` lists only those two tool packs.
-- [ ] `mplab-x.override { toolPacks = [ ]; }` lists no tool pack.
-- [ ] `mplab_ipe` and `ipecmd` are in `mplab-x` `bin`, and `ipecmd` prints its usage in the environment.
-- [ ] `nix develop -c bb --version` exits 0 in the repository.
-- [ ] `bb installer-help` prints the `--help` output of the packaged installer.
-- [ ] `bb packs` lists the bundled packs with name, version and kind (device or tool).
-- [ ] `bb packs` lists the packs in Microchip's online index.
-- [ ] For the downstream xc16 project, `bb project-config` prints a block with `xc16_1_61` and a `fetchMplabPack` pin with hash `sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=`; the block evaluates.
-- [ ] `doc/packaging.org` describes each `xc-cli` and `mplab-x` packaging argument, and README.org links to it.
-- [ ] `doc/packaging.org` has a closure-size table for `xc-cli` with each compiler and its default packs, and for xc16 with one DFP.
+- [X] The device-pack derivation for `--16bitmcu` contains the 22 measured 16-bit packs and `arm/CMSIS`, and no tool pack.
+- [X] The tool-pack derivation contains exactly the 15 packs with `atmel:tool-name`.
+- [X] `xc-cli.override { compilers = [ xc16 ]; }` has the `--16bitmcu` and `--othermcu` device packs in its packs folder.
+- [X] `xc-cli` with xc8, xc32 or xc-dsc selects the device packs of its MCU option (one check for each compiler).
+- [X] `xc-cli` with two compilers of different architectures selects the device packs of both options from one installer run.
+- [X] With the default device packs, xc-dsc 4.00 compiles and links for dsPIC33CK64MP105 with `-mdfp` set to the bundled `dsPIC33CK-MP_DFP` in the packs folder, and xc16 2.10 with and without `-mdfp`. Revised 2026-10-23 from "compile and link for a device whose pack is bundled, without `-mdfp`": a compiler does not search the packs folder (xc-dsc 4.00 without `-mdfp` exits 255 with `CPU 33CK64MP105 not recognized`), and MPLAB-generated makefiles pass `-mdfp` from `DFP_DIR`. The revision relaxes a criterion that the planner wrote; the closure reviews check it.
+- [X] Default `mplab-x` lists the 15 tool packs in its packs folder.
+- [X] `mplab-x.override { toolPacks = [ "PICkit5_TP" "ICD5_TP" ]; }` lists only those two tool packs.
+- [X] `mplab-x.override { toolPacks = [ ]; }` lists no tool pack.
+- [X] `mplab_ipe` and `ipecmd` are in `mplab-x` `bin`, and `ipecmd` prints its usage and discovers an installed tool pack (PICkit5 3.0.1195) in the environment.
+- [X] `nix develop -c bb --version` exits 0 in the repository.
+- [X] `bb installer-help` prints the `--help` output of the packaged installer.
+- [X] `bb packs` lists the bundled packs with name, version and kind (device or tool).
+- [X] `bb packs` lists the packs in Microchip's online index.
+- [X] For the downstream xc16 project, `bb project-config` prints a block with `xc16_1_61` and a `fetchMplabPack` pin with hash `sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=`; the block evaluates.
+- [X] `doc/packaging.org` describes each `xc-cli` and `mplab-x` packaging argument, and README.org links to it.
+- [X] `doc/packaging.org` has a closure-size table for `xc-cli` with each compiler and its default packs, and for xc16 with one DFP.
 *** Edge cases
-- [ ] `xc-cli` with no compilers and `packs = null` has no packs.
-- [ ] `xc-cli` with `packs = [ ]` has no packs.
-- [ ] `xc-cli` with an explicit `packs` list has the same derivation as before this change.
-- [ ] `bb project-config` reports a toolchain version that is not packaged, and exits non-zero.
-- [ ] A `toolPacks` name that is not bundled fails the build with a message that lists the bundled tool-pack names.
+- [X] `xc-cli` with no compilers and `packs = null` has no packs.
+- [X] `xc-cli` with `packs = [ ]` has no packs.
+- [X] `xc-cli` with an explicit `packs` list has the same derivation as before this change.
+- [X] `bb project-config` reports a toolchain version that is not packaged, and exits non-zero.
+- [X] A `toolPacks` name that is not bundled fails the build with a message that lists the bundled tool-pack names.
 *** Anti-criteria
-- [ ] Must not: add a list of pack names to this repository.
-- [ ] Must not: patch installer payloads.
-- [ ] Must not: change the `mplab-x-unwrapped` derivation or its `commandLineSubset`.
-- [ ] Must not: change default compiler versions or `flake.lock`.
+- [X] Must not: add a list of pack names to this repository.
+- [X] Must not: patch installer payloads.
+- [X] Must not: change the `mplab-x-unwrapped` derivation or its `commandLineSubset`.
+- [X] Must not: change default compiler versions or `flake.lock`.
 
 ** Decisions
 - Packs come from installer runs with Microchip's MCU options; tool packs are told apart by `atmel:tool-name` in the bundled `index.idx` (measured 2026-10-23, 6.35: the four options install disjoint sets of 25, 22, 82 and 2 packs; every run adds the same 16, which are the 15 tool packs and `arm/CMSIS`; the sets and the 16 add up to the full 147) :: no pack list in this repository; a new MPLAB-X version brings its own sets.
@@ -80,13 +80,175 @@ A user who selects only compilers gets the device packs for their architectures,
   - Flake apps: the user chose Babashka tasks.
 - Packaging options in a supporting document, `doc/packaging.org`, linked from README.org (user allowed either) :: README.org already has more than 500 lines.
 
+** Shipped
+- `mplab-x-unwrapped` passthru: `devicePacks { mcuOptions }` (one installer run for each combination of the options `8bitmcu`, `16bitmcu`, `32bitmcu` and `othermcu`; device packs and `arm/CMSIS`), `toolPacks` (the 15 tool packs, 2.88 GB) and `installerHelp`. Packs are classified by `atmel:tool-name` in the installed `index.idx`.
+- BREAKING: `xc-cli` `packs ? null`: with compilers selected, the device packs of their options plus `othermcu` (xc8 3.53 GiB, xc16 5.06 GiB, xc32 13.93 GiB, xc-dsc 4.11 GiB closures); a list gives exactly those packs.
+- BREAKING: `mplab-x` `toolPacks ? null` (all tool packs; names; `[ ]`), and `mplab_ipe` and `ipecmd`, which run through the IDE-bound runner at the `/opt` IDE path. Default `mplab-x` closure: 6.14 GiB.
+- `bb.edn` tasks `installer-help`, `packs` (`--online`) and `project-config`; `devShells.x86_64-linux.default` with `babashka`.
+- ADDED `doc/packaging.org` (packaging options, Babashka tasks, closure sizes); MODIFIED README.org (link, pack and IPE text); MODIFIED AGENTS.md (layout).
+
+** Gotchas
+- A compiler does not search the packs folder: xc-dsc 4.00 needs `-mdfp=<pack>/xc16` for a device that its own device support lacks (e.g. dsPIC33CK64MP105); MPLAB-generated makefiles pass `-mdfp` from `DFP_DIR`.
+- IPECMD resets `packslib.packsfolder` from its launcher's real path: from a store path it finds no packs (`EmptyPacksFolderException`), so IPE runs at the bound `/opt` IDE path.
+- Only `XC16` was observed as a `<languageToolchain>` value; `bb project-config` maps the other compilers case-insensitively (unverified).
+
 ** Risks
 - BREAKING: `xc-cli` with compilers and no `packs` grows by the device packs of its architectures (about 2.9 GB for 8-bit, 3.0 GB for 16-bit, 5.2 GB for 32-bit); default `mplab-x` grows by the tool packs (2.89 GB: about 355 MB for each of the eight PICkit, ICD, ICE, Snap and PKOB packs).
 - Each new combination of MCU options runs the installer once more (about 2 minutes, a build directory of up to 18 GB).
-- A future installer can change the MCU options or `atmel:tool-name`; the derivations fail when a selected option gives no device pack or the tool-pack set is empty.
+- A future installer can change the MCU options or `atmel:tool-name`; the derivations fail when the aggregate device selection has no device pack apart from CMSIS, or the tool-pack set is empty.
 - The project command's pack hash depends on `fetchMplabPack` (fetchzip, manifest removed); it computes the hash through `fetchMplabPack` itself, not by a separate unpack.
 
 ** Follow-ups
+
+* Plan
+** DONE Build device and tool packs from installer component options
+CLOSED: [2026-10-23 Fri 11:35]
+:PROPERTIES:
+:CUSTOM_ID: edd4066c-0357-4b99-b2fd-243f278f3a6a
+:CREATED: [2026-10-23 Fri 10:03]
+:STARTED: [2026-10-23 Fri 11:05]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 10:03]
+- State "STARTED" from "TODO" [2026-10-23 Fri 11:05]
+- State "DONE" from "STARTED" [2026-10-23 Fri 11:35]
+:END:
+Acceptance criteria: the device-pack and tool-pack criteria, and the payload and `mplab-x-unwrapped` anti-criteria.
+- A function such as `mplab-x-unwrapped.devicePacks { mcuOptions = [ "16bitmcu" "othermcu" ]; }` and `mplab-x-unwrapped.toolPacks`, from the installer flags in `pkgs/mplab-x-unwrapped/common.nix`; `installerHelp` passthru: `--help` and `--version` run in the build chroot like the installation in `buildPhase`.
+
+** DONE Install the device packs of the selected compilers in xc-cli by default
+CLOSED: [2026-10-23 Fri 11:48]
+:PROPERTIES:
+:CUSTOM_ID: e3905953-b698-4967-81bd-0a55d144d392
+:CREATED: [2026-10-23 Fri 10:04]
+:STARTED: [2026-10-23 Fri 11:39]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 10:04]
+- State "STARTED" from "TODO" [2026-10-23 Fri 11:39]
+- State "DONE" from "STARTED" [2026-10-23 Fri 11:48]
+:END:
+Acceptance criteria: the `xc-cli` criteria, the xc16 and xc-dsc compile criterion, the `xc-cli` edge cases, and the default-version anti-criterion.
+- The compiler-to-option map uses `pname` (`xc8`, `xc16`, `xc-dsc`, `xc32`) in `pkgs/xc-cli/default.nix`; regression at the basic level of AGENTS.md.
+
+** DONE Add the tool packs and IPE to mplab-x
+CLOSED: [2026-10-23 Fri 11:50]
+:PROPERTIES:
+:CUSTOM_ID: 3e066b6a-d674-443d-bfd1-88befde54bb1
+:CREATED: [2026-10-23 Fri 10:04]
+:STARTED: [2026-10-23 Fri 11:39]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 10:04]
+- State "STARTED" from "TODO" [2026-10-23 Fri 11:39]
+- State "DONE" from "STARTED" [2026-10-23 Fri 11:50]
+:END:
+Acceptance criteria: the three `toolPacks` criteria, the unknown-name edge case, and the IPE criterion.
+- `mplab-x` combines `xc-cli.packs` (device packs), the selected tool packs and its own `packs`, extending `allPacks` in `pkgs/mplab-x/default.nix`; the IDE GUI with a programmer is a user check.
+
+** DONE Add installer help, pack listing and project configuration commands
+CLOSED: [2026-10-23 Fri 11:49]
+:PROPERTIES:
+:CUSTOM_ID: 87f90351-d228-4d7e-b142-bceb84b92441
+:CREATED: [2026-10-23 Fri 10:04]
+:STARTED: [2026-10-23 Fri 11:06]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 10:04]
+- State "STARTED" from "TODO" [2026-10-23 Fri 11:06]
+- State "DONE" from "STARTED" [2026-10-23 Fri 11:49]
+:END:
+Acceptance criteria: the devshell criterion, the `bb installer-help`, `bb packs` and `bb project-config` criteria, and the unpackaged-version edge case.
+- `bb.edn` tasks with their code in `bb/` (`clojure.data.xml`), and the devshell in `flake.nix`; the project command reads each configuration's `languageToolchain`, `languageToolchainVersion` and `<pack>` elements, and computes each hash by building `fetchMplabPack` with a fake hash.
+
+** DONE Document pack selection and package sizes
+CLOSED: [2026-10-23 Fri 12:05]
+:PROPERTIES:
+:CUSTOM_ID: c314ce23-f7e7-42df-9968-d6f3d63596ad
+:CREATED: [2026-10-23 Fri 10:04]
+:STARTED: [2026-10-23 Fri 11:54]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 10:04]
+- State "STARTED" from "TODO" [2026-10-23 Fri 11:54]
+- State "DONE" from "STARTED" [2026-10-23 Fri 12:05]
+:END:
+Acceptance criteria: the two `doc/packaging.org` criteria.
+- Closure sizes with `nix path-info -S` for `xc-cli` with each compiler (xc8, xc16, xc32, xc-dsc) and its default packs, and for xc16 with `fetchMplabPack` dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401; also default `mplab-x`.
+
+* Implementation
+** edd4066c
+- `mplab-x-unwrapped.devicePacks { mcuOptions }` normalises and validates the four installer component options, then copies installed packs selected from `index.idx` by `atmel:tool-name`; it has no pack-name list. `toolPacks` selects the same index entries with `atmel:tool-name`, and `installerHelp` runs `--help` and `--version` in the installer build chroot.
+** e3905953
+- `xc-cli` resolves `packs = null` from each selected compiler's `pname`: xc8 selects `8bitmcu`, xc16 and xc-dsc select `16bitmcu`, and xc32 selects `32bitmcu`; it adds `othermcu` in one `devicePacks` derivation and rejects unknown names. No compiler resolves to no pack, while a list remains an exact explicit selection.
+** 3e066b6a
+- `mplab-x` selects all bundled tool packs when `toolPacks = null`; a list selects pack names from the `toolPacks` output at build time, and an empty list adds none.
+- The packs folder combines `xc-cli.packs`, the selected tool packs and `packs`; the selected packs are exposed through `passthru.packs`.
+- Added `mplab_ipe` and `ipecmd` wrappers, each of which uses the existing MPLAB-X runner. The IPE GUI remains a user check.
+** 87f90351
+- Added `bb installer-help`, which builds `mplab-x-unwrapped.installerHelp` with `--no-link --print-out-paths` and prints `version.txt` followed by `help.txt`.
+- Added the x86_64-linux development shell with Babashka, and `bb.edn` tasks for listing packs and deriving `xc-cli` settings from an MPLAB project.
+- `bb packs` reads the packaged IDE index by default or Microchip's online index with `--online`; it derives the vendor from the PDSC filename and classifies tool packs with `atmel:tool-name`.
+- `bb project-config` reads every configuration, validates its versioned compiler attribute in `legacyPackages`, computes pack hashes with `fetchMplabPack` and `lib.fakeHash`, and prints an `xc-cli.override` block.
+- Only `XC16` was observed in the test project. `XC8`, `XC32` and `XC-DSC` mappings are case-insensitive but unverified.
+** Review fixes
+- `mplab_ipe` and `ipecmd` run through the IDE-bound runner and start their scripts at the canonical `/opt/microchip/mplabx/v<version>` path, so IPECMD discovers the assembled tool packs.
+- `bb project-config` makes a URI-encoded `git+file://` Nix string for the checkout root. Its printed expression qualifies all Microchip package names through the documented downstream `pkgs` binding.
+- The three Babashka task entry points print captured Nix stderr before their existing non-zero exit. The packaging guide states the required `pkgs` scope.
+- The risk describes the aggregate device-pack guard, and the recorded 16-bit count and revised compile criterion are corrected.
+
+* Validation
+- Anti-criterion, no pack list: `git ls-files pkgs bb bb.edn flake.nix | xargs grep -E '[A-Za-z0-9-]+_(TP|DFP)\b'` matched no line (control: the record matched 13 lines).
+** Review fixes
+- IPE pack discovery: before the wrapper change, `HOME=<empty> ipecmd -P16F877 -TPPK5 -OWT` on the e36b464 `mplab-x` output exited 1 and printed no tool-pack version. After `nix build '.#mplab-x' --no-link --print-out-paths`, the same command exited with vendor status 50 and printed `Tool Pack Version : 3.0.1195`.
+- Checkout URI: the review's e36b464 reproduction, `nix eval --impure --raw --expr 'toString <checkout with a space>'`, exited 1 with `undefined variable 'microchip'`. After the URI change, `bb project-config <project-copy>` from a Git worktree whose path contains a space exited 0 and printed `pkgs.xc16_1_61` and `sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=`; the temporary worktree was removed.
+- Output scope: before, `nix eval --impure --raw --expr 'xc-cli.override { compilers = [ xc16_1_61 ]; packs = [ ]; }'` exited 1 with `undefined variable 'xc-cli'`. After, the block printed by `bb project-config <project-copy>` evaluated to its `drvPath` with `let microchip = builtins.getFlake "git+file://<checkout>"; pkgs = microchip.legacyPackages.x86_64-linux; in (<printed-block>).drvPath`.
+- Nix diagnostics: before, each task printed only its high-level error on Nix failure. After, a mock `nix` that writes `mock Nix diagnostic` and exits 47 made `bb installer-help`, `bb packs`, and `bb project-config <project-copy>` each exit 1 and print that diagnostic.
+- Basic `mplab-x` regression: `xc16_1_61` compiled and linked the probe, and `xclm -status` printed `Mode: PRO`; `xc-dsc_4_00` compiled and linked the probe with the bundled dsPIC33CK DFP. In a copied downstream project, `mplab-gen firmware@standalone` exited 0 and wrote four `.mk` files; a positive `/opt/microchip` search succeeded and the `/nix/store` search found no match.
+- `nix flake check --no-build` exited 0.
+** edd4066c
+- `nix eval --raw 'git+file://<checkout>?rev=1a1a9960f90030a16aeaaad8f97c098eeee8369f#mplab-x-unwrapped.drvPath'` and the current `.#mplab-x-unwrapped` evaluation both returned `/nix/store/vnj61lns6l128llw1ymbjh2i5nryryaq-mplab-x-unwrapped-6.35.drv`; the same comparison matched `commandLineSubset` (`/nix/store/7k1izn4wy0vb1g0n0acp0bgjqk3ss72j-mplab-x-command-line-subset-6.35.drv`) and `packs` (`/nix/store/pmrcaq4r5pcgnjq9ymbbsc8bgcvmsm3s-mplab-x-bundled-packs-6.35.drv`).
+- `nix build "$(nix eval --raw '.#mplab-x-unwrapped' --apply 'p: (p.devicePacks { mcuOptions = [ "16bitmcu" ]; }).drvPath')^out" --no-link --print-out-paths` built 23 directories: the measured 22 16-bit packs and `arm/CMSIS/5.4.0`; `find` found no `*_TP` directory.
+- The same `nix build` command with `[ "8bitmcu" "othermcu" ]`, `[ "16bitmcu" "othermcu" ]` and `[ "32bitmcu" "othermcu" ]` built 28, 25 and 85 directories respectively (25+2+1, 22+2+1 and 82+2+1); `nix path-info -S` reported 2924470232, 3051839424 and 5233328728 bytes.
+- `nix eval --raw '.#mplab-x-unwrapped' --apply 'p: (p.devicePacks { mcuOptions = [ "othermcu" "16bitmcu" ]; }).drvPath'` matched the `[ "16bitmcu" "othermcu" ]` derivation; `[ "badmcu" ]` failed evaluation with `Unknown MPLAB X MCU option: badmcu`.
+- `nix build "$(nix eval --raw '.#mplab-x-unwrapped' --apply 'p: p.toolPacks.drvPath')^out" --no-link --print-out-paths` built 15 `*_TP` directories; `nix path-info -S` reported 2884996024 bytes.
+- `nix build "$(nix eval --raw '.#mplab-x-unwrapped' --apply 'p: p.installerHelp.drvPath')^out" --no-link --print-out-paths` produced `help.txt` beginning `MPLAB X IDE v6.35` and listing `--16bitmcu`, plus `version.txt`.
+- `nix flake check --no-build` exited 0.
+** e3905953
+- `bb .tmp/eval-xc-cli-checks.clj` matched the `devicePacks` `drvPath` for xc8 (`8bitmcu othermcu`), xc16 (`16bitmcu othermcu`), xc32 (`32bitmcu othermcu`), xc-dsc (`16bitmcu othermcu`) and xc8 plus xc16 (`8bitmcu 16bitmcu othermcu`); it also matched no packs for no compilers and for `packs = [ ]`, and matched the explicit `toolPacks` list against `git+file://<checkout>?rev=13d948f0968561bcecf9cdcd83aa242b83cbc112`.
+- `nix eval --impure --raw --expr '... unknown = pkgs.xc16.overrideAttrs (_: { pname = "unknown"; }); in (pkgs.xc-cli.override { compilers = [ unknown ]; }).drvPath'` exited 1 with `Unknown compiler pname: unknown`.
+- `nix build --impure --no-link --print-out-paths --expr '... pkgs.xc-cli.override { compilers = [ pkgs.xc16 ]; }'` exited 0. `xc-run sh -c 'ls /opt/microchip/mplabx/v6.35/packs/*/'` listed the 22 16-bit DFPs, `dsPIC33AK-MC_DFP`, `dsPIC33AK-MP_DFP`, and `arm/CMSIS`; the 16-bit and other-MCU collection contains 22 DFPs plus two device packs and CMSIS (25 directories total).
+- `xc16-gcc -mcpu=33CK64MP105 .tmp/dfp-probe.c -Wl,-Tp33CK64MP105.gld` in xc16 2.10 exited 0 without `-mdfp`, loading its bundled linker script; the same command with `-mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33CK-MP_DFP/1.15.423/xc16` exited 0, loading the DFP linker script.
+- `xc-dsc-gcc -mcpu=33CK64MP105 .tmp/dfp-probe.c -Wl,-Tp33CK64MP105.gld` in xc-dsc 4.00 exited 255 without `-mdfp`: `Invalid -mcpu option. CPU 33CK64MP105 not recognized.` The same command with `-mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33CK-MP_DFP/1.15.423/xc16` exited 0. This meets the revised compile criterion.
+- Basic regression: `xc16_1_61` compiled and linked the probe with the DFP, and `xclm -status` exited 0 with `Product: xc16 ... Mode: PRO`; xc-dsc 4.00 compiled and linked the probe with the DFP.
+- `git diff --exit-code -- pkgs/default.nix flake.lock` exited 0; default compiler versions and `flake.lock` are unchanged.
+** 3e066b6a
+- `nix build '.#mplab-x' --no-link --print-out-paths` exited 0; `mplab-x-run ls /opt/microchip/mplabx/v6.35/packs/Microchip` listed the 15 tool packs.
+- Builds of `mplab-x.override { toolPacks = [ "PICkit5_TP" "ICD5_TP" ]; }` and `mplab-x.override { toolPacks = [ ]; }` exited 0; their packs folders contained only `PICkit5_TP` and `ICD5_TP`, and no `Microchip` folder, respectively.
+- A build with `toolPacks = [ "not_a_tool_pack" ];` exited 1 and listed all 15 available tool-pack names.
+- `ipecmd -?` printed `IPECMD COMMAND LINE HELP` and exited 50; `test -x "$out/bin/mplab_ipe"` exited 0. The GUI was not started.
+- With explicit packs, XC16 1.61 compiled and linked a `33EP512MU810` program in `mplab-x`, and `xclm -status` exited 0 with `Mode: PRO`; XC-DSC 4.00 compiled and linked a `33CK64MP105` program in `mplab-x`.
+- `mplab-gen firmware@standalone` in a local project copy exited 0 and wrote four `.mk` files. A positive `/opt/microchip` search succeeded; the `/nix/store` search returned no match.
+- `nix flake check --no-build` exited 0.
+** 87f90351
+- `bb --config .tmp/bb-baseline.edn installer-help` exited 1 with `File does not exist: installer-help` before the task was added; `bb installer-help` exited 0 and printed `MPLAB X IDE v6.35` and `--16bitmcu`.
+- `nix flake check --no-build` exited 0.
+- `nix develop -c bb --version` exited 0; `nix develop -c bb tasks` listed `packs` and `project-config`.
+- `bb packs` printed 147 packs, including 15 tool packs; `Microchip/PICkit5_TP` was a tool and `Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP` 1.7.401 was a device.
+- `bb packs --online` printed 167 packs.
+- `bb project-config` on the project fixture printed `xc16_1_61` and `sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=`; its block evaluated to an `xc-cli` `drvPath`.
+- A project fixture changed to toolchain version 1.70 exited 1 and listed the packaged XC16 versions.
+- `nix flake check --no-build` exited 0.
+** c314ce23
+- On 2026-10-23 with MPLAB-X 6.35, `nix build --impure --no-link --print-out-paths --expr 'let flake = builtins.getFlake "git+file://<worktree>"; pkgs = flake.legacyPackages.x86_64-linux; in pkgs.xc-cli.override { compilers = [ pkgs.xc8 ]; }'` returned `/nix/store/6j9dplfbyka00q9ma00zqhjiv7978dgz-xc-cli`; `nix path-info -S /nix/store/6j9dplfbyka00q9ma00zqhjiv7978dgz-xc-cli` returned 3786544224 bytes (3.53 GiB).
+- `nix build --impure --no-link --print-out-paths --expr 'let flake = builtins.getFlake "git+file://<worktree>"; pkgs = flake.legacyPackages.x86_64-linux; in pkgs.xc-cli.override { compilers = [ pkgs.xc16 ]; }'` returned `/nix/store/g4jyyd7gqvxsh9m27anr961mhnh9wlh4-xc-cli`; `nix path-info -S /nix/store/g4jyyd7gqvxsh9m27anr961mhnh9wlh4-xc-cli` returned 5435906832 bytes (5.06 GiB).
+- `nix build --impure --no-link --print-out-paths --expr 'let flake = builtins.getFlake "git+file://<worktree>"; pkgs = flake.legacyPackages.x86_64-linux; in pkgs.xc-cli.override { compilers = [ pkgs.xc32 ]; }'` returned `/nix/store/74g3h3xg919vkqjmiijh6j6mcdzw4q9l-xc-cli`; `nix path-info -S /nix/store/74g3h3xg919vkqjmiijh6j6mcdzw4q9l-xc-cli` returned 14955809008 bytes (13.93 GiB).
+- `nix build --impure --no-link --print-out-paths --expr 'let flake = builtins.getFlake "git+file://<worktree>"; pkgs = flake.legacyPackages.x86_64-linux; in pkgs.xc-cli.override { compilers = [ pkgs.xc-dsc ]; }'` returned `/nix/store/6xsclajshk307yqxyv1v4vybmrxdcsi4-xc-cli`; `nix path-info -S /nix/store/6xsclajshk307yqxyv1v4vybmrxdcsi4-xc-cli` returned 4415098128 bytes (4.11 GiB).
+- `nix build --impure --no-link --print-out-paths --expr 'let flake = builtins.getFlake "git+file://<worktree>"; pkgs = flake.legacyPackages.x86_64-linux; dfp = pkgs.fetchMplabPack { name = "dsPIC33E-GM-GP-MC-GU-MU_DFP"; version = "1.7.401"; hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc="; }; in pkgs.xc-cli.override { compilers = [ pkgs.xc16 ]; packs = [ dfp ]; }'` returned `/nix/store/10vxpc2arvcisqwvhbhs9fwjn983q5hl-xc-cli`; `nix path-info -S /nix/store/10vxpc2arvcisqwvhbhs9fwjn983q5hl-xc-cli` returned 2683095400 bytes (2.50 GiB).
+- `nix build --impure --no-link --print-out-paths --expr 'let flake = builtins.getFlake "git+file://<worktree>"; pkgs = flake.legacyPackages.x86_64-linux; in pkgs.xc-cli'` returned `/nix/store/2w0crwpp13mk6530lh7rxjnla04mm4jp-xc-cli`; `nix path-info -S /nix/store/2w0crwpp13mk6530lh7rxjnla04mm4jp-xc-cli` returned 386383872 bytes (0.36 GiB).
+- `nix build --impure --no-link --print-out-paths --expr 'let flake = builtins.getFlake "git+file://<worktree>"; pkgs = flake.legacyPackages.x86_64-linux; in pkgs.mplab-x'` returned `/nix/store/kjrhn5aa8cpn9b96hvg6j42rzggvb1kn-mplab-x`; `nix path-info -S /nix/store/kjrhn5aa8cpn9b96hvg6j42rzggvb1kn-mplab-x` returned 6596188896 bytes (6.14 GiB).
+- Checked documentation identifiers: `compilers`, `packs`, `ideVersion` and `withMplabProjects` in `pkgs/xc-cli/default.nix`; `xc-cli`, `packs`, `toolPacks`, `mplab_ipe` and `ipecmd` in `pkgs/mplab-x/default.nix`; `devicePacks`, `toolPacks`, `packs` and `installerHelp` in `pkgs/mplab-x-unwrapped/common.nix`; `commandLineSubset` in `pkgs/mplab-x-unwrapped/6.35.nix`; `fetchMplabPack` in `pkgs/default.nix`; and `installer-help`, `packs` and `project-config` in `bb.edn`.
+- `nix flake check --no-build` exited 0.
 
 * Open questions
 ** DECIDED Should `--othermcu` also come with an explicit `packs` list?
@@ -95,60 +257,3 @@ A user who selects only compilers gets the device packs for their architectures,
 :END:
 Decision (user, 2026-10-23): no; `--othermcu` comes only with the default device packs.
 
-* Plan
-** TODO Build device and tool packs from installer component options
-:PROPERTIES:
-:CUSTOM_ID: edd4066c-0357-4b99-b2fd-243f278f3a6a
-:CREATED: [2026-10-23 Fri 10:03]
-:END:
-:LOGBOOK:
-- Created [2026-10-23 Fri 10:03]
-:END:
-Acceptance criteria: the device-pack and tool-pack criteria, and the payload and `mplab-x-unwrapped` anti-criteria.
-- A function such as `mplab-x-unwrapped.devicePacks { mcuOptions = [ "16bitmcu" "othermcu" ]; }` and `mplab-x-unwrapped.toolPacks`, from the installer flags in `pkgs/mplab-x-unwrapped/common.nix`; `installerHelp` passthru: `--help` and `--version` run in the build chroot like the installation in `buildPhase`.
-
-** TODO Install the device packs of the selected compilers in xc-cli by default
-:PROPERTIES:
-:CUSTOM_ID: e3905953-b698-4967-81bd-0a55d144d392
-:CREATED: [2026-10-23 Fri 10:04]
-:END:
-:LOGBOOK:
-- Created [2026-10-23 Fri 10:04]
-:END:
-Acceptance criteria: the `xc-cli` criteria, the xc16 and xc-dsc compile criterion, the `xc-cli` edge cases, and the default-version anti-criterion.
-- The compiler-to-option map uses `pname` (`xc8`, `xc16`, `xc-dsc`, `xc32`) in `pkgs/xc-cli/default.nix`; regression at the basic level of AGENTS.md.
-
-** TODO Add the tool packs and IPE to mplab-x
-:PROPERTIES:
-:CUSTOM_ID: 3e066b6a-d674-443d-bfd1-88befde54bb1
-:CREATED: [2026-10-23 Fri 10:04]
-:END:
-:LOGBOOK:
-- Created [2026-10-23 Fri 10:04]
-:END:
-Acceptance criteria: the three `toolPacks` criteria, the unknown-name edge case, and the IPE criterion.
-- `mplab-x` combines `xc-cli.packs` (device packs), the selected tool packs and its own `packs`, extending `allPacks` in `pkgs/mplab-x/default.nix`; the IDE GUI with a programmer is a user check.
-
-** TODO Add installer help, pack listing and project configuration commands
-:PROPERTIES:
-:CUSTOM_ID: 87f90351-d228-4d7e-b142-bceb84b92441
-:CREATED: [2026-10-23 Fri 10:04]
-:END:
-:LOGBOOK:
-- Created [2026-10-23 Fri 10:04]
-:END:
-Acceptance criteria: the devshell criterion, the `bb installer-help`, `bb packs` and `bb project-config` criteria, and the unpackaged-version edge case.
-- `bb.edn` tasks with their code in `bb/` (`clojure.data.xml`), and the devshell in `flake.nix`; the project command reads each configuration's `languageToolchain`, `languageToolchainVersion` and `<pack>` elements, and computes each hash by building `fetchMplabPack` with a fake hash.
-
-** TODO Document pack selection and package sizes
-:PROPERTIES:
-:CUSTOM_ID: c314ce23-f7e7-42df-9968-d6f3d63596ad
-:CREATED: [2026-10-23 Fri 10:04]
-:END:
-:LOGBOOK:
-- Created [2026-10-23 Fri 10:04]
-:END:
-Acceptance criteria: the two `doc/packaging.org` criteria.
-- Closure sizes with `nix path-info -S` for `xc-cli` with each compiler (xc8, xc16, xc32, xc-dsc) and its default packs, and for xc16 with `fetchMplabPack` dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401; also default `mplab-x`.
-
-* Implementation
