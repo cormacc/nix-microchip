@@ -1,0 +1,8 @@
+# Written by mplab-gen and by the build.
+/nbproject/Makefile-*.mk
+/nbproject/Makefile-genesis.properties
+/nbproject/private/
+/build/
+/dist/
+/debug/
+/.generated_files/

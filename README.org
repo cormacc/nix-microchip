@@ -138,10 +138,10 @@ Before it starts, =mplab_ide= removes each =PATH= directory that contains =mplab
 
 The compilers must run unmodified in this environment. A compiler that is patched to run directly on NixOS (=autoPatchelfHook=) detects the change and runs in Free mode. See [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]].
 
-Use =mplab-make= for MPLAB-generated makefiles. Their local settings prepend the IDE's unwrapped =bin= directory to =PATH=, so a recursive =make= or another bundled tool can fail on NixOS outside the environment, even when the compiler commands are wrapped. For example, from a project's firmware directory:
+Use =mplab-make= for MPLAB-generated makefiles. Their local settings prepend the IDE's unwrapped =bin= directory to =PATH=, so a recursive =make= or another bundled tool can fail on NixOS outside the environment, even when the compiler commands are wrapped. For example, from =examples/mplab= (see [[#mplab-projects][MPLAB projects]]):
 
 #+begin_src sh
-mplab-make -j8 -f Makefile CONF=bootloadable
+mplab-make -C firmware.X -j8 -f Makefile CONF=default
 #+end_src
 
 See [[file:doc/environment.org][Runtime environment]] for the set-up cost of each call, nested calls, the visible host directories and the limits of the environment.
@@ -232,16 +232,16 @@ in pkgs.mkShell {
 }
 #+end_src
 
-From the directory that contains the project, generate then build one configuration:
+[[file:examples/mplab/firmware.X][examples/mplab/firmware.X]] is a minimal project for this selection: one C file for the dsPIC33EP512GM710 and one configuration, =default=. From =examples/mplab=, generate then build it. The hex file is =firmware.X/dist/default/production/firmware.X.production.hex=:
 
 #+begin_src sh
-mplab-gen firmware@standalone
-xc-make -C firmware -j8 -f Makefile CONF=standalone
+mplab-gen firmware.X@default
+xc-make -C firmware.X -j8 -f Makefile CONF=default
 #+end_src
 
 In CI, either generate with =mplab-gen= before each =xc-make= build, or commit and control your own generated makefiles and build them without =mplab-gen=. Keep the same =nbproject/private= state when generation must be reproducible: it can change generated output, including the dependency footer. The compiler selection passed by =mplab-gen= does not use toolchain paths from that directory. Makefiles that the GUI writes contain Nix store paths; regenerate them with =mplab-gen= before committing them.
 
-A Nix derivation needs a writable home directory that the runner binds, a writable =TMPDIR= for parallel Make, and =JAVA_TOOL_OPTIONS= so the pack library uses that home directory. This verified example assumes that =firmware/Makefile= is a project input, not a generated file:
+A Nix derivation needs a writable home directory that the runner binds, a writable =TMPDIR= for parallel Make, and =JAVA_TOOL_OPTIONS= so the pack library uses that home directory. This verified example builds the example project when =src= is =examples/mplab=:
 
 #+begin_src nix
 let
@@ -264,14 +264,14 @@ in pkgs.stdenvNoCC.mkDerivation {
     export TMPDIR=/tmp
     export HOME=/tmp/mplab-home
     mkdir -p "$HOME"
-    rm -f firmware/nbproject/Makefile-*.mk
-    JAVA_TOOL_OPTIONS="-Duser.home=$HOME" mplab-gen firmware@standalone
-    xc-make -C firmware -j"$NIX_BUILD_CORES" -f Makefile CONF=standalone
+    rm -f firmware.X/nbproject/Makefile-*.mk
+    JAVA_TOOL_OPTIONS="-Duser.home=$HOME" mplab-gen firmware.X@default
+    xc-make -C firmware.X -j"$NIX_BUILD_CORES" -f Makefile CONF=default
     xclm -status > licence-status.txt
     grep -F 'Mode: PRO' licence-status.txt
   '';
   installPhase = ''
-    install -Dm444 firmware/dist/standalone/production/firmware.production.hex "$out/firmware.hex"
+    install -Dm444 firmware.X/dist/default/production/firmware.X.production.hex "$out/firmware.hex"
   '';
 }
 #+end_src
@@ -310,7 +310,7 @@ The package is a script that writes the image to stdout. Load the image, then ru
 #+begin_src sh
 $(nix build --no-link --print-out-paths '.#ci-image') | docker load
 docker run --rm -v "$PWD:/src" -w /src xc-cli:<tag> \
-  sh -c 'mplab-gen firmware@standalone && xc-make -C firmware -j8 -f Makefile CONF=standalone'
+  sh -c 'mplab-gen firmware.X@default && xc-make -C firmware.X -j8 -f Makefile CONF=default'
 #+end_src
 
 With xc16 1.61, the 1.7.401 DFP and =withMplabProjects = true=, the image was 3.25 GB. It built an MPLAB project under Docker's default seccomp profile, without =--privileged=, to a hex file byte-identical to the development-shell build (measured 2026-10-23, Docker 29.9.1). For =mplab-gen=, the image contains a real copy of the command-line IDE files (274 MB), because the makefile generator derives its paths from its own location. The image runs commands as =root=; a non-root container user is not tested. See [[file:doc/environment.org][Runtime environment]] for the differences from the bubblewrap environment.

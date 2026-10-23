@@ -33,12 +33,39 @@ If the update is routine, we could potentially schedule a task to pickup and add
 :END:
 A documented .gitlab-ci.yml example that builds firmware with this flake: a Nix derivation or devshell build with xc-cli, as in README.org (Nix derivations and CMake; MPLAB projects). The runner needs unprivileged user namespaces (doc/environment.org, Limits).
 
-** TODO Add Github CI firmware build example
+** STARTED Add Github CI firmware build example
 :PROPERTIES:
 :CUSTOM_ID: 54183995-fb94-4261-be53-cf371b847c76
 :CREATED: [2026-10-23 Fri 13:44]
+:STARTED: [2026-10-23 Fri 16:52]
 :END:
 :LOGBOOK:
 - Created [2026-10-23 Fri 13:44]
+- State "STARTED" from "TODO" [2026-10-23 Fri 16:52]
 :END:
 A documented GitHub Actions workflow example that builds firmware with this flake: a Nix derivation or devshell build with xc-cli, as in README.org (Nix derivations and CMake; MPLAB projects). The runner needs unprivileged user namespaces (doc/environment.org, Limits).
+
+*** DONE Add a minimal MPLAB-X example project
+CLOSED: [2026-10-23 Fri 16:56]
+:PROPERTIES:
+:CUSTOM_ID: 148ec3c0-f50b-48fc-bd50-15ab2f7d0df5
+:CREATED: [2026-10-23 Fri 16:52]
+:STARTED: [2026-10-23 Fri 16:55]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 16:52]
+- State "STARTED" from "TODO" [2026-10-23 Fri 16:55]
+- State "DONE" from "STARTED" [2026-10-23 Fri 16:56]
+:END:
+A public MPLAB-X project that a CI example can build to a hex file: XC16 1.61, dsPIC33EP512GM710 with dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 (the README.org selection), one configuration `default`.
+
+Acceptance criteria:
+- `examples/mplab/firmware.X` has `Makefile` (the IDE's `MasterMakefile` template, unchanged), `nbproject/project.xml`, `nbproject/configurations.xml` and `main.c`.
+- In an `xc-cli` with that selection and `withMplabProjects = true`, `mplab-gen firmware.X@default` then `xc-make -C firmware.X -f Makefile CONF=default` exit 0 and write `firmware.X/dist/default/production/firmware.X.production.hex`.
+- The generated `.mk` files name `/opt/microchip/` and no `/nix/store`.
+- The same commands build a byte-identical hex in a `mkCiImage` image.
+- `.gitignore` covers the generated and build files (`nbproject/Makefile-*.mk`, `nbproject/Makefile-genesis.properties`, `nbproject/private/`, `build/`, `dist/`, `debug/`, `.generated_files/`).
+- README.org MPLAB projects section uses the example's names, so its commands run from `examples/mplab`.
+- Must not: copy content from a private project.
+
+Result (2026-10-23): `configurations.xml` is in the form that `mplab-gen` writes, so generation leaves every tracked file unchanged. The devshell (`xc-make`), `mplab-x` (`mplab-make`), a `mkCiImage` image at `/src` and the README.org derivation in the Nix build sandbox built the same hex (SHA-256 `b6f9c991…b514b42d`), and no generated `.mk` file named `/nix/store`. The IDE GUI did not open the project in this test.

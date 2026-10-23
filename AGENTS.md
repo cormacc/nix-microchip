@@ -7,6 +7,7 @@ This flake packages proprietary Microchip tools for `x86_64-linux`. Read [README
 - `flake.nix` exports packages and the overlay; `pkgs/default.nix` registers versions and defaults.
 - `pkgs/<tool>/<version>.nix` contains the version and installer hash; `common.nix` contains shared packaging logic.
 - `pkgs/mplab-x/rootfs.nix` builds the shared runtime filesystem and command wrappers. `pkgs/xc-cli/default.nix` provides the compiler-only environment. `pkgs/mplab-x/default.nix` provides the IDE environment. `pkgs/mplab-x/run.sh` builds each environment with bubblewrap. `pkgs/mk-ci-image/default.nix` provides `mkCiImage`, a Docker image of an `xc-cli` environment for runners without user namespaces.
+- `examples/mplab/firmware.X` is a minimal MPLAB-X project; the README.org MPLAB commands and the CI examples build it.
 - `bb.edn` and `bb/` provide checkout tasks. `doc/packaging.org` documents packaging options and closure sizes, `doc/environment.org` the runtime environment, and `doc/licence.org` the compiler licence and its probes.
 
 ## Changes
