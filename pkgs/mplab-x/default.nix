@@ -39,10 +39,31 @@
   # IDE-only packs for the packs folder, /opt/microchip/mplabx/v<version>/packs. Each element
   # is a pack from fetchMplabPack, or a folder of packs at <vendor>/<name>/<version>.
 , packs ? [ ]
+, toolPacks ? null
 }:
 
 let
-  allPacks = xc-cli.packs ++ packs;
+  selectedToolPacks = if toolPacks == null then mplab-x-unwrapped.toolPacks else runCommand "mplab-x-selected-tool-packs" { } ''
+    source=${mplab-x-unwrapped.toolPacks}
+    available=
+    for d in "$source"/*/*; do
+      [ -d "$d" ] || continue
+      available="''${available:+$available }''${d##*/}"
+    done
+    for name in ${lib.escapeShellArgs toolPacks}; do
+      matches=( "$source"/*/"$name" )
+      if [ "''${#matches[@]}" -eq 0 ]; then
+        echo "Unknown MPLAB X tool pack: $name. Available tool packs: $available" >&2
+        exit 1
+      fi
+      for pack in "''${matches[@]}"; do
+        vendor="''${pack%/*}"
+        mkdir -p "$out/''${vendor##*/}"
+        cp -rs "$pack" "$out/''${vendor##*/}/"
+      done
+    done
+  '';
+  allPacks = xc-cli.packs ++ lib.optional (toolPacks != [ ]) selectedToolPacks ++ packs;
   ideDir = "/opt/microchip/mplabx/v${mplab-x-unwrapped.version}";
   rootfsBuilder = callPackage ./rootfs.nix { };
   javaWrapper = callPackage ./java-wrapper.nix { };
@@ -138,15 +159,28 @@ let
     '';
   };
 
+  ipeCommand = { name, command }: writeShellApplication {
+    inherit name;
+    text = ''
+      exec ${lib.getExe environment.generatorRun} ${coreutils}/bin/env \
+        LD_LIBRARY_PATH="/lib''${LD_LIBRARY_PATH:+:}''${LD_LIBRARY_PATH:-}" \
+        ${ideDir}/mplab_platform/${command} "$@"
+    '';
+  };
+  ipe = ipeCommand { name = "mplab_ipe"; command = "bin/mplab_ipe"; };
+  ipecmd = ipeCommand { name = "ipecmd"; command = "mplab_ipe/ipecmd.sh"; };
+
 in
 assert xc-cli.ideVersion == mplab-x-unwrapped.version || throw "mplab-x: xc-cli.ideVersion (${xc-cli.ideVersion}) must match mplab-x-unwrapped.version (${mplab-x-unwrapped.version})";
 runCommand "mplab-x" {
   nativeBuildInputs = [ makeWrapper ];
-  passthru = { inherit xc-cli; packs = allPacks; };
+  passthru = { inherit xc-cli selectedToolPacks; packs = allPacks; };
   meta = mplab-x-unwrapped.meta // { mainProgram = "mplab_ide"; };
 } ''
   mkdir -p $out/bin
   ln -s ${lib.getExe ide} $out/bin/mplab_ide
+  ln -s ${lib.getExe ipe} $out/bin/mplab_ipe
+  ln -s ${lib.getExe ipecmd} $out/bin/ipecmd
   ln -s ${lib.getExe environment.run} $out/bin/mplab-x-run
   ln -s ${lib.getExe environment.make} $out/bin/mplab-make
   ln -s ${lib.getExe generator} $out/bin/mplab-gen
