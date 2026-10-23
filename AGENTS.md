@@ -47,8 +47,8 @@ The Microchip packages fill the Nix store quickly. `mplab-x-unwrapped` 6.35 writ
 
 Test compilers in `xc-cli`, and also in `mplab-x` when the change affects it. For each compiler, compile and link one test file, and run the README.org licence probe for a licensed compiler. Choose one level:
 
-- Basic, for most changes: one licensed compiler, the production default XC16 (`xc16_1_61`), and one licence-free compiler, the latest XC-DSC (`xc-dsc_4_00`, which needs a DFP).
-- Thorough, for changes to `pkgs/mplab-x/rootfs.nix`, `run.sh`, the FHS library lists or `flake.lock`: one version of each compiler: the production default XC16 (`xc16_1_61`, used in place of the latest XC16), and the latest `xc8_4_00`, `xc32_6_00` and `xc-dsc_4_00`.
+- Basic, for most changes: one licensed compiler, the production XC16 (`xc16_1_61`), and one licence-free compiler, the latest XC-DSC (`xc-dsc_4_00`, which needs a DFP).
+- Thorough, for changes to `pkgs/mplab-x/rootfs.nix`, `run.sh`, the FHS library lists or `flake.lock`: one version of each compiler: the production XC16 (`xc16_1_61`, used in place of the latest XC16), and the latest `xc8_4_00`, `xc32_6_00` and `xc-dsc_4_00`.
 
 Do not test every packaged version. Also test each release below whose concern the change touches. Add a release to this list, with its reason, when it needs special treatment.
 

@@ -54,6 +54,8 @@ Currently this provides packages for the following, to meet my own immediate nee
 - xc-dsc v4.00
 - mplab-x v6.35 (=mplab-x-unwrapped=)
 
+Each compiler has a versioned attribute for each version (e.g. =xc16_1_61=) and an unversioned attribute (=xc8=, =xc16=, =xc32=, =xc-dsc=) for its latest packaged version. Select a versioned attribute to keep a firmware build on one compiler version.
+
 Only the latest verified MPLAB-X version is retained. Legacy compiler versions are retained for reproducible firmware builds; compiler-version requirements do not require us to retain older IDE packages.
 
 Adding additional versions is trivial -- see instructions in the section [[Adding packages]].
@@ -502,7 +504,7 @@ Both lines pass ={ inherit microchip-xclm-license; }=. The package files gate th
    xc-dsc_4_00 = pkgs.callPackage ./xc-dsc/4.00.nix { inherit microchip-xclm-license; };
 #+end_src
 
-The =xc32= and =xc-dsc= attributes default to the latest packaged version. Select either compiler in =xc-cli= and pass that package to =mplab-x= when the IDE needs it. The environment links each compiler as =/opt/microchip/xc32/v<version>= or =/opt/microchip/xc-dsc/v<version>=, which is where the installers install by default.
+Like the other unversioned compiler attributes, =xc32= and =xc-dsc= give the latest packaged version. Select either compiler in =xc-cli= and pass that package to =mplab-x= when the IDE needs it. The environment links each compiler as =/opt/microchip/xc32/v<version>= or =/opt/microchip/xc-dsc/v<version>=, which is where the installers install by default.
 
 
 * Improvement opportunities

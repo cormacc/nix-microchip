@@ -8,8 +8,7 @@ pkgs : rec {
    xc16_2_10 = pkgs.callPackage ./xc16/2.10.nix { inherit microchip-xclm-license; };
    xc16_1_61 = pkgs.callPackage ./xc16/1.61.nix { inherit microchip-xclm-license; };
    xc16_1_21 = pkgs.callPackage ./xc16/1.21.nix { inherit microchip-xclm-license; };
-   # xc16 = xc16_2_10; #i.e. default to latest version we've bothered to package
-   xc16 = xc16_1_61; #i.e. default to the version we're using for current production builds
+   xc16 = xc16_2_10; #i.e. default to latest version we've bothered to package
    xc8_4_00 = pkgs.callPackage ./xc8/4.00.nix { inherit microchip-xclm-license; };
    xc8_3_10 = pkgs.callPackage ./xc8/3.10.nix { inherit microchip-xclm-license; };
    xc8_2_50 = pkgs.callPackage ./xc8/2.50.nix { inherit microchip-xclm-license; };
