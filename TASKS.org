@@ -24,7 +24,7 @@ See https://github.com/cormacc/dotagents for more info.
 If the update is routine, we could potentially schedule a task to pickup and add new compiler versions.
 
 
-** TODO Pass installer options and pack names through for bundled and tool packs
+** TODO Refine tool package installation and bundling options
 :PROPERTIES:
 :CUSTOM_ID: d69d03e5-6247-4fe6-8410-a1fdcf680717
 :CREATED: [2026-10-22 Thu 20:06]
@@ -32,4 +32,11 @@ If the update is routine, we could potentially schedule a task to pickup and add
 :LOGBOOK:
 - Created [2026-10-22 Thu 20:06]
 :END:
-Goal: a thin layer with no per-release lists. Users write Microchip installer options and pack names; the flake passes them through. Proposed: (1) an installerArgs argument of mplab-x-unwrapped (default: the four MCU exclusion flags) and of its packs derivation (default: none), passed verbatim to the installer (options from `--help`: --ide, --ipe, --8bitmcu, --16bitmcu, --32bitmcu, --othermcu, and others); e.g. 16-bit device packs only with --8bitmcu 0 --32bitmcu 0 --othermcu 0. (2) The tool packs that the MCU-excluded installer run leaves (measured 2026-10-22, 6.35: 15 *_TP packs, 2.91 GB with arm/CMSIS; ICD3, PICkit 3, REAL ICE and PM3 have no tool pack, their support is in IDE jars) available without the full 14 GB installer run, e.g. a passthru derivation from the same installer flags. (3) A generic selection helper by <vendor>/<name> over any pack collection, so a user selects e.g. "Microchip/PICkit5_TP" without a list in this repository. (4) README.org: fetchMplabPack for tool packs from the repository (latest PICkit5_TP 3.0.1208 is served; the bundled 3.0.1195 and ICD5_TP 3.0.1102 return 403 and are absent from the current .pdsc release lists, so pinned old tool-pack versions can disappear upstream). Check: the installer group packs per option, store sizes, build-input graphs, and that the IDE lists a selected tool pack (GUI, user check). Includes the per-compiler pack sets of task aebb7421 (merged 2026-10-22): convenience selections of the bundled packs for each compiler (e.g. all xc16 device packs), preferably through the installer MCU groups (Microchip per-architecture groups) rather than rules of our own. A rule from the compiler subdirectory of each pack is not sufficient: of the 147 packs bundled with 6.35, 24 have xc8/, 21 have xc16/ and 45 have xc32/, and 57 have none, including about 40 device packs (PIC32C*, SAM*, MEC*) and arm/CMSIS (measured 2026-10-21). Measure which packs each installer MCU group installs. A set from the installer needs a local installer run; a set of fetchMplabPack pins does not.
+#+IMPORT: [[plan:2026-installer-pack-groups.org]]
+Currently we install only those toolpacks specified explicitly via xc-cli customisation options.
+
+Let's change this so that when no toolpacks are specified explicitly, all toolpacks for the specified compiler architecture(s) are installed by default, using the --<x>bitmcu arguments to the installer. This is a more convenient/user friendly option.
+
+The --othermcu support packs should always installed -- they're small in context (4.8MB).
+
+If there are other toolpacks relating to debugging tools etc. these should probably be included with the mplab-x package instead. That should also expose the mplab_ipe binary on installation (?should that also be offered as a standalone package?).
