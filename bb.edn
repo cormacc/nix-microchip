@@ -1,0 +1,11 @@
+{:paths ["bb"]
+ :tasks
+ {installer-help {:doc "Print the MPLAB X installer help."
+                  :requires ([installer-help :as installer-help])
+                  :task (apply installer-help/main *command-line-args*)}
+  packs {:doc "List bundled or online MPLAB packs."
+         :requires ([packs :as packs])
+         :task (apply packs/main *command-line-args*)}
+  project-config {:doc "Print xc-cli settings for an MPLAB project."
+                  :requires ([project-config :as project-config])
+                  :task (apply project-config/main *command-line-args*)}}}

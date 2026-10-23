@@ -41,6 +41,10 @@
     {
       formatter.${system} = pkgs.nixfmt;
 
+      devShells.${system}.default = pkgs.mkShell {
+        packages = [ pkgs.babashka ];
+      };
+
       # Your custom packages
       # Accessible through 'nix build', 'nix shell', etc
       # packages = forAllSystems (system: import ./pkgs { pkgs = pkgsForSystem system; });
