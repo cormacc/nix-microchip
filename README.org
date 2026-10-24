@@ -278,6 +278,8 @@ in pkgs.stdenvNoCC.mkDerivation {
 
 *** CI container images
 
+[[file:examples/mplab/README.org][The MPLAB CI example]] provides =nix build '.#ci-image'= for a local toolchain image and a GitHub Actions workflow that builds =firmware.X= in that image. Its instructions cover publishing to =ghcr.io/cormacc/nix-microchip-ci= and recording the registry digest. =nix develop '.#mplab-example'= provides the same compiler and pack selection locally.
+
 The =xc-cli= and =mplab-x= commands run in a bubblewrap environment that needs unprivileged user namespaces. Docker's default seccomp profile blocks them, so these commands fail in a Docker CI job that does not use =--privileged= or a changed seccomp profile. For such a runner, =mkCiImage= builds a Docker image from an =xc-cli= package. The image root is the root filesystem of the =xc-cli= environment, so the commands of the development shell run in the image without bubblewrap. =mkCiImage= is a function in =legacyPackages= and the overlay:
 
 #+begin_src nix

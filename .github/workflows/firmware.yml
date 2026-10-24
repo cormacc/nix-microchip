@@ -1,0 +1,50 @@
+name: Firmware example
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  firmware:
+    # Forks must not receive access to the private toolchain package.
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build firmware in the published toolchain image
+        shell: bash
+        env:
+          GHCR_USER: ${{ github.actor }}
+          GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          export DOCKER_CONFIG
+          DOCKER_CONFIG=$(mktemp -d "$RUNNER_TEMP/firmware-docker.XXXXXXXX")
+          trap 'rm -rf "$DOCKER_CONFIG"' EXIT
+          printf '%s' "$GHCR_TOKEN" | docker login ghcr.io --username "$GHCR_USER" --password-stdin
+          unset GHCR_TOKEN
+          image=$(cat examples/mplab/ci-image.txt)
+          if [[ ! "$image" =~ ^ghcr\.io/cormacc/nix-microchip-ci@sha256:[0-9a-f]{64}$ ]]; then
+            echo 'Publish the CI image and update examples/mplab/ci-image.txt with its digest' >&2
+            exit 1
+          fi
+          docker pull "$image"
+          docker run --rm \
+            --mount "type=bind,source=$GITHUB_WORKSPACE,target=/src" \
+            --workdir /src/examples/mplab \
+            "$image" bash build.sh
+      - name: Upload hex image
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: firmware-hex
+          path: examples/mplab/firmware.X/dist/default/production/firmware.X.production.hex
+          if-no-files-found: error

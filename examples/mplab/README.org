@@ -1,0 +1,58 @@
+#+TITLE: MPLAB-X firmware CI example
+
+=firmware.X= is a minimal XC16 1.61 project for the dsPIC33EP512GM710, with dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401. It toggles RA0; it is a build fixture, not board support firmware. [[file:ci.nix][ci.nix]] selects the compiler and DFP for both the development shell and the container image.
+
+Run the commands below from the repository root.
+
+* Build locally
+
+#+BEGIN_SRC sh
+nix develop '.#mplab-example' --command bash examples/mplab/build.sh
+#+END_SRC
+
+[[file:build.sh][build.sh]] generates the makefiles, builds configuration =default=, checks for a non-empty hex file and checks that XC16 reports PRO mode. It exits non-zero on a failed command. The output is =examples/mplab/firmware.X/dist/default/production/firmware.X.production.hex=.
+
+* Build the toolchain image
+
+This step needs Nix and Docker on an =x86_64-linux= machine. It does not need registry credentials. The compiler installers run locally, not on the GitHub runner.
+
+#+BEGIN_SRC sh
+set -euo pipefail
+stream=$(nix build --no-link --print-out-paths '.#ci-image')
+"$stream" | docker load
+repository=$(nix eval --raw '.#ci-image.imageName')
+tag=$(nix eval --raw '.#ci-image.imageTag')
+image="$repository:$tag"
+docker run --rm --mount "type=bind,source=$PWD,target=/src" \
+  --workdir /src/examples/mplab "$image" bash build.sh
+#+END_SRC
+
+The image name is =ghcr.io/cormacc/nix-microchip-ci=. Its tag is derived from the Nix image contents; no =latest= tag is used. The image has the =org.opencontainers.image.source= label for this repository. These build commands use the same image as the workflow, without a privileged container or a changed seccomp profile.
+
+* Publish and pin the image
+
+Publishing is a maintainer operation. Use a [[https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry][personal access token (classic)]] with =write:packages=. Put the token in =CR_PAT= without writing it into a file or shell history. Do not add it to the repository or to the firmware workflow.
+
+Continue in the shell used above:
+
+#+BEGIN_SRC sh
+printf '%s' "$CR_PAT" | docker login ghcr.io --username cormacc --password-stdin
+docker push "$image"
+docker image inspect "$image" --format '{{range .RepoDigests}}{{println .}}{{end}}'
+#+END_SRC
+
+Copy the full =ghcr.io/cormacc/nix-microchip-ci@sha256:...= reference printed by the last command into =examples/mplab/ci-image.txt= as one line, then commit that file. The tag and the registry digest are different identifiers; do not substitute the Nix tag for the digest.
+
+Keep the GHCR package private. The image contains proprietary Microchip tools and the compiler licence. The source label links the package to =cormacc/nix-microchip=; check that this repository has read access under the package's =Manage Actions access= settings. The workflow uses its short-lived =GITHUB_TOKEN= with =packages: read=, not the maintainer's personal access token.
+
+Rebuild and publish when =flake.lock=, the compiler/DFP selection, or the runtime packaging changes. Test the replacement image, update =ci-image.txt= to its new registry digest, and commit that update with the relevant source changes. Changes to =main.c= do not require a new toolchain image.
+
+* GitHub Actions
+
+[[file:../../.github/workflows/firmware.yml][.github/workflows/firmware.yml]] builds on pushes to =master=, same-repository pull requests and manual dispatch. The job skips fork pull requests because they must not receive access to the private toolchain image. Checkout and artifact upload run on the Ubuntu host. Only generation, compilation and the licence check run inside the digest-pinned image. No Nix installation, compiler download or package-write credential is needed on the runner. The artifact =firmware-hex= contains the hex file, and a missing hex makes the job fail.
+
+The registry credential is written to a temporary Docker configuration directory, which the build step removes on exit. The token is not passed to the firmware container. Checkout uses =persist-credentials: false= so its Git credential is not available through the mounted checkout.
+
+Commit =ci-image.txt= with the workflow. A local container smoke test does not verify the GitHub-hosted runner, the workflow token's package access or the artifact upload; check the first Actions run separately.
+
+Microchip's GitHub template bundled with MPLAB-X 6.35 uses a Docker action built from a Dockerfile that installs the IDE, compiler and packs. Its entrypoint generates makefiles, runs =make= and lists =dist=, without fail-fast shell handling. This example instead uses the prebuilt Nix image and a build script that propagates errors.

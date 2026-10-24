@@ -38,12 +38,13 @@ A documented .gitlab-ci.yml example that builds firmware with this flake: a Nix 
 :CUSTOM_ID: 54183995-fb94-4261-be53-cf371b847c76
 :CREATED: [2026-10-23 Fri 13:44]
 :STARTED: [2026-10-23 Fri 16:52]
+:HANDOFF: Private GHCR image published and digest pinned in examples/mplab/ci-image.txt. Workflow, build script, image selection and docs are committed and locally tested. First hosted Actions run (GITHUB_TOKEN package access and artifact upload) remains unverified; source push needs approval.
 :END:
 :LOGBOOK:
 - Created [2026-10-23 Fri 13:44]
 - State "STARTED" from "TODO" [2026-10-23 Fri 16:52]
 :END:
-A documented GitHub Actions workflow example that builds firmware with this flake: a Nix derivation or devshell build with xc-cli, as in README.org (Nix derivations and CMake; MPLAB projects). The runner needs unprivileged user namespaces (doc/environment.org, Limits).
+Build `examples/mplab/firmware.X` in GitHub Actions with a locally built `mkCiImage` image, published to private `ghcr.io/cormacc/nix-microchip-ci`. The workflow pins the registry digest and uses `GITHUB_TOKEN` with `packages: read`; no compiler installation, Nix, privileged container or user namespace is needed on the runner. Fork pull requests are excluded from this private-image job. The user chose a private package on 2026-10-23. See `examples/mplab/README.org` for local build and publishing instructions.
 
 *** DONE Add a minimal MPLAB-X example project
 CLOSED: [2026-10-23 Fri 16:56]
@@ -69,3 +70,38 @@ Acceptance criteria:
 - Must not: copy content from a private project.
 
 Result (2026-10-23): `configurations.xml` is in the form that `mplab-gen` writes, so generation leaves every tracked file unchanged. The devshell (`xc-make`), `mplab-x` (`mplab-make`), a `mkCiImage` image at `/src` and the README.org derivation in the Nix build sandbox built the same hex (SHA-256 `b6f9c991…b514b42d`), and no generated `.mk` file named `/nix/store`. The IDE GUI did not open the project in this test.
+
+*** DONE Publish the example toolchain image to GHCR
+CLOSED: [2026-10-23 Fri 23:15]
+:PROPERTIES:
+:CUSTOM_ID: d5e50b7d-dae1-4d99-a819-28a48c25c2f3
+:CREATED: [2026-10-23 Fri 17:25]
+:STARTED: [2026-10-23 Fri 17:26]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 17:25]
+- State "STARTED" from "TODO" [2026-10-23 Fri 17:26]
+- State "DONE" from "STARTED" [2026-10-23 Fri 23:15]
+:END:
+`nix build '.#ci-image'` builds the XC16 1.61/DFP selection in `examples/mplab/ci.nix`; `nix develop '.#mplab-example'` provides the same selection.
+
+Result (2026-10-23): pushed tag `y75pdi3i978bbxkq2zfyh5hzvyv5ylfz`; authenticated pull by the digest in `examples/mplab/ci-image.txt` succeeded. The package API reports `visibility: private` and repository `cormacc/nix-microchip`; anonymous manifest access returns unauthorized. The image source label is `https://github.com/cormacc/nix-microchip`.
+
+*** STARTED Add the digest-pinned GitHub firmware workflow
+:PROPERTIES:
+:CUSTOM_ID: 9512afa1-f800-4164-a29e-2c39ec2aff29
+:CREATED: [2026-10-23 Fri 17:25]
+:STARTED: [2026-10-23 Fri 17:26]
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 17:25]
+- State "STARTED" from "TODO" [2026-10-23 Fri 17:26]
+:END:
+Acceptance criteria:
+- The workflow uses the registry digest in `examples/mplab/ci-image.txt` and commit-pinned checkout/upload actions.
+- Registry login uses `GITHUB_TOKEN` with read-only package permission; a temporary Docker configuration is removed on exit. The token is not passed to the firmware container.
+- Same-repository pull requests, pushes to `master` and manual dispatch build a non-empty hex and report XC16 PRO mode. Fork pull requests skip the private-image job.
+- GitHub Actions uploads the hex as `firmware-hex`; a missing hex fails the job.
+- `examples/mplab/README.org` documents local builds, image publishing, private-package access and updating the pin.
+
+Local validation (2026-10-23): the exact workflow shell step pulled the published digest, logged in with a maintainer PAT and built the same hex as `nix develop '.#mplab-example'` (SHA-256 `b6f9c991…b514b42d`), with XC16 PRO mode. Its temporary Docker credential directory was removed. A deliberate C error made `build.sh` exit 2; an empty mounted licence directory made it exit 1 (`XC16 is not in PRO mode`). `actionlint` and `nix flake check --no-build` passed; a deliberately invalid workflow failed actionlint. The GitHub-hosted run, `GITHUB_TOKEN` package access and artifact upload remain unverified until the workflow is committed and pushed.

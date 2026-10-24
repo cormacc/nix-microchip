@@ -23,6 +23,8 @@
         inherit system;
         config.allowUnfree = true;
       };
+      microchip = import ./pkgs pkgs;
+      mplabExample = import ./examples/mplab/ci.nix { inherit microchip; };
       # systems = [
       #   "x86_64-linux"
       #   # I'm guessing that the currently supported MacOS architecture is aarch64, but have no hardware to test on....
@@ -41,8 +43,13 @@
     {
       formatter.${system} = pkgs.nixfmt;
 
-      devShells.${system}.default = pkgs.mkShell {
-        packages = [ pkgs.babashka ];
+      devShells.${system} = {
+        default = pkgs.mkShell {
+          packages = [ pkgs.babashka ];
+        };
+        mplab-example = pkgs.mkShell {
+          packages = [ mplabExample.xc-cli ];
+        };
       };
 
       # Your custom packages
@@ -50,8 +57,10 @@
       # packages = forAllSystems (system: import ./pkgs { pkgs = pkgsForSystem system; });
       # packages may contain only derivations, so functions such as fetchMplabPack are in
       # legacyPackages and the overlay.
-      packages.${system} = nixpkgs.lib.filterAttrs (_: nixpkgs.lib.isDerivation) (import ./pkgs pkgs);
-      legacyPackages.${system} = import ./pkgs pkgs;
+      packages.${system} = nixpkgs.lib.filterAttrs (_: nixpkgs.lib.isDerivation) microchip // {
+        ci-image = mplabExample.image;
+      };
+      legacyPackages.${system} = microchip;
 
       # Your custom packages and modifications, exported as overlays
       # overlays.default = import ./overlays {inherit inputs;};
