@@ -53,6 +53,8 @@ Rebuild and publish when =flake.lock=, the compiler/DFP selection, or the runtim
 
 The registry credential is written to a temporary Docker configuration directory, which the build step removes on exit. The token is not passed to the firmware container. Checkout uses =persist-credentials: false= so its Git credential is not available through the mounted checkout.
 
-Commit =ci-image.txt= with the workflow. A local container smoke test does not verify the GitHub-hosted runner, the workflow token's package access or the artifact upload; check the first Actions run separately.
+Commit =ci-image.txt= with the workflow. After changing the image or workflow, check a hosted Actions run as well as the local build: only the hosted run tests =GITHUB_TOKEN= package access and artifact upload.
+
+[[https://github.com/cormacc/nix-microchip/actions/runs/40043520740][The first hosted run]] passed on 2026-10-24: private-image pull, XC16 PRO mode, compilation and hex upload. The downloaded hex had SHA-256 =b6f9c991bb745d4e428763d5e56c7fb2573f1f609559b349a850a6b4b514b42d=, identical to the local build.
 
 Microchip's GitHub template bundled with MPLAB-X 6.35 uses a Docker action built from a Dockerfile that installs the IDE, compiler and packs. Its entrypoint generates makefiles, runs =make= and lists =dist=, without fail-fast shell handling. This example instead uses the prebuilt Nix image and a build script that propagates errors.
