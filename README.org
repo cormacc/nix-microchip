@@ -392,7 +392,17 @@ See [[file:doc/licence.org][Compiler licence]] for the licence features, the det
 
 ** Compilers
 
-Each compiler directory ([[./pkgs/xc8]], [[./pkgs/xc16]], [[./pkgs/xc32]] and [[./pkgs/xc-dsc]]) has a shared =common.nix=, which holds the packaging work derived from nyadiia's. To add a compiler version, create a file with the version and installer archive hash in that directory, for example [[./pkgs/xc16/1.61.nix]]:
+For a new Linux release of an existing compiler family, =bb package= downloads/hashes the installer and previews the version file and registration. The default dry run does not execute the installer or change package files:
+
+#+begin_src sh
+bb package --url \
+  'https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.61-full-install-linux64-installer.run'
+bb package --family xc16 --version 1.61 --verify
+#+end_src
+
+The existing 1.61 package can be previewed or verified, not overwritten. For a new release, add =--write= to apply the preview and =--verify= to require a successful version/compile/link/licence check before writing. The task leaves default versions, =flake.lock= and Git staging unchanged. See [[file:doc/packaging.org][Packaging options and closure sizes]] for supported URLs, verification profiles and the manual staging step.
+
+Each compiler directory ([[./pkgs/xc8]], [[./pkgs/xc16]], [[./pkgs/xc32]] and [[./pkgs/xc-dsc]]) has a shared =common.nix=, which holds the packaging work derived from nyadiia's. To add a version manually, create a file with the version and installer archive hash in that directory, for example [[./pkgs/xc16/1.61.nix]]:
 
 #+begin_src nix
 import ./common.nix {

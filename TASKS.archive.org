@@ -557,3 +557,19 @@ CLOSED: [2026-10-24 Sat 11:34]
 - State "DONE" from "STARTED" [2026-10-24 Sat 11:34]
 :END:
 #+IMPORT: [[plan:2026-10-24-ci-image-task.org]]
+
+** DONE Scaffold compiler packages from installer URLs
+CLOSED: [2026-10-24 Sat 12:30]
+:PROPERTIES:
+:CUSTOM_ID: e9c68605-4a0a-4374-b791-f428998ef608
+:CREATED: [2026-10-24 Sat 11:53]
+:STARTED: [2026-10-24 Sat 11:54]
+:ARCHIVED: [2026-10-24 Sat 12:30]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-24 Sat 11:53]
+- State "STARTED" from "TODO" [2026-10-24 Sat 11:54]
+- State "DONE" from "STARTED" [2026-10-24 Sat 12:30]
+:END:
+#+IMPORT: [[plan:2026-10-24-compiler-package-task.org]]

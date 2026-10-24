@@ -12,8 +12,12 @@
   ci-image {:doc "Build a CI image from compiler/pack arguments or an MPLAB project."
             :requires ([ci-image :as ci-image])
             :task (apply ci-image/main *command-line-args*)}
-  test {:doc "Test CI image selection and MPLAB project parsing without downloads."
-        :requires ([clojure.test :as test] [ci-image-test] [project-config-test])
+  package {:doc "Preview or add a compiler package from a Linux installer URL."
+           :requires ([compiler-package :as package])
+           :task (apply package/main *command-line-args*)}
+  test {:doc "Test checkout tasks without compiler downloads or installations."
+        :requires ([clojure.test :as test] [ci-image-test] [project-config-test]
+                   [compiler-package-test])
         :task (let [{:keys [fail error]}
-                    (test/run-tests 'ci-image-test 'project-config-test)]
+                    (test/run-tests 'ci-image-test 'project-config-test 'compiler-package-test)]
                 (when (pos? (+ fail error)) (System/exit 1)))}}}

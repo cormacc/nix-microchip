@@ -1,0 +1,63 @@
+#+TITLE: Scaffold compiler packages from installer URLs
+#+DATE: 2026-10-24 Sat
+#+PARENT: [[archive:e9c68605-4a0a-4374-b791-f428998ef608][Scaffold compiler packages from installer URLs]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Complete
+#+SPEC: [[proj:README.org]]
+#+SPEC: [[proj:doc/packaging.org]]
+
+* Intent
+Scaffold new Linux compiler versions without repeating version-file and export edits by hand. Keep preview, optional verification and explicit writing separate, and stop for review when existing installer logic does not apply.
+
+* Summary
+*Level:* production · *Tests:* smoke · *Docs:* README
+
+** Scope
+*** In scope
+- =bb package --url URL=, or explicit =--family=/=--version=, for XC8, XC16, XC32 and XC-DSC.
+- Default download/hash preview, optional =--verify= and explicit =--write=.
+- Optional source =url= in each family builder; existing default derivations remain unchanged.
+*** Out of scope
+- New compiler families, other host platforms, prerelease identifiers or arbitrary archive formats.
+- Default-version updates, staging, commits or automatic fixes to shared installer logic.
+- Provenance verification or exhaustive device/optimisation testing.
+
+** Acceptance
+- [X] Supported installer filenames identify the family and numeric version; conflicting explicit values fail.
+- [X] URLs with credentials, queries or fragments and unsupported platform/layout names fail before downloading.
+- [X] Default preview hashes only the original installer source and changes no package files.
+- [X] Explicit writing creates a version file and versioned registration without changing the default alias.
+- [X] Existing files/registrations, editor locks and changed registry text are not overwritten.
+- [X] Requested verification completes before source writing; failed verification writes no package files.
+- [X] Verification checks the reported version, compile/link, non-empty ELF and known Free-mode diagnostics in xc-cli.
+- [X] Git staging and flake.lock are unchanged by the task.
+
+** Decisions
+- Reuse the family builders for canonical download locations and installer behaviour instead of maintaining a second URL/flag catalogue in the task.
+- Permit previews and verification of existing releases, but reject =--write= for them before downloading.
+- Verify a temporary candidate, not a newly registered Git-flake package: new source files remain untracked until the user stages them.
+- Fixed representative device/DFP profiles bound verification cost. A failure calls for review, not automatic weakening of flags or licence checks.
+
+** Shipped
+- =bb/compiler_package.clj=: URL/identifier checks, source hash probe, preview and guarded source writing.
+- =bb/package_verify.nix=: version/compile/link/diagnostic verification profiles.
+- Optional =url ? null= in all four family builders; no new compiler version is added by this change.
+- MODIFIED README.org and doc/packaging.org: preview/write/verify workflow, supported layouts, profiles and staging requirements.
+
+** Gotchas
+- XC-DSC 4.00 reports =v4.00.00=; the version matcher permits extra zero-only components but rejects a non-zero patch difference.
+- A computed download hash pins bytes, not their provenance. Verification runs the installer, so the caller must trust its source.
+
+* Plan
+
+* Implementation
+- The hash probe realises only =compiler.src= with =lib.fakeHash=; a hash is accepted only from the expected failed fixed-output build. The generated version file records the raw installer hash and an explicit URL only when supplied.
+- Registration inserts one line before the family's first versioned attribute. Writing checks the original registry snapshot and editor lock again, creates the version file exclusively, and atomically replaces the registry from a temporary copy. Registry replacement failure removes the complete version file if its contents are still the task's own.
+- Verification copies the shared builder beside a temporary version file under =.tmp/= and imports the checkout as a Git flake. `xc-cli` selects the candidate directly, so neither staging nor a provisional registry edit is needed. Temporary verification files are removed on success or failure; no GC root is retained.
+
+* Validation
+- 2026-10-24: real URL-based preview and verification for XC16 1.61 and canonical-location verification for XC-DSC 4.00 succeeded, producing version logs, compile logs and non-empty ELF files. The existing version files and =pkgs/default.nix= were unchanged. Attempting =--write= for XC16 1.61 failed before download.
+- 2026-10-24: replaying the tested verifier's actual matchers accepted the XC-DSC =v4.00.00= banner, rejected =v4.00.01=, =v4.01= and =v4.000=, and detected all three known Free-mode diagnostic controls. These matcher controls did not run a compiler in Free mode.
+- 2026-10-24: all 11 existing versioned compiler derivation paths matched the pre-change baseline. URL overrides selected the supplied URL in ten evaluation cases across the legacy/archive and licensing boundaries of the four family builders. No compiler version was added to the maintained flake. In a disposable Git-flake fixture, a real dry run changed no package files, and a real =--write= added XC16 1.61 while leaving the Git index unchanged. After manual staging, the fixture exported 1.61 through both packages and the overlay while its default stayed at 2.10.
+- 2026-10-24: =bb test= passed 31 tests / 174 assertions across ci-image-test, project-config-test and compiler-package-test. clj-kondo reported zero errors/warnings; =nix flake check --no-build= and =git diff --check= passed. =ot doctor= reported zero errors and the four existing archive-link/setup warnings.
+- 2026-10-24: removed the disposable write fixture and ran garbage collection. Free store space was 580G before collection and 582G after collection; the intentional MPLAB-X GC root was retained.

@@ -63,10 +63,13 @@ Run these tasks from a checkout with =nix develop=. The development shell provid
 #+BEGIN_SRC sh
 nix develop -c bb installer-help
 nix develop -c bb packs [--online] [filter]
-nix develop -c bb project-config <dir>
+nix develop -c bb project-config <project-directory-or-configurations.xml>
+nix develop -c bb ci-image --help
+nix develop -c bb package --help
+nix develop -c bb test
 #+END_SRC
 
-=installer-help= prints the packaged installer help and version. =packs= lists bundled packs by default, or the Microchip online index with =--online=; the optional filter selects pack names. =project-config= reads an MPLAB project directory and prints an =xc-cli.override= block with its versioned compiler and pinned packs.
+=installer-help= prints the packaged installer help and version. =packs= lists bundled packs by default, or the Microchip online index with =--online=; the optional filter selects pack names. =project-config= reads an MPLAB project directory or its =nbproject/configurations.xml= and prints an =xc-cli.override= block with its versioned compiler and pinned packs. =ci-image= builds a project-specific image stream; see [[file:../examples/mplab/README.org][the CI example]]. =test= runs the offline checkout-task tests.
 
 The printed block requires a =pkgs= binding that includes this flake's packages. In a downstream flake, add =microchip.overlays.default= to the package set's =overlays= list, as in the README example, then use the block where that =pkgs= is in scope. To use this flake directly, with its input named =microchip=, use this scope:
 
@@ -76,6 +79,49 @@ let
 in
 # Paste the project-config output here.
 #+END_SRC
+
+* Compiler package scaffolding
+
+=bb package= adds versions of the existing =xc8=, =xc16=, =xc32= and =xc-dsc= families for =x86_64-linux=. Run it from the checkout root. With no =--write=, it downloads the original installer, computes its raw-file SRI hash and prints a candidate version file and =pkgs/default.nix= registration. It realises only the installer's =fetchurl= source, not the compiler installation.
+
+#+BEGIN_SRC sh
+bb package --url \
+  'https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.61-full-install-linux64-installer.run'
+#+END_SRC
+
+Known installer filenames supply the family and version. Supply =--family= and =--version= for a versionless/ambiguous Linux filename; if the filename already identifies either value, the explicit value must agree. Alternatively, omit =--url= and use =--family xc16 --version 1.61= to use the shared builder's canonical download locations. Only numeric dotted versions and HTTPS URLs without embedded credentials, query strings or fragments are accepted. Windows, macOS and ARM installers are not supported. XC16 before 1.50 requires the Linux =.run.tar= layout; the other supported layouts use =.run=.
+
+Use a trusted vendor download link. A filename and a freshly calculated hash do not establish provenance or show that an installer works. The hash pins the downloaded bytes, before unpacking. The optional =url= argument in each family's =common.nix= selects a download source; archive handling and installer/licence flags still depend on the family and version. An unsupported layout requires review of that shared code, not a guessed flag change.
+
+** Verification and writing
+
+Add =--verify= to build a temporary candidate in =xc-cli=, check its reported family/version, compile and link a small program at =-O3=, scan for the known Free-mode diagnostics and require a non-empty ELF file. Existing releases can be previewed and verified without replacing them:
+
+#+BEGIN_SRC sh
+bb package --family xc16 --version 1.61 --verify
+bb package --family xc-dsc --version 4.00 --verify
+#+END_SRC
+
+The verification profiles are in =bb/package_verify.nix=:
+
+- XC16 :: dsPIC33EP512MU810, with built-in device support.
+- XC8 :: PIC18F47K40 with PIC18F-K_DFP 1.17.312.
+- XC32 :: PIC32MX795F512L with PIC32MX_DFP 1.7.380.
+- XC-DSC :: dsPIC33CK64MP105 with dsPIC33CK-MP_DFP 1.16.521.
+
+These are smoke tests, not tests of every device or optimisation. Older or future releases can need another profile. The banner check permits extra zero-only components (XC-DSC 4.00 reports =v4.00.00=), but rejects a different non-zero patch version. A failed install, version check, compile, link or licence check stops the command; it does not rewrite shared packaging logic to force a pass.
+
+Verification needs unprivileged user namespaces. Check free disk space first: compiler installations can use several GB. Temporary candidate files are kept under the checkout's =.tmp/= and removed on success or failure. The task does not run garbage collection.
+
+For a new version, review the dry-run output, then rerun the same selection with =--verify --write=. For example, replace =VERSION= with the actual new release:
+
+#+BEGIN_SRC sh
+bb package --family xc16 --version VERSION --verify --write
+#+END_SRC
+
+The command writes =pkgs/<family>/<version>.nix= and adds its versioned attribute to =pkgs/default.nix=. The flake and overlay export that attribute automatically. It refuses an existing version file or registration, and aborts if the registry file has an editor lock or changed during preparation. Verification runs before either source file is written. =--write= without =--verify= is allowed, but the result is explicitly reported as unverified.
+
+Default aliases, the README package table, =flake.lock=, staging and commits remain manual. Stage the new version file before evaluating it as a Git flake, because untracked files are excluded from that source. The command prints the required paths for =git add=; after staging, run =nix flake check --no-build= and review the diff. No compiler ELF file is patched or fixed up.
 
 * Closure sizes
 

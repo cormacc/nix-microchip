@@ -1,4 +1,4 @@
-{ version, hash }:
+{ version, hash, url ? null }:
 
 { lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, glibc, rsync, microchip-xclm-license }:
 
@@ -20,7 +20,9 @@ in stdenvNoCC.mkDerivation rec {
   # pname = "microchip-xc16-unwrapped";
   pname = "xc16";
   inherit version;
-  src = if is32bit then fetchurl {
+  src = if url != null then fetchurl {
+    inherit url hash;
+  } else if is32bit then fetchurl {
     # The 32-bit installers are a .run inside a .tar (verified for 1.21).
     url = "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v${version}-linux-installer.run.tar";
     inherit hash;
