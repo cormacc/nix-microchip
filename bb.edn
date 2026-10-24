@@ -1,4 +1,4 @@
-{:paths ["bb"]
+{:paths ["bb" "test"]
  :tasks
  {installer-help {:doc "Print the MPLAB X installer help."
                   :requires ([installer-help :as installer-help])
@@ -8,4 +8,12 @@
          :task (apply packs/main *command-line-args*)}
   project-config {:doc "Print xc-cli settings for an MPLAB project."
                   :requires ([project-config :as project-config])
-                  :task (apply project-config/main *command-line-args*)}}}
+                  :task (apply project-config/main *command-line-args*)}
+  ci-image {:doc "Build a CI image from compiler/pack arguments or an MPLAB project."
+            :requires ([ci-image :as ci-image])
+            :task (apply ci-image/main *command-line-args*)}
+  test {:doc "Test CI image selection and MPLAB project parsing without downloads."
+        :requires ([clojure.test :as test] [ci-image-test] [project-config-test])
+        :task (let [{:keys [fail error]}
+                    (test/run-tests 'ci-image-test 'project-config-test)]
+                (when (pos? (+ fail error)) (System/exit 1)))}}}

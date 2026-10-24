@@ -1,0 +1,59 @@
+#+TITLE: Build CI images from explicit or MPLAB project selections
+#+DATE: 2026-10-24 Sat
+#+PARENT: [[archive:6d5a28fc-b36a-4c15-9ef6-7b3429a392f5][Build CI images from explicit or MPLAB project selections]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Complete
+#+SPEC: [[proj:README.org]]
+#+SPEC: [[proj:examples/mplab/README.org]]
+
+* Intent
+Build a CI toolchain image without a project-specific Nix expression. Accept explicit compiler/pack versions or detect them from one MPLAB-X build configuration.
+
+* Summary
+*Level:* production · *Tests:* smoke · *Docs:* README
+
+** Scope
+*** In scope
+- `bb ci-image`, reusing the compiler catalogue, XML parsing and pack-hash lookup in `bb/project_config.clj`.
+- Project directories and `nbproject/configurations.xml` inputs, explicit configuration choice, repeatable compiler/pack arguments and image naming.
+- README.org discoverability for both CI examples; image-task instructions in examples/mplab/README.org.
+*** Out of scope
+- Loading or publishing Docker images, changing CI pins or adding registry credentials.
+- Choosing the latest compiler when a requested version is unavailable.
+- Combining several project configurations into one image.
+
+** Acceptance
+- [X] Explicit compiler and pack arguments determine the image selection.
+- [X] A project directory and its XML file select the same image.
+- [X] An ambiguous project requires `--configuration` and lists the available names.
+- [X] An unavailable compiler version fails instead of selecting another version.
+- [X] Normal stdout contains one executable stream-script path; diagnostics use stderr.
+- [X] The image includes MPLAB command-line support; explicit selection without packs adds no bundled packs.
+- [X] The task neither loads nor publishes an image.
+- [X] Temporary selection/expression files are removed on success and failure.
+- [X] Compiler defaults and flake.lock are unchanged.
+
+** Decisions
+- Extend the existing project parser instead of creating a second parser. `bb project-config` also accepts a configuration XML file.
+- Print a Nix image stream-script path instead of writing an archive or calling Docker: callers choose whether to load, save or publish it.
+- Require an explicit configuration when several exist: a union can select unintended compiler versions and packs.
+- Resolve pack hashes through `fetchMplabPack`, as `project-config` does. No project lock file is added; reproducible CI consumes the published image digest.
+
+** Shipped
+- `bb/ci_image.clj`: argument validation, configuration selection and `mkCiImage` build.
+- `bb/project_config.clj`: file input, interpolation-safe Nix strings and exit-status checking for the intentional hash-mismatch probe.
+- `bb test`: offline tests for both modules in `test/ci_image_test.clj` and `test/project_config_test.clj`.
+- MODIFIED README.org: both CI links are visible under a table-of-contents entry, with the image-task quick start.
+- MODIFIED examples/mplab/README.org: explicit/project forms, output contract, pack selection and the boundary between building and publishing.
+
+* Plan
+
+* Implementation
+- The image expression reads a temporary JSON selection and looks up validated compiler attributes with `builtins.getAttr`. User arguments are data, not Nix source fragments. The flake reference is `git+file://`, never a path reference to the checkout.
+- Selection files live under the repository's `.tmp/`; `finally` removes them. The output is built with `--no-link`, so the caller must consume the stream before garbage collection.
+- The hash probe accepts a `got: sha256-...` result only from a failed build; successful or unrelated failed builds are not hash results.
+
+* Validation
+- 2026-10-24: real project-file and explicit-argument builds for XC16 1.61 and dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 returned the same image stream script. Loaded into Docker with default seccomp, the image built the local MPLAB fixture and reported XC16 PRO mode. Its hex SHA-256 was `b6f9c991bb745d4e428763d5e56c7fb2573f1f609559b349a850a6b4b514b42d`, matching the hosted GitHub artifact.
+- 2026-10-24: an explicit XC-DSC 4.00 image with dsPIC33CK-MP_DFP 1.16.521 compiled and linked a dsPIC33CK64MP105 test file at `-O3`, with no licence or mount diagnostic.
+- 2026-10-24: CLI probes rejected unknown flags in the first and final positions, a project with two configurations and no choice, and `xc16_9_99`. `bb project-config` produced identical output for the fixture directory and its XML file. A Nix evaluation of a quoted `${builtins.throw ...}` string returned that text without evaluation.

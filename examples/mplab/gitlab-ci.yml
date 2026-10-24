@@ -1,0 +1,30 @@
+stages:
+  - build
+
+variables:
+  # GitLab selects the job image before scripts run. Keep this equal to ci-image.txt.
+  FIRMWARE_CI_IMAGE: "ghcr.io/cormacc/nix-microchip-ci@sha256:9552f41080565cb9bbdaaa3fcc4f33a594f572499d4c5f1cf4829b2c2997d849"
+
+firmware:
+  stage: build
+  image: "$FIRMWARE_CI_IMAGE"
+  # Do not wait for unrelated tests when this example is included in a larger pipeline.
+  needs: []
+  rules:
+    # The private-image credential must not be exposed to merge-request code.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      when: never
+    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
+  script:
+    - unset DOCKER_AUTH_CONFIG
+    - |
+      if [ "$FIRMWARE_CI_IMAGE" != "$(cat examples/mplab/ci-image.txt)" ]; then
+        echo 'Update FIRMWARE_CI_IMAGE to match examples/mplab/ci-image.txt' >&2
+        exit 1
+      fi
+    - bash examples/mplab/build.sh
+  artifacts:
+    name: "firmware-$CI_COMMIT_SHORT_SHA"
+    paths:
+      - examples/mplab/firmware.X/dist/default/production/firmware.X.production.hex
+    expire_in: 1 week

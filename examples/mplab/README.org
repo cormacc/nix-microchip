@@ -12,6 +12,40 @@ nix develop '.#mplab-example' --command bash examples/mplab/build.sh
 
 [[file:build.sh][build.sh]] generates the makefiles, builds configuration =default=, checks for a non-empty hex file and checks that XC16 reports PRO mode. It exits non-zero on a failed command. The output is =examples/mplab/firmware.X/dist/default/production/firmware.X.production.hex=.
 
+* Build a project-specific image with Babashka
+
+=bb ci-image= builds an image through =mkCiImage= without requiring a project-specific Nix expression. Run it from this checkout's root with Babashka and Nix installed. Docker is needed only when you load or run the image.
+
+For a project with one configuration, the task detects its exact compiler version and declared packs:
+
+#+BEGIN_SRC sh
+stream=$(bb ci-image --project examples/mplab/firmware.X --name firmware-ci)
+"$stream" | docker load
+#+END_SRC
+
+You can also give the configuration file directly. If a project has several configurations, =--configuration= is required; the task uses only that configuration, not the union of every configuration's packs:
+
+#+BEGIN_SRC sh
+bb ci-image --project examples/mplab/firmware.X/nbproject/configurations.xml \
+  --configuration default --name firmware-ci
+#+END_SRC
+
+For explicit selection, use versioned compiler attributes and packs in =vendor/name/version= form:
+
+#+BEGIN_SRC sh
+bb ci-image --compiler xc16_1_61 \
+  --pack Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401 \
+  --name firmware-ci
+#+END_SRC
+
+- =--compiler= and =--pack= can be repeated. Duplicate selections are removed; compiler order is preserved, so the first version of each family supplies its wrappers. With no explicit packs, the pack list is empty; the task does not add the IDE installer's bundled packs.
+- =--project= cannot be combined with explicit compiler or pack arguments. The task reads =nbproject/configurations.xml=, not =nbproject/private= settings. An unavailable compiler version is an error, not a request for the latest version.
+- Both forms include the command-line MPLAB-X subset (=withMplabProjects = true=). Pack hashes are resolved through =fetchMplabPack=; this can download packs. No version or hash file is written into the project.
+- =--name= is the image repository (default =xc-cli=), optionally with a registry prefix. Do not include a tag or digest; Nix derives the tag from the image contents. =docker load= prints the full image reference.
+- Standard output is only the path of the executable stream script. Run it to write a Docker image archive to stdout. Build diagnostics go to stderr. To save an archive instead of loading Docker, use ="$stream" > .tmp/firmware-ci.tar=. Consume the script before running Nix garbage collection: the task builds with =--no-link=.
+
+The helper neither loads nor pushes an image, adds repository-association labels, nor changes the checked-in CI pins. After publishing, update the pipeline references as described below. Use =bb ci-image --help= for usage and =bb test= for the parser/selection tests (which do not download tools or packs).
+
 * Build the toolchain image
 
 This step needs Nix and Docker on an =x86_64-linux= machine. It does not need registry credentials. The compiler installers run locally, not on the GitHub runner.
@@ -41,11 +75,11 @@ docker push "$image"
 docker image inspect "$image" --format '{{range .RepoDigests}}{{println .}}{{end}}'
 #+END_SRC
 
-Copy the full =ghcr.io/cormacc/nix-microchip-ci@sha256:...= reference printed by the last command into =examples/mplab/ci-image.txt= as one line, then commit that file. The tag and the registry digest are different identifiers; do not substitute the Nix tag for the digest.
+Copy the full =ghcr.io/cormacc/nix-microchip-ci@sha256:...= reference printed by the last command into =examples/mplab/ci-image.txt= as one line, then commit that file. Also update =FIRMWARE_CI_IMAGE= in [[file:gitlab-ci.yml][gitlab-ci.yml]] to the same reference. The tag and the registry digest are different identifiers; do not substitute the Nix tag for the digest.
 
-Keep the GHCR package private. The image contains proprietary Microchip tools and the compiler licence. The source label links the package to =cormacc/nix-microchip=; check that this repository has read access under the package's =Manage Actions access= settings. The workflow uses its short-lived =GITHUB_TOKEN= with =packages: read=, not the maintainer's personal access token.
+Keep the GHCR package private. The image contains proprietary Microchip tools and the compiler licence. For GitHub Actions, the source label links the package to =cormacc/nix-microchip=; check that this repository has read access under the package's =Manage Actions access= settings. The GitHub workflow uses its short-lived =GITHUB_TOKEN= with =packages: read=, not the maintainer's personal access token. The GitLab example uses a separate read-only registry credential, as described below.
 
-Rebuild and publish when =flake.lock=, the compiler/DFP selection, or the runtime packaging changes. Test the replacement image, update =ci-image.txt= to its new registry digest, and commit that update with the relevant source changes. Changes to =main.c= do not require a new toolchain image.
+Rebuild and publish when =flake.lock=, the compiler/DFP selection, or the runtime packaging changes. Test the replacement image, update =ci-image.txt= and the GitLab example's =FIRMWARE_CI_IMAGE= to its new registry digest, and commit those updates with the relevant source changes. Changes to =main.c= do not require a new toolchain image.
 
 * GitHub Actions
 
@@ -58,3 +92,36 @@ Commit =ci-image.txt= with the workflow. After changing the image or workflow, c
 [[https://github.com/cormacc/nix-microchip/actions/runs/40043520740][The first hosted run]] passed on 2026-10-24: private-image pull, XC16 PRO mode, compilation and hex upload. The downloaded hex had SHA-256 =b6f9c991bb745d4e428763d5e56c7fb2573f1f609559b349a850a6b4b514b42d=, identical to the local build.
 
 Microchip's GitHub template bundled with MPLAB-X 6.35 uses a Docker action built from a Dockerfile that installs the IDE, compiler and packs. Its entrypoint generates makefiles, runs =make= and lists =dist=, without fail-fast shell handling. This example instead uses the prebuilt Nix image and a build script that propagates errors.
+
+* GitLab CI
+
+[[file:gitlab-ci.yml][gitlab-ci.yml]] uses the same locally published image and =build.sh= as the GitHub workflow. Copy it to =.gitlab-ci.yml= at the repository root, or include it from an existing root pipeline:
+
+#+BEGIN_SRC yaml
+include:
+  - local: examples/mplab/gitlab-ci.yml
+#+END_SRC
+
+The example declares the =build= stage. If an existing pipeline declares =stages=, retain =build= in that list. =needs: []= makes the firmware job independent of unrelated test jobs. It calls =mplab-gen= and =xc-make= through =build.sh=, checks PRO mode, and saves the hex in an artifact named =firmware-$CI_COMMIT_SHORT_SHA= with a one-week expiry. This example has no submodules or tag-derived firmware version, so it needs neither recursive submodule checkout nor a full Git history.
+
+** Runner and private-image access
+
+Use a Linux =amd64= GitLab Runner with the Docker executor. The runner starts the job directly in the prebuilt image; the job does not need Nix, Docker-in-Docker, a Docker socket, a privileged container or unprivileged user namespaces. The image includes the Bash shell needed by =build.sh=.
+
+GitLab cannot use GitHub Actions' =GITHUB_TOKEN=. Create a dedicated GitHub personal access token (classic) with =read:packages=, owned by an account that can read the private GHCR package. Alternatively, publish your own image and update both image references. Keep the write-capable publishing token off the runner.
+
+In the GitLab project's =Settings > CI/CD > Variables=, add =DOCKER_AUTH_CONFIG= as a variable of type =Variable=, with environment scope =*=. Mark it protected and masked, and disable variable-reference expansion. Its value is one-line JSON in this form:
+
+#+BEGIN_SRC json
+{"auths":{"ghcr.io":{"auth":"BASE64_OF_USERNAME_COLON_READ_TOKEN"}}}
+#+END_SRC
+
+Replace the placeholder with the single-line base64 encoding of =username:token=. That encoded value is also a credential: do not commit it, print it in job logs or put the token on a command line. See [[https://docs.gitlab.com/ci/docker/using_docker_images/#access-an-image-from-a-private-container-registry][GitLab's private-image authentication documentation]]. Runner reads this variable before pulling the job image; =docker login= in =before_script= is too late for that pull. The job unsets the variable before running the build script.
+
+The job excludes merge-request pipelines and runs only when =CI_COMMIT_REF_PROTECTED= is =true=. Protect the branches or tags on which it should run, and keep permission to change those refs restricted to trusted users. This policy keeps the registry credential out of untrusted branch and merge-request builds; do not remove it merely to make an unprotected pipeline run.
+
+** Image pin and validation
+
+GitLab resolves =image= before running scripts, so the YAML repeats the digest from =ci-image.txt= in =FIRMWARE_CI_IMAGE=. The job fails before compilation if they differ. Runner's image pull checks that the digest is published and accessible, so this minimal example needs no separate Nix/Skopeo image-check job. It does not recompute the image from the Nix sources in CI: publish a replacement and update both pins when the toolchain changes.
+
+GitLab CI Lint accepted this example on 2026-10-24. Running its script list in the pinned image produced the same 7,380-byte hex as the GitHub workflow, with XC16 PRO mode; a mismatched image pin failed before compilation. This local test does not verify GitLab Runner's pre-job authentication or artifact upload. Check a protected-ref pipeline in your GitLab project after configuring the runner and credential.

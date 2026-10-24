@@ -30,10 +30,23 @@
        (apply str)
        str/trim))
 
-(defn project-configurations [project]
-  (with-open [reader (io/reader (str project "/nbproject/configurations.xml"))]
-    (let [document (xml/parse reader :namespace-aware false :location-info false)]
-      (doall (filter #(= :conf (:tag %)) (elements document))))))
+(defn nix-string
+  "Quotes `value` as a Nix string without enabling string interpolation."
+  [value]
+  (str/replace (json/generate-string (str value)) "${" "\\${"))
+
+(defn project-configurations
+  "Reads configurations from a project directory or configurations.xml file."
+  [project]
+  (let [path (io/file project)
+        path (if (.isDirectory path)
+               (io/file path "nbproject" "configurations.xml")
+               path)]
+    (when-not (.isFile path)
+      (throw (ex-info (str "MPLAB configurations file not found: " path) {})))
+    (with-open [reader (io/reader path)]
+      (let [document (xml/parse reader :namespace-aware false :location-info false)]
+        (doall (filter #(= :conf (:tag %)) (elements document)))))))
 
 (defn packaged-attributes [prefix]
   (let [pattern (str prefix "_[0-9_]+")
@@ -63,10 +76,10 @@
   (str "git+file://" (.getRawPath (.toURI (io/file root)))))
 
 (defn pack-hash [root {:keys [vendor name version]}]
-  (let [expression (str "let flake = builtins.getFlake " (pr-str (flake-uri root)) "; in flake.legacyPackages.x86_64-linux.fetchMplabPack { vendor = " (pr-str vendor) "; name = " (pr-str name) "; version = " (pr-str version) "; hash = flake.inputs.nixpkgs.lib.fakeHash; }")
-        {:keys [err]} (nix-result "build" "--impure" "--no-link" "--print-out-paths" "--expr" expression)
-        [_ hash] (re-find #"got:\s+(sha256-[^\s]+)" err)]
-    (if hash
+  (let [expression (str "let flake = builtins.getFlake " (nix-string (flake-uri root)) "; in flake.legacyPackages.x86_64-linux.fetchMplabPack { vendor = " (nix-string vendor) "; name = " (nix-string name) "; version = " (nix-string version) "; hash = flake.inputs.nixpkgs.lib.fakeHash; }")
+        {:keys [exit err]} (nix-result "build" "--impure" "--no-link" "--print-out-paths" "--expr" expression)
+        [_ hash] (re-find #"got:\s+(sha256-[A-Za-z0-9+/]{43}=)" err)]
+    (if (and (not (zero? exit)) hash)
       hash
       (throw (ex-info "Cannot calculate the MPLAB pack hash." {:error err})))))
 
@@ -75,8 +88,8 @@
        (filter #(= :pack (:tag %)) (elements configuration))))
 
 (defn nix-pack [{:keys [vendor name version hash]}]
-  (str "(pkgs.fetchMplabPack { name = " (pr-str name) "; version = " (pr-str version) "; hash = " (pr-str hash) ";"
-       (when (not= vendor "Microchip") (str " vendor = " (pr-str vendor) ";"))
+  (str "(pkgs.fetchMplabPack { name = " (nix-string name) "; version = " (nix-string version) "; hash = " (nix-string hash) ";"
+       (when (not= vendor "Microchip") (str " vendor = " (nix-string vendor) ";"))
        " })"))
 
 (defn nix-block [compiler packs]
@@ -85,7 +98,7 @@
 (defn main [& args]
   (try
     (when-not (= 1 (count args))
-      (throw (ex-info "Usage: bb project-config <project-directory>" {})))
+      (throw (ex-info "Usage: bb project-config <project-directory-or-configurations.xml>" {})))
     (let [root (flake-root)
           hash-for (memoize #(pack-hash root %))]
       (doseq [configuration (project-configurations (first args))]

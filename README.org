@@ -21,6 +21,7 @@ A Nix overlay for microchip development -- intended for use in per-project envir
 - [[#overview][Overview]]
 - [[#usage][Usage]]
   - [[#command-line-use][Command-line use]]
+  - [[#ci-container-images][CI container images]]
   - [[#device-packs][Device packs]]
   - [[#udev-rules][Udev rules]]
   - [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]]
@@ -276,9 +277,27 @@ in pkgs.stdenvNoCC.mkDerivation {
 }
 #+end_src
 
-*** CI container images
+** CI container images
 
-[[file:examples/mplab/README.org][The MPLAB CI example]] provides =nix build '.#ci-image'= for a local toolchain image and a GitHub Actions workflow that builds =firmware.X= in that image. Its instructions cover publishing to =ghcr.io/cormacc/nix-microchip-ci= and recording the registry digest. =nix develop '.#mplab-example'= provides the same compiler and pack selection locally.
+[[file:examples/mplab/README.org][The MPLAB CI example]] builds the minimal =firmware.X= project in a locally built, published toolchain image. It includes two pipelines:
+
+- GitHub Actions :: [[file:.github/workflows/firmware.yml][firmware.yml]] pulls the private image with =GITHUB_TOKEN=, builds the firmware and uploads the hex.
+- GitLab CI :: [[file:examples/mplab/gitlab-ci.yml][gitlab-ci.yml]] runs directly in the same image on a Docker executor and saves the hex artifact. See [[file:examples/mplab/README.org][the example instructions]] for private-registry authentication and protected-ref setup.
+
+Use =nix build '.#ci-image'= to build the example image. The instructions cover publishing to =ghcr.io/cormacc/nix-microchip-ci= and recording its registry digest. =nix develop '.#mplab-example'= provides the same compiler and pack selection locally.
+
+*** Project-specific images with Babashka
+
+Build an image for another MPLAB-X project without writing a Nix expression:
+
+#+begin_src sh
+stream=$(bb ci-image --project examples/mplab/firmware.X --name firmware-ci)
+"$stream" | docker load
+#+end_src
+
+The task accepts a project directory or its =nbproject/configurations.xml=. It detects the exact compiler version and packs from one configuration; use =--configuration <name>= if the project has more than one. Alternatively, pass =--compiler xc16_1_61= and repeatable =--pack Microchip/<name>/<version>= arguments. The task builds an MPLAB-capable image and prints its stream script path; it does not load or publish the image. See [[file:examples/mplab/README.org][the image-task instructions]] for both forms and =bb ci-image --help= for the options.
+
+*** Images in a Nix flake
 
 The =xc-cli= and =mplab-x= commands run in a bubblewrap environment that needs unprivileged user namespaces. Docker's default seccomp profile blocks them, so these commands fail in a Docker CI job that does not use =--privileged= or a changed seccomp profile. For such a runner, =mkCiImage= builds a Docker image from an =xc-cli= package. The image root is the root filesystem of the =xc-cli= environment, so the commands of the development shell run in the image without bubblewrap. =mkCiImage= is a function in =legacyPackages= and the overlay:
 

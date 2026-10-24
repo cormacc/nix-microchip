@@ -523,3 +523,37 @@ Acceptance criteria:
 Local validation (2026-10-23): the exact workflow shell step pulled the published digest, logged in with a maintainer PAT and built the same hex as `nix develop '.#mplab-example'` (SHA-256 `b6f9c991…b514b42d`), with XC16 PRO mode. Its temporary Docker credential directory was removed. A deliberate C error made `build.sh` exit 2; an empty mounted licence directory made it exit 1 (`XC16 is not in PRO mode`). `actionlint` and `nix flake check --no-build` passed; a deliberately invalid workflow failed actionlint.
 
 Hosted validation (2026-10-24): [[https://github.com/cormacc/nix-microchip/actions/runs/40043520740][run 40043520740]] at `e533856` passed on Ubuntu 24.04. `GITHUB_TOKEN` pulled the private image, XC16 reported PRO mode, and `firmware-hex` uploaded successfully. The downloaded `firmware.X.production.hex` has SHA-256 `b6f9c991bb745d4e428763d5e56c7fb2573f1f609559b349a850a6b4b514b42d`, identical to the local build. This run exercised the push trigger; pull-request and manual triggers were not exercised.
+
+** DONE Add Gitlab CI firmware build example
+CLOSED: [2026-10-24 Sat 01:19]
+:PROPERTIES:
+:CUSTOM_ID: 0c9e2e15-323b-492a-b654-7ebb6e5bac05
+:CREATED: [2026-10-23 Fri 13:44]
+:STARTED: [2026-10-24 Sat 01:15]
+:ARCHIVED: [2026-10-24 Sat 01:19]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-23 Fri 13:44]
+- State "STARTED" from "TODO" [2026-10-24 Sat 01:15]
+- State "DONE" from "STARTED" [2026-10-24 Sat 01:19]
+:END:
+`examples/mplab/gitlab-ci.yml` builds the local `firmware.X` fixture directly in the published, digest-pinned toolchain image and saves the hex artifact. It reuses `build.sh`, checks that `FIRMWARE_CI_IMAGE` matches `ci-image.txt`, and runs only on protected refs outside merge-request pipelines. `examples/mplab/README.org` covers inclusion in a root pipeline, Docker-executor requirements, protected/masked `DOCKER_AUTH_CONFIG` for private GHCR access and updating the image pin. No Nix, Docker-in-Docker or privileged job is needed.
+
+Validation (2026-10-24): GitLab CI Lint accepted the YAML and rejected an invalid script-definition control. Its exact script list ran in Docker, removed the registry-auth variable from the build environment, reported XC16 PRO mode and wrote the configured 7,380-byte artifact (SHA-256 `b6f9c991bb745d4e428763d5e56c7fb2573f1f609559b349a850a6b4b514b42d`, matching the GitHub artifact). A mismatched pin exited 1 before compilation. A hosted GitLab pipeline was not run; Runner pre-job authentication and artifact upload are not verified for this example.
+
+** DONE Build CI images from explicit or MPLAB project selections
+CLOSED: [2026-10-24 Sat 11:34]
+:PROPERTIES:
+:CUSTOM_ID: 6d5a28fc-b36a-4c15-9ef6-7b3429a392f5
+:CREATED: [2026-10-24 Sat 11:19]
+:STARTED: [2026-10-24 Sat 11:19]
+:ARCHIVED: [2026-10-24 Sat 11:34]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-10-24 Sat 11:19]
+- State "STARTED" from "TODO" [2026-10-24 Sat 11:19]
+- State "DONE" from "STARTED" [2026-10-24 Sat 11:34]
+:END:
+#+IMPORT: [[plan:2026-10-24-ci-image-task.org]]
