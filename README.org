@@ -391,7 +391,7 @@ See [[file:doc/licence.org][Compiler licence]] for the licence features, the det
 
 ** Installers that need a Microchip login
 
-Microchip serves some older installers only after a login to a Microchip account, so Nix cannot download them. On 2026-11-13, this applied to the installers of =xc16_1_61=, =xc8_2_50= and =xc-dsc_3_31=. Their version files set =loginRequired = true=: while such an installer is not in the Nix store (e.g. after garbage collection), a build that needs it stops with a message that names the file and the steps below. This includes a local CI image build (=bb ci-image= or =mkCiImage=). CI pipelines that pull a published image do not download installers, so they are not affected.
+Microchip serves some older installers only after a login to a Microchip account, so Nix cannot download them. On 2026-11-13, this applied to the installers of =xc16_1_61=, =xc8_2_50= and =xc-dsc_3_31=. Their version files set =loginRequired = true=: while such an installer is not in the Nix store (e.g. after garbage collection), a build that needs it stops with a message that names the file and the steps below. If Microchip moves another installer behind a login, its download redirects to Microchip's file handler or login page, and the build stops with the same steps; set =loginRequired = true= in that version file to skip the download attempt. Microchip's file handler also takes URLs that do not exist, so the message cannot tell a login gate from a moved file. This includes a local CI image build (=bb ci-image= or =mkCiImage=). CI pipelines that pull a published image do not download installers, so they are not affected.
 
 To add such an installer to the store:
 

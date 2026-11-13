@@ -82,7 +82,7 @@ in
 
 * Compiler package scaffolding
 
-=bb package= adds versions of the existing =xc8=, =xc16=, =xc32= and =xc-dsc= families for =x86_64-linux=. Run it from the checkout root. With no =--write=, it downloads the original installer, computes its raw-file SRI hash and prints a candidate version file and =pkgs/default.nix= registration. It realises only the installer's =fetchurl= source, not the compiler installation.
+=bb package= adds versions of the existing =xc8=, =xc16=, =xc32= and =xc-dsc= families for =x86_64-linux=. Run it from the checkout root. With no =--write=, it downloads the original installer, computes its raw-file SRI hash and prints a candidate version file and =pkgs/default.nix= registration. It realises only the installer source (=pkgs/installer-source.nix=), not the compiler installation.
 
 #+BEGIN_SRC sh
 bb package --url \

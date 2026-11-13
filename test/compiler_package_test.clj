@@ -21,7 +21,7 @@
         (fs/create-dirs (str *root* "/pkgs/xc16"))
         (spit (str *root* "/pkgs/default.nix") registry)
         (spit (str *root* "/pkgs/xc16/common.nix") "{ version, hash, url ? null }: { lib }: {}\n")
-        (spit (str *root* "/pkgs/login-installer.nix") "{ requireFile }: { name, hash }: {}\n")
+        (spit (str *root* "/pkgs/installer-source.nix") "{ lib }: { urls, hash }: {}\n")
         (run-test)
         (finally (fs/delete-tree *root*))))))
 
@@ -220,7 +220,7 @@
                       (let [candidate (second (drop-while #(not= "candidate" %) args))]
                         (reset! directory (fs/parent candidate))
                         (is (fs/exists? (str @directory "/common.nix")))
-                        (is (fs/exists? (str (fs/parent @directory) "/login-installer.nix")))
+                        (is (fs/exists? (str (fs/parent @directory) "/installer-source.nix")))
                         {:exit status :out "/nix/store/verification-result\n"}))]
         (if (zero? status)
           (package/verify! *root* (details "--family" "xc16" "--version" "1.62") "candidate")

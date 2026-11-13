@@ -1,17 +1,11 @@
 { version, hash, url ? null, loginRequired ? false }:
 
-{ lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, requireFile, glibc, rsync, microchip-xclm-license }:
+{ lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, callPackage, glibc, rsync, microchip-xclm-license }:
 
 let
-  # A version file sets loginRequired when Microchip serves its installer only after a
-  # login (README.org, "Installers that need a Microchip login").
-  installerSource = download:
-    if loginRequired then
-      import ../login-installer.nix { inherit requireFile; } {
-        inherit (download) name;
-        inherit hash;
-      }
-    else download;
+  # Every installer goes through this fetcher (../installer-source.nix). A version file sets
+  # loginRequired when Microchip serves its installer only after a login.
+  fetchInstaller = callPackage ../installer-source.nix { };
 
   # XC16 1.50 is the first 64-bit release (Microchip MPLAB Ecosystem Downloads Archive). Older
   # installers are 32-bit, so the install environment needs 32-bit glibc.
@@ -30,22 +24,18 @@ in stdenvNoCC.mkDerivation rec {
   # pname = "microchip-xc16-unwrapped";
   pname = "xc16";
   inherit version;
-  src = installerSource (if url != null then fetchurl {
-    inherit url hash;
-  } else if is32bit then fetchurl {
-    # The 32-bit installers are a .run inside a .tar (verified for 1.21).
-    url = "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v${version}-linux-installer.run.tar";
-    inherit hash;
-  } else fetchurl {
-    # Microchip serves each installer from only one of these locations (2.10: aemDocuments; 1.61: DeviceDoc).
-    # fetchurl tries them in order, so one list covers every version.
-    urls = [
-      "https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc16-v${version}-full-install-linux64-installer.run"
-      "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v${version}-full-install-linux64-installer.run"
-    ];
-    # N.B. Nix uses a 32-bit hash encoding. Use 'nix hash path <filename>' to generate
-    inherit hash;
-  });
+  src = fetchInstaller {
+    inherit hash loginRequired;
+    urls = if url != null then [ url ]
+      # The 32-bit installers are a .run inside a .tar (verified for 1.21).
+      else if is32bit then [ "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v${version}-linux-installer.run.tar" ]
+      # Microchip serves each 64-bit installer from one of these locations (2.10: aemDocuments),
+      # or only after a login (1.61: loginRequired). The fetcher tries them in order.
+      else [
+        "https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc16-v${version}-full-install-linux64-installer.run"
+        "https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v${version}-full-install-linux64-installer.run"
+      ];
+  };
 
   nativeBuildInputs = [ bubblewrap rsync ];
 

@@ -52,3 +52,35 @@ Results (2026-11-13):
 - =nix build '.#xc8_2_50.src'= (installer not in the store) stops with the =pkgs/login-installer.nix= message; its log has no curl or 403 line.
 - =bb package --file= with the xc16 1.61 installer previews the current =pkgs/xc16/1.61.nix=; with a non-matching installer name it stops (exit 1). =verify!= mirrors =pkgs/= in its scratch directory, because =common.nix= imports =../login-installer.nix=; the old flat layout fails to evaluate.
 - =bb test= (37 tests) and =nix flake check --no-build= pass. The README and =doc/packaging.org= examples use the xc16 2.10 URL, which downloads.
+
+** DONE Detect login-gated installers at download time
+CLOSED: [2026-11-13 Fri 20:54]
+:PROPERTIES:
+:CUSTOM_ID: 72abe28d-f13a-44b1-aa83-55a280d56fb6
+:CREATED: [2026-11-13 Fri 20:48]
+:STARTED: [2026-11-13 Fri 20:48]
+:END:
+:LOGBOOK:
+- Created [2026-11-13 Fri 20:48]
+- State "STARTED" from "TODO" [2026-11-13 Fri 20:48]
+- State "DONE" from "STARTED" [2026-11-13 Fri 20:54]
+:END:
+Microchip moved three installers behind a login without notice (see the archived task "Give login-gated installers a manual-download message"). A version that is downloadable today can be gated later, and =fetchurl= then fails with a 403 log and no instructions.
+
+Acceptance criteria:
+- A compiler installer that redirects to =www.microchip.com/filehandler/redirect= or =login.microchip.com= fails with the manual-download instructions, without a repository change.
+- A download that fails for another reason gives a normal download error, not the instructions.
+- A =loginRequired= version gives the same instructions without a download attempt.
+- The installer source path of each versioned compiler does not change.
+
+Inline plan:
+- Approach: one fixed-output fetcher, =pkgs/installer-source.nix= (curl, flat SHA-256, same name as =fetchurl=), used by the four compiler =common.nix= files for every version; it holds the instructions and replaces =pkgs/login-installer.nix=. =mplab-x-unwrapped= keeps =fetchurl=: changing its source rebuilds the IDE and its 14 GB packs.
+- Verify: source paths of all 11 versions against a baseline; a downloadable source that is not in the store downloads; =xc8_2_50= (gated, not in store) gives the instructions; an unreachable URL gives the normal error; full build plus compile/link of =xc-dsc_4_00=; full build plus licence probe of =xc16_1_61=; =bb test=; =nix flake check --no-build=.
+- Must not: rebuild compilers other than =xc16_1_61= and =xc-dsc_4_00=.
+
+Results (2026-11-13):
+- The installer source paths of all 11 versions equal the baseline; every compiler derivation changes, so each compiler rebuilds once when it is next used.
+- Fetcher cases (=.tmp/fetcher/cases.nix=): =xc8= 2.50 without =loginRequired= (redirect to the file handler, 403) gives the instructions; a host that does not resolve and an HTTP 404 from another host give the normal error; =xc8_2_50= (=loginRequired=) gives the instructions with no download attempt.
+- Microchip's file handler also takes a URL that does not exist (=xc8-v0.01=, 403), so the redirect message says that it cannot tell a login gate from a missing file.
+- =xc-dsc_4_00= downloaded through the fetcher to its baseline path. In =xc-cli=, =xc16_1_61= and =xc-dsc_4_00= compile and link at =-O3= with no licence diagnostic; =xc16= =xclm -status= shows =Mode: PRO=.
+- =bb package --url= (xc16 2.10) reports the pinned hash; =bb package --file= (xc16 1.61) previews the current version file. =bb test= and =nix flake check --no-build= pass.

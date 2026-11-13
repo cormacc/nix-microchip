@@ -156,14 +156,14 @@
 (defn verify! [root {:keys [family version]} content]
   (fs/create-dirs (str root "/.tmp"))
   (let [scratch (str (fs/create-temp-dir {:dir (str root "/.tmp") :prefix "package-verify-"}))
-        ;; Mirror pkgs/: common.nix imports ../login-installer.nix for a loginRequired version.
+        ;; Mirror pkgs/: common.nix calls ../installer-source.nix for its installer.
         family-dir (str scratch "/" family)
         candidate (str family-dir "/candidate.nix")]
     (try
       (fs/create-dirs family-dir)
       (spit candidate content)
       (fs/copy (str root "/pkgs/" family "/common.nix") (str family-dir "/common.nix"))
-      (fs/copy (str root "/pkgs/login-installer.nix") (str scratch "/login-installer.nix"))
+      (fs/copy (str root "/pkgs/installer-source.nix") (str scratch "/installer-source.nix"))
       (let [{:keys [exit out]} (process/shell
                                {:out :string :err :inherit :continue true}
                                "nix" "build" "--impure" "--no-link" "--print-out-paths"
