@@ -60,3 +60,18 @@ Results (2026-11-13):
 - The user confirmed on the real display: the IDE (Start Page, project tabs, toolbar) and the IPE render correctly, from the downstream devshell with =--override-input= to this checkout.
 - Thorough regression repeated after these changes: same results.
 - The plain =.#mplab-x= has no device packs, so a project for a device without a DFP (e.g. dsPIC33EP512GM710) closes after it opens. Use an =xc-cli= with the device's compilers, as the README examples do.
+
+** TODO Give login-gated installers a manual-download message
+:PROPERTIES:
+:CUSTOM_ID: 00db1175-3f9f-4c85-aabb-4f8ea631cef8
+:CREATED: [2026-11-13 Fri 18:43]
+:END:
+:LOGBOOK:
+- Created [2026-11-13 Fri 18:43]
+:END:
+On 2026-11-13, the package URLs of =xc16_1_61=, =xc8_2_50= and =xc-dsc_3_31= redirect (301) to =www.microchip.com/filehandler/redirect?<url>=, which returns 403; Microchip's archive page links =ww1.microchip.com/downloads/secure/...=, which redirects to the account login. =fetchurl= then retries and fails with a 403 log. The other nine packaged installers still download. =bb installers import= (README "Installers that need a Microchip login") is the interim route.
+
+Acceptance criteria:
+- A build that needs a login-gated installer that is not in the store fails with a message that names the file and =bb installers import=, not a curl retry log.
+- A build with the installer in the store does not change its output path.
+- =bb package= can hash a local installer file for a new login-gated version.

@@ -25,6 +25,7 @@ A Nix overlay for microchip development -- intended for use in per-project envir
   - [[#device-packs][Device packs]]
   - [[#udev-rules][Udev rules]]
   - [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]]
+  - [[#installers-that-need-a-microchip-login][Installers that need a Microchip login]]
 - [[#adding-packages][Adding packages]]
   - [[#compilers][Compilers]]
   - [[#mplab-x][MPLAB-X]]
@@ -387,6 +388,18 @@ On other distros, copy the rules into =/etc/udev/rules.d/= instead:
 Microchip gives the previously paid MPLAB XC PRO licence free of charge. The =microchip-xclm-license= package ships it, and each licensed compiler version (see the package table in [[#overview][Overview]]) points its licence manager at that package, so the compilers run in PRO mode without a manual licence step. Without the licence, they run in Free mode, which limits the optimisation levels.
 
 See [[file:doc/licence.org][Compiler licence]] for the licence features, the details for each compiler version, the two PRO-mode probes (=xclm -status= and an =-O3= compile) and what to do if Microchip reissues the licence.
+
+** Installers that need a Microchip login
+
+Microchip serves some older installers only after a login to a Microchip account. On 2026-11-13, this applied to the installers of =xc16_1_61=, =xc8_2_50= and =xc-dsc_3_31=: their package URLs return HTTP 403, so Nix cannot download them. A build that needs one of these compilers fails while its installer is not in the Nix store, for example after garbage collection. This includes a local CI image build (=bb ci-image= or =mkCiImage=). CI pipelines that pull a published image do not download installers, so they are not affected.
+
+To add such an installer to the store:
+
+1. Log in to your Microchip account, and download the installer from the MPLAB XC compiler archive.
+2. Put the file in =installers/= in this checkout. Git ignores this folder.
+3. Run =bb installers import=. The task adds each file in =installers/= to the Nix store as the path that its package expects, and stops if a file does not match the pinned hash.
+
+The store path depends only on the file name and hash, so the imported installer also serves flakes that use this repository as an input. =bb installers= shows, for each packaged installer, whether it is in the store and in =installers/=. =bb installers save= copies each packaged installer that is in the store into =installers/=. Run it before garbage collection to keep the installers for later builds.
 
 * Adding packages
 

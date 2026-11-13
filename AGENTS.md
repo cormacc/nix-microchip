@@ -8,7 +8,7 @@ This flake packages proprietary Microchip tools for `x86_64-linux`. Read [README
 - `pkgs/<tool>/<version>.nix` contains the version and installer hash; `common.nix` contains shared packaging logic.
 - `pkgs/mplab-x/rootfs.nix` builds the shared runtime filesystem and command wrappers. `pkgs/xc-cli/default.nix` provides the compiler-only environment. `pkgs/mplab-x/default.nix` provides the IDE environment. `pkgs/mplab-x/run.sh` builds each environment with bubblewrap. `pkgs/mk-ci-image/default.nix` provides `mkCiImage`, a Docker image of an `xc-cli` environment for runners without user namespaces.
 - `examples/mplab/firmware.X` is a minimal MPLAB-X project; the README.org MPLAB commands and the CI examples build it.
-- `bb.edn` and `bb/` provide checkout tasks. `doc/packaging.org` documents packaging options and closure sizes, `doc/environment.org` the runtime environment, and `doc/licence.org` the compiler licence and its probes.
+- `bb.edn` and `bb/` provide checkout tasks. `installers/` (ignored by Git) holds local copies of the installers, for `bb installers`. `doc/packaging.org` documents packaging options and closure sizes, `doc/environment.org` the runtime environment, and `doc/licence.org` the compiler licence and its probes.
 
 ## Changes
 
@@ -33,7 +33,8 @@ The Microchip packages fill the Nix store quickly. `mplab-x-unwrapped` 6.35 writ
   1. Save the list of out-links under `.tmp/` to a file: `nix-store --gc --print-roots | grep "$PWD/.tmp/"`.
   2. Delete each listed symlink, except those in `.tmp/gcroots/`.
   3. Remove finished worktrees under `.tmp/herdr-orch/worktrees/` with `git worktree remove`.
-  4. Run `nix-collect-garbage -d`. The `-d` option also deletes old profile generations; the user accepts this.
+  4. Run `bb installers save`. Microchip serves some installers only after a login, so Nix cannot download them again after garbage collection; `bb installers import` restores them from `installers/`. See the README section "Installers that need a Microchip login".
+  5. Run `nix-collect-garbage -d`. The `-d` option also deletes old profile generations; the user accepts this.
 - Keep only the `mplab-x-unwrapped` root in `.tmp/gcroots/` (`nix build '.#mplab-x-unwrapped' --out-link .tmp/gcroots/mplab-x-unwrapped`). Build `.packs` with `--no-link` only when needed. Without the IDE root, garbage collection deletes the IDE, and the next build runs the installer again.
 - Delete large scratch files under `.tmp/` (e.g. extracted installers) when the task that made them is finished.
 - In a delegated build assignment, tell the worker to run `df` before each large build, to delete its out-links when it no longer needs them, and to stop with BLOCKED if less than 150 GB is free. The parent runs garbage collection.
