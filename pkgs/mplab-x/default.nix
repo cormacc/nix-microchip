@@ -13,6 +13,7 @@
 , gtk2
 , gtk3
 , libdrm
+, libgbm
 , libx11
 , libxcb
 , libxcomposite
@@ -81,6 +82,9 @@ let
     gtk2
     gtk3
     libdrm
+    # jxbrowser's Chromium (e.g. the MPLAB X Store and Data Visualizer tabs) needs libgbm.so.1,
+    # which mesa does not provide.
+    libgbm
     libxkbcommon
     libxslt
     libusb1
