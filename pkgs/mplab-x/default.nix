@@ -10,7 +10,6 @@
 , expat
 , glib
 , glibc
-, gtk2
 , gtk3
 , libdrm
 , libgbm
@@ -79,7 +78,6 @@ let
     expat
     glib
     glibc
-    gtk2
     gtk3
     libdrm
     # jxbrowser's Chromium (e.g. the MPLAB X Store and Data Visualizer tabs) needs libgbm.so.1,

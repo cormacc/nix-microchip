@@ -22,3 +22,41 @@ See https://github.com/cormacc/dotagents for more info.
 - Created [2026-10-20 Tue 13:13]
 :END:
 If the update is routine, we could potentially schedule a task to pickup and add new compiler versions.
+
+** DONE Remove gtk2 from the mplab-x FHS environment :nixpkgs:
+CLOSED: [2026-11-13 Fri 16:25]
+:PROPERTIES:
+:CUSTOM_ID: 7d3a21ca-d7a9-4033-98d1-ea0b1dd3d551
+:CREATED: [2026-11-12 Thu 21:17]
+:STARTED: [2026-11-13 Fri 11:23]
+:END:
+:LOGBOOK:
+- Created [2026-11-12 Thu 21:17]
+- State "STARTED" from "TODO" [2026-11-13 Fri 11:23]
+- State "DONE" from "STARTED" [2026-11-13 Fri 16:25]
+:END:
+nixpkgs 9397dcb0 (2026-11) marks =gtk2= broken (removal planned before NixOS 27.05, https://github.com/NixOS/nixpkgs/issues/410814). =pkgs/mplab-x/default.nix= takes =gtk2= as an argument and lists it in =fhsTargetPkgs= beside =gtk3=, so any consumer whose =nixpkgs= follows a current nixpkgs fails to evaluate =mplab-x= with "Refusing to evaluate package 'gtk+-2.24.33'". No other package in this repo refers to =gtk2= (at 3cb63fee).
+
+Measured from a downstream flake (2026-11-12): =mplab-x.override { gtk2 = <gtk2 from a nixpkgs imported with config.problems.handlers."gtk+".broken = "warn">; }= evaluates. That flake holds nixpkgs at 5adc5083 until this is fixed.
+
+Acceptance criteria:
+- =mplab-x= evaluates against nixpkgs 9397dcb0 or later.
+- If =gtk2= is removed: the MPLAB X IDE and MPLAB IPE start and open a project on a display, using GTK3 only.
+- If MPLAB X or IPE needs GTK2: the package allows =gtk2= internally, so consumers need no override.
+
+Inline plan:
+- Approach: remove =gtk2= from the arguments and =fhsTargetPkgs= of =pkgs/mplab-x/default.nix=. The IDE and IPE run the bundled Zulu 8u452 JRE (=mplab_ide.conf= =jdkhome=); its =libawt_xawt.so= and JavaFX =libglass.so= contain both =libgtk-x11-2.0= and =libgtk-3.so=, and JavaFX ships =libglassgtk3.so=. If a component still needs GTK2, first try a GTK3 JVM option (=-Djdk.gtk.version=3=) in the wrappers; fall back to an internal broken-allowed =gtk2= only if that fails.
+- Verify: =nix eval= of =mplab-x= with =--override-input nixpkgs= at 9397dcb0 or later; =nix build '.#mplab-x'=; IDE and IPE start and open =examples/mplab/firmware.X= (Xvfb, then on the user's display), with no =libgtk-x11-2.0= in the process maps; Thorough compiler regression in =mplab-x= (FHS list change); =nix flake check --no-build=.
+- Must not: change =flake.lock= or the default versions.
+- Must not: patch the bundled JRE or compiler payloads.
+
+Results (2026-11-13):
+- Evaluation: at HEAD 3cb63fee, =mplab-x= fails against nixpkgs 9397dcb0 with "Refusing to evaluate package 'gtk+-2.24.33'". Without =gtk2=, =mplab-x= and =xc-cli= evaluate. =nix build '.#mplab-x'= and =nix flake check --no-build= pass with the locked nixpkgs. The default =xc-cli= derivation does not change; =xc-cli= with =withMplabProjects= changes through =java-wrapper.nix= (below), and builds.
+- Runtime (Xvfb, =LD_DEBUG=libs=, scratch userdir): the IDE loads =libgtk-3.so.0= with and without =gtk2=, and opens =firmware.X=. With =gtk2=, the IPE (JavaFX) loads =libglassgtk2.so=. Without =gtk2=, it falls back to =libglassgtk3.so=, stays running and renders the Operate view. No JVM option is necessary.
+- Thorough regression in =mplab-x=: =xc16_1_61=, =xc8_4_00=, =xc32_6_00= and =xc-dsc_4_00= compile and link at =-O3= with no licence diagnostic. =xc16= =xclm -status= shows =Mode: PRO=. =xc-dsc= 4.00 needs =-mdfp=<pack>/xc16= and the DFP linker script.
+- On the user's display (sway, Xwayland), the IDE repainted only where the mouse moved while the Start Page tab was selected, with and without =gtk2=. Two existing packaging faults caused this, and both are fixed in this change:
+  - =StartPageContent.paintComponent= and the splash screen decode JPEGs, and the colour conversion threw =NullPointerException= in =ICC_Profile.intFromBigEndian=: the JRE did not load =sRGB.pf=, because =cp -rs= in =pkgs/mplab-x/java-wrapper.nix= made =lib/cmm/*.pf= symlinks outside the canonical =java.home=. The wrapper copies those files. On Xvfb, the IDE log has 0 such exceptions, against 5 without the copy.
+  - jxbrowser's Chromium (MPLAB X Store and Data Visualizer tabs) exited with code 127: =libgbm.so.1= is in nixpkgs =libgbm=, not =mesa=. =libgbm= is in =fhsTargetPkgs=.
+- The user confirmed on the real display: the IDE (Start Page, project tabs, toolbar) and the IPE render correctly, from the downstream devshell with =--override-input= to this checkout.
+- Thorough regression repeated after these changes: same results.
+- The plain =.#mplab-x= has no device packs, so a project for a device without a DFP (e.g. dsPIC33EP512GM710) closes after it opens. Use an =xc-cli= with the device's compilers, as the README examples do.
