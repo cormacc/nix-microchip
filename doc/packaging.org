@@ -86,10 +86,12 @@ in
 
 #+BEGIN_SRC sh
 bb package --url \
-  'https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.61-full-install-linux64-installer.run'
+  'https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc16-v2.10-full-install-linux64-installer.run'
 #+END_SRC
 
-Known installer filenames supply the family and version. Supply =--family= and =--version= for a versionless/ambiguous Linux filename; if the filename already identifies either value, the explicit value must agree. Alternatively, omit =--url= and use =--family xc16 --version 1.61= to use the shared builder's canonical download locations. Only numeric dotted versions and HTTPS URLs without embedded credentials, query strings or fragments are accepted. Windows, macOS and ARM installers are not supported. XC16 before 1.50 requires the Linux =.run.tar= layout; the other supported layouts use =.run=.
+For an installer that Microchip serves only after a login, download it in a browser and give =--file <installer>= instead of =--url=. The task hashes the file, adds it to the Nix store, stops if the store path is not the one that the candidate package expects (a file name that differs from the family's installer name), and writes =loginRequired = true= in the version file. See the README section "Installers that need a Microchip login".
+
+Known installer filenames supply the family and version. Supply =--family= and =--version= for a versionless/ambiguous Linux filename; if the filename already identifies either value, the explicit value must agree. Alternatively, omit =--url= and use =--family xc16 --version 2.10= to use the shared builder's canonical download locations. Only numeric dotted versions and HTTPS URLs without embedded credentials, query strings or fragments are accepted. Windows, macOS and ARM installers are not supported. XC16 before 1.50 requires the Linux =.run.tar= layout; the other supported layouts use =.run=.
 
 Use a trusted vendor download link. A filename and a freshly calculated hash do not establish provenance or show that an installer works. The hash pins the downloaded bytes, before unpacking. The optional =url= argument in each family's =common.nix= selects a download source; archive handling and installer/licence flags still depend on the family and version. An unsupported layout requires review of that shared code, not a guessed flag change.
 
@@ -98,7 +100,7 @@ Use a trusted vendor download link. A filename and a freshly calculated hash do 
 Add =--verify= to build a temporary candidate in =xc-cli=, check its reported family/version, compile and link a small program at =-O3=, scan for the known Free-mode diagnostics and require a non-empty ELF file. Existing releases can be previewed and verified without replacing them:
 
 #+BEGIN_SRC sh
-bb package --family xc16 --version 1.61 --verify
+bb package --family xc16 --version 2.10 --verify
 bb package --family xc-dsc --version 4.00 --verify
 #+END_SRC
 

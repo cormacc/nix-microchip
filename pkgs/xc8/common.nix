@@ -1,8 +1,18 @@
-{ version, hash, url ? null }:
+{ version, hash, url ? null, loginRequired ? false }:
 
-{ lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, glibc, rsync, microchip-xclm-license }:
+{ lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, requireFile, glibc, rsync, microchip-xclm-license }:
 
 let
+  # A version file sets loginRequired when Microchip serves its installer only after a
+  # login (README.org, "Installers that need a Microchip login").
+  installerSource = download:
+    if loginRequired then
+      import ../login-installer.nix { inherit requireFile; } {
+        inherit (download) name;
+        inherit hash;
+      }
+    else download;
+
   fhsEnv = buildFHSEnv {
     name = "mplab-x-build-fhs-env";
     targetPkgs = pkgs: [ fakeroot glibc ];
@@ -12,14 +22,14 @@ in stdenvNoCC.mkDerivation rec {
   # See https://www.microchip.com/en-us/tools-resources/archives/mplab-ecosystem for microchip installer back-catalogue
   pname = "xc8";
   inherit version;
-  src = if url != null then fetchurl {
+  src = installerSource (if url != null then fetchurl {
     inherit url hash;
   } else fetchurl {
     url =
       "https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc8-v${version}-full-install-linux-x64-installer.run";
     # N.B. Nix uses a 32-bit hash encoding. Use 'nix hash path <filename>' to generate
     inherit hash;
-  };
+  });
 
   nativeBuildInputs = [ bubblewrap rsync ];
 

@@ -7,9 +7,12 @@
 
 (def usage
   (str "Usage: bb package --url <https-linux-installer-url> [--family <family>] [--version <version>]\n"
+       "       bb package --file <linux-installer-file> [--family <family>] [--version <version>]\n"
        "       bb package --family <xc8|xc16|xc32|xc-dsc> --version <version>\n"
        "       [--write] [--verify]\n\n"
        "Default: download/hash the installer and preview the package and registration.\n"
+       "--file hashes a downloaded installer that needs a Microchip login, adds it to the store\n"
+       "and marks the package loginRequired.\n"
        "--verify builds a temporary candidate and checks version, compile/link and licence diagnostics.\n"
        "--write adds source files, after verification if requested. Never changes defaults or Git staging."))
 
@@ -20,7 +23,7 @@
     {:help? true}
     (loop [args args result {} seen #{}]
       (if-let [flag (first args)]
-        (let [key (get {"--url" :url "--family" :family "--version" :version
+        (let [key (get {"--url" :url "--file" :file "--family" :family "--version" :version
                        "--write" :write? "--verify" :verify?} flag)
               boolean? (#{:write? :verify?} key)
               value (second args)]
@@ -36,13 +39,17 @@
   (let [[major minor] (mapv bigint (take 2 (str/split version #"\.")))]
     (and (= "xc16" family) (or (< major 1) (and (= major 1) (< minor 50))))))
 
-(defn installer-details [{:keys [url family version] :as options}]
+(defn installer-details [{:keys [url file family version] :as options}]
+  (when (and url file) (throw (ex-info "Use --url or --file, not both" {})))
+  (when (and file (not (fs/regular-file? file)))
+    (throw (ex-info (str "Installer file not found: " file) {})))
   (let [uri (when url (URI. url))
         _ (when (and uri (or (not= "https" (.getScheme uri))
                              (nil? (.getHost uri)) (.getUserInfo uri)
                              (.getRawQuery uri) (.getRawFragment uri)))
             (throw (ex-info "Use an HTTPS installer URL without credentials, query or fragment" {})))
-        filename (when uri (last (str/split (.getPath uri) #"/")))
+        filename (cond uri (last (str/split (.getPath uri) #"/"))
+                       file (str (fs/file-name file)))
         [_ url-family url-version]
         (when filename (re-find #"(?i)^(xc8|xc16|xc32|xc-dsc)-v([0-9]+(?:\.[0-9]+)+)-" filename))
         family (some-> (or family url-family) str/lower-case)
@@ -69,10 +76,11 @@
     (assoc options :family family :version version
            :attribute (str family "_" (str/replace version "." "_")))))
 
-(defn version-source [{:keys [version url]} hash]
+(defn version-source [{:keys [version url file]} hash]
   (str "import ./common.nix {\n  version = " (project/nix-string version) ";\n"
        "  hash = " (project/nix-string hash) ";\n"
-       (when url (str "  url = " (project/nix-string url) ";\n")) "}\n"))
+       (when url (str "  url = " (project/nix-string url) ";\n"))
+       (when file "  loginRequired = true;\n") "}\n"))
 
 (defn registration [registry {:keys [family version attribute]}]
   (let [entry-re (re-pattern (str "(?m)^\\s*" attribute "\\s*="))
@@ -95,15 +103,22 @@
             (not= original-registry (slurp (str root "/pkgs/default.nix"))))
     (throw (ex-info "pkgs/default.nix is locked or changed; review it and retry" {}))))
 
-(defn source-expression [root {:keys [family version url]}]
-  (str "let f = builtins.getFlake " (project/nix-string (project/flake-uri root)) ";\n"
-       "p = import f.inputs.nixpkgs { system = \"x86_64-linux\"; config.allowUnfree = true; };\n"
-       "compiler = p.callPackage (import "
-       (project/nix-string (str root "/pkgs/" family "/common.nix"))
-       " { version = " (project/nix-string version) "; hash = f.inputs.nixpkgs.lib.fakeHash;"
-       (when url (str " url = " (project/nix-string url) ";")) " })\n"
-       "{ inherit (f.legacyPackages.x86_64-linux) microchip-xclm-license; };\n"
-       "in compiler.src"))
+(defn source-expression
+  "Returns a Nix expression for the candidate package's installer source. Without `hash`, the
+  source has a fake hash, so that building it reports the real one. With `hash`, the source is a
+  login-required one, and the expression gives its store path."
+  ([root details] (source-expression root details nil))
+  ([root {:keys [family version url]} hash]
+   (str "let f = builtins.getFlake " (project/nix-string (project/flake-uri root)) ";\n"
+        "p = import f.inputs.nixpkgs { system = \"x86_64-linux\"; config.allowUnfree = true; };\n"
+        "compiler = p.callPackage (import "
+        (project/nix-string (str root "/pkgs/" family "/common.nix"))
+        " { version = " (project/nix-string version) "; hash = "
+        (if hash (project/nix-string hash) "f.inputs.nixpkgs.lib.fakeHash") ";"
+        (when hash " loginRequired = true;")
+        (when url (str " url = " (project/nix-string url) ";")) " })\n"
+        "{ inherit (f.legacyPackages.x86_64-linux) microchip-xclm-license; };\n"
+        (if hash "in compiler.src.outPath" "in compiler.src"))))
 
 (defn installer-hash [root details]
   ;; Only the fixed-output source is realised; hashing never executes the installer.
@@ -114,13 +129,41 @@
       hash
       (throw (ex-info "Cannot download/hash the installer; no package files were written" {:error err})))))
 
+(defn add-to-store [file]
+  (process/shell {:out :string :err :string :continue true}
+                 "nix-store" "--add-fixed" "sha256" (str file)))
+
+(defn local-installer-hash
+  "Returns the hash of a downloaded installer, after adding it to the store. Throws if the store
+  path differs from the one that the candidate package expects, i.e. the file name is not the
+  family's installer name for this version. Never executes the installer."
+  [root {:keys [file] :as details}]
+  (let [{:keys [exit out err]} (project/nix-result "hash" "file" "--sri" "--type" "sha256" (str file))
+        _ (when-not (zero? exit) (throw (ex-info "Cannot hash the installer file" {:error err})))
+        hash (str/trim out)
+        expected (project/nix-result "eval" "--impure" "--raw" "--expr"
+                                     (source-expression root details hash))
+        _ (when-not (zero? (:exit expected))
+            (throw (ex-info "Cannot evaluate the candidate installer source" {:error (:err expected)})))
+        added (add-to-store file)]
+    (when-not (zero? (:exit added))
+      (throw (ex-info "Cannot add the installer file to the store" {:error (:err added)})))
+    (when-not (= (str/trim (:out expected)) (str/trim (:out added)))
+      (throw (ex-info (str "The file name is not the package's installer name: added "
+                           (str/trim (:out added)) ", expected " (str/trim (:out expected))) {})))
+    hash))
+
 (defn verify! [root {:keys [family version]} content]
   (fs/create-dirs (str root "/.tmp"))
   (let [scratch (str (fs/create-temp-dir {:dir (str root "/.tmp") :prefix "package-verify-"}))
-        candidate (str scratch "/candidate.nix")]
+        ;; Mirror pkgs/: common.nix imports ../login-installer.nix for a loginRequired version.
+        family-dir (str scratch "/" family)
+        candidate (str family-dir "/candidate.nix")]
     (try
+      (fs/create-dirs family-dir)
       (spit candidate content)
-      (fs/copy (str root "/pkgs/" family "/common.nix") (str scratch "/common.nix"))
+      (fs/copy (str root "/pkgs/" family "/common.nix") (str family-dir "/common.nix"))
+      (fs/copy (str root "/pkgs/login-installer.nix") (str scratch "/login-installer.nix"))
       (let [{:keys [exit out]} (process/shell
                                {:out :string :err :inherit :continue true}
                                "nix" "build" "--impure" "--no-link" "--print-out-paths"
@@ -161,7 +204,7 @@
         {:keys [line candidate registered?]} (registration registry details)
         details (assoc details :registered? registered?)]
     (when (:write? details) (write-check! root details registry))
-    (let [hash (installer-hash root details)
+    (let [hash ((if (:file details) local-installer-hash installer-hash) root details)
           content (version-source details hash)
           relative (str "pkgs/" (:family details) "/" (:version details) ".nix")]
       (println (str (if (:write? details) "Package candidate: " "Dry run: ") relative))

@@ -21,6 +21,7 @@
         (fs/create-dirs (str *root* "/pkgs/xc16"))
         (spit (str *root* "/pkgs/default.nix") registry)
         (spit (str *root* "/pkgs/xc16/common.nix") "{ version, hash, url ? null }: { lib }: {}\n")
+        (spit (str *root* "/pkgs/login-installer.nix") "{ requireFile }: { name, hash }: {}\n")
         (run-test)
         (finally (fs/delete-tree *root*))))))
 
@@ -96,6 +97,41 @@
     (is (thrown? clojure.lang.ExceptionInfo (package/registration "pkgs: {}" selected))))
   (let [selected (details "--url" "https://example.test/xc16-v1.62-full-install-linux64-installer.run")]
     (is (str/includes? (package/version-source selected hash-value) "  url = \"https://example.test/"))))
+
+(deftest local-file-test
+  (let [file (str *root* "/xc16-v1.62-full-install-linux64-installer.run")
+        _ (spit file "installer")
+        selected (details "--file" file)]
+    (is (= ["xc16" "1.62" "xc16_1_62"] ((juxt :family :version :attribute) selected)))
+    (is (= (str "import ./common.nix {\n  version = \"1.62\";\n  hash = \"" hash-value "\";\n"
+                "  loginRequired = true;\n}\n")
+           (package/version-source selected hash-value)))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not both"
+                          (details "--file" file "--url" "https://example.test/a-linux64-installer.run")))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not found"
+                          (details "--file" (str *root* "/missing.run"))))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"disagrees"
+                          (details "--file" file "--version" "1.63")))))
+
+(deftest local-installer-hash-test
+  (let [file (str *root* "/xc16-v1.62-full-install-linux64-installer.run")
+        _ (spit file "installer")
+        selected (details "--file" file)
+        expected "/nix/store/aaaa-xc16-v1.62-full-install-linux64-installer.run"
+        evaluated (atom nil)
+        nix (fn [& args]
+              (case (first args)
+                "hash" {:exit 0 :out (str hash-value "\n")}
+                "eval" (do (reset! evaluated (last args)) {:exit 0 :out expected})))]
+    (with-redefs [project/nix-result nix
+                  package/add-to-store (fn [_] {:exit 0 :out (str expected "\n")})]
+      (is (= hash-value (package/local-installer-hash *root* selected)))
+      (is (str/includes? @evaluated (str "hash = \"" hash-value "\"; loginRequired = true;")))
+      (is (str/ends-with? @evaluated "in compiler.src.outPath")))
+    (with-redefs [project/nix-result nix
+                  package/add-to-store (fn [_] {:exit 0 :out "/nix/store/bbbb-other.run\n"})]
+      (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not the package's installer name"
+                            (package/local-installer-hash *root* selected))))))
 
 (deftest all-registration-blocks-test
   (let [current (slurp "pkgs/default.nix")]
@@ -184,6 +220,7 @@
                       (let [candidate (second (drop-while #(not= "candidate" %) args))]
                         (reset! directory (fs/parent candidate))
                         (is (fs/exists? (str @directory "/common.nix")))
+                        (is (fs/exists? (str (fs/parent @directory) "/login-installer.nix")))
                         {:exit status :out "/nix/store/verification-result\n"}))]
         (if (zero? status)
           (package/verify! *root* (details "--family" "xc16" "--version" "1.62") "candidate")

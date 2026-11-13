@@ -391,7 +391,7 @@ See [[file:doc/licence.org][Compiler licence]] for the licence features, the det
 
 ** Installers that need a Microchip login
 
-Microchip serves some older installers only after a login to a Microchip account. On 2026-11-13, this applied to the installers of =xc16_1_61=, =xc8_2_50= and =xc-dsc_3_31=: their package URLs return HTTP 403, so Nix cannot download them. A build that needs one of these compilers fails while its installer is not in the Nix store, for example after garbage collection. This includes a local CI image build (=bb ci-image= or =mkCiImage=). CI pipelines that pull a published image do not download installers, so they are not affected.
+Microchip serves some older installers only after a login to a Microchip account, so Nix cannot download them. On 2026-11-13, this applied to the installers of =xc16_1_61=, =xc8_2_50= and =xc-dsc_3_31=. Their version files set =loginRequired = true=: while such an installer is not in the Nix store (e.g. after garbage collection), a build that needs it stops with a message that names the file and the steps below. This includes a local CI image build (=bb ci-image= or =mkCiImage=). CI pipelines that pull a published image do not download installers, so they are not affected.
 
 To add such an installer to the store:
 
@@ -409,11 +409,11 @@ For a new Linux release of an existing compiler family, =bb package= downloads/h
 
 #+begin_src sh
 bb package --url \
-  'https://ww1.microchip.com/downloads/en/DeviceDoc/xc16-v1.61-full-install-linux64-installer.run'
-bb package --family xc16 --version 1.61 --verify
+  'https://ww1.microchip.com/downloads/aemDocuments/documents/DEV/ProductDocuments/SoftwareTools/xc16-v2.10-full-install-linux64-installer.run'
+bb package --family xc16 --version 2.10 --verify
 #+end_src
 
-The existing 1.61 package can be previewed or verified, not overwritten. For a new release, add =--write= to apply the preview and =--verify= to require a successful version/compile/link/licence check before writing. The task leaves default versions, =flake.lock= and Git staging unchanged. See [[file:doc/packaging.org][Packaging options and closure sizes]] for supported URLs, verification profiles and the manual staging step.
+The existing 2.10 package can be previewed or verified, not overwritten. For an installer that needs a Microchip login, download it and give =--file <installer>= instead of =--url=; the version file then sets =loginRequired = true=. For a new release, add =--write= to apply the preview and =--verify= to require a successful version/compile/link/licence check before writing. The task leaves default versions, =flake.lock= and Git staging unchanged. See [[file:doc/packaging.org][Packaging options and closure sizes]] for supported URLs, verification profiles and the manual staging step.
 
 Each compiler directory ([[./pkgs/xc8]], [[./pkgs/xc16]], [[./pkgs/xc32]] and [[./pkgs/xc-dsc]]) has a shared =common.nix=, which holds the packaging work derived from nyadiia's. To add a version manually, create a file with the version and installer archive hash in that directory, for example [[./pkgs/xc16/1.61.nix]]:
 
@@ -421,8 +421,11 @@ Each compiler directory ([[./pkgs/xc8]], [[./pkgs/xc16]], [[./pkgs/xc32]] and [[
 import ./common.nix {
   version = "1.61";
   hash = "sha256-Wi0vhJWt+WiNq41daf7e7tJeJmt3/M3t2TJbkJQTNEg=";
+  loginRequired = true;
 }
 #+end_src
+
+Set =loginRequired = true= only if Microchip serves the installer only after a login (see [[#installers-that-need-a-microchip-login][Installers that need a Microchip login]]).
 
 Then add a line to [[./pkgs/default.nix]]:
 

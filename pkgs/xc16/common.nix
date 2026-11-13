@@ -1,8 +1,18 @@
-{ version, hash, url ? null }:
+{ version, hash, url ? null, loginRequired ? false }:
 
-{ lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, glibc, rsync, microchip-xclm-license }:
+{ lib, stdenvNoCC, bubblewrap, buildFHSEnv, fakeroot, fetchurl, requireFile, glibc, rsync, microchip-xclm-license }:
 
 let
+  # A version file sets loginRequired when Microchip serves its installer only after a
+  # login (README.org, "Installers that need a Microchip login").
+  installerSource = download:
+    if loginRequired then
+      import ../login-installer.nix { inherit requireFile; } {
+        inherit (download) name;
+        inherit hash;
+      }
+    else download;
+
   # XC16 1.50 is the first 64-bit release (Microchip MPLAB Ecosystem Downloads Archive). Older
   # installers are 32-bit, so the install environment needs 32-bit glibc.
   is32bit = lib.versionOlder version "1.50";
@@ -20,7 +30,7 @@ in stdenvNoCC.mkDerivation rec {
   # pname = "microchip-xc16-unwrapped";
   pname = "xc16";
   inherit version;
-  src = if url != null then fetchurl {
+  src = installerSource (if url != null then fetchurl {
     inherit url hash;
   } else if is32bit then fetchurl {
     # The 32-bit installers are a .run inside a .tar (verified for 1.21).
@@ -35,7 +45,7 @@ in stdenvNoCC.mkDerivation rec {
     ];
     # N.B. Nix uses a 32-bit hash encoding. Use 'nix hash path <filename>' to generate
     inherit hash;
-  };
+  });
 
   nativeBuildInputs = [ bubblewrap rsync ];
 
