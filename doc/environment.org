@@ -21,6 +21,7 @@ The environment includes 32-bit glibc and libstdc++, for XC16 before 1.50 (32-bi
 - Commands run without bubblewrap. The image sets =MPLAB_X_ENV= to the root filesystem, so each =xc-cli= wrapper runs its command directly, as a nested call does. The image sets =LD_LIBRARY_PATH=/lib32= and the =mount= stub first on =PATH=, as the bubblewrap environment does, and =HOME=/root=.
 - No host directory is merged. The container gets only the directories that =docker run= mounts, e.g. the project checkout.
 - =mplab-gen= runs directly, because the image has real copies of the IDE entries that =mplab-gen= binds in the bubblewrap environment. Its generator runner checks that each of these paths is a real path, and exits non-zero otherwise.
+- =mdb= needs no real copies: =mdb.jar= finds its class path from its real path, and the command-line subset keeps the IDE layout in one store path. An image with =withMdb= and without =withMplabProjects= ran the simulator (tested 2026-11-25, Docker 29.9.2).
 - =/etc/passwd= and =/etc/group= come from =dockerTools.fakeNss=, so the =root= user has the home directory =/root=, which the pack library needs.
 - Commands run as =root=. A non-root container user is not tested.
 

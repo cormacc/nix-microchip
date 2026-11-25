@@ -8,7 +8,7 @@ This document is for users who configure this flake. The package source is the a
 
 =packs= defaults to =null=. With selected compilers, this installs the device packs from their installer MCU options and =othermcu=: =xc8= selects =8bitmcu=; =xc16= and =xc-dsc= select =16bitmcu=; and =xc32= selects =32bitmcu=. The flake runs the installer once for each selected MCU-option combination. Set =packs= to a list to use exactly those packs. Set =packs = [ ]= to install no packs.
 
-=withMplabProjects= defaults to =false=. Set it to =true= to add the command-line MPLAB-X subset and =mplab-gen=. =ideVersion= defaults to =mplab-x-unwrapped.version= and sets the MPLAB-X path used by the environment.
+=withMplabProjects= defaults to =false=. Set it to =true= to add the command-line MPLAB-X subset and =mplab-gen=. =withMdb= defaults to =false=. Set it to =true= to add the command-line MPLAB-X subset, the =Simulator_TP= 1.9.946 tool pack (from =fetchMplabPack=) and =mdb=; =Simulator_TP= is added to the packs whatever the =packs= value. =ideVersion= defaults to =mplab-x-unwrapped.version= and sets the MPLAB-X path used by the environment.
 
 #+BEGIN_SRC nix
 pkgs.xc-cli.override {
@@ -24,11 +24,11 @@ pkgs.xc-cli.override {
 
 =packs= defaults to =[ ]=. It adds extra packs to the packs from =xc-cli= and =toolPacks=. Use it for a pack from =fetchMplabPack=, including a newer device or tool pack.
 
-The package provides =mplab_ipe= for the IPE GUI and =ipecmd= for the IPE command line. It also provides =mplab-x-run=, =mplab-make= and =mplab-gen=.
+The package provides =mplab_ipe= for the IPE GUI and =ipecmd= for the IPE command line. It also provides =mplab-x-run=, =mplab-make=, =mplab-gen= and =mdb=.
 
 * mplab-x-unwrapped pack outputs
 
-=mplab-x-unwrapped.devicePacks { mcuOptions }= builds device packs and =arm/CMSIS= for the specified installer MCU options. The valid values are =8bitmcu=, =16bitmcu=, =32bitmcu= and =othermcu=. =mplab-x-unwrapped.toolPacks= contains the bundled tool packs. =mplab-x-unwrapped.packs= contains all bundled packs. =mplab-x-unwrapped.installerHelp= contains the installer help and version output. =mplab-x-unwrapped.commandLineSubset= contains the command-line MPLAB-X files used by =withMplabProjects=.
+=mplab-x-unwrapped.devicePacks { mcuOptions }= builds device packs and =arm/CMSIS= for the specified installer MCU options. The valid values are =8bitmcu=, =16bitmcu=, =32bitmcu= and =othermcu=. =mplab-x-unwrapped.toolPacks= contains the bundled tool packs. =mplab-x-unwrapped.packs= contains all bundled packs. =mplab-x-unwrapped.installerHelp= contains the installer help and version output. =mplab-x-unwrapped.commandLineSubset= contains the command-line MPLAB-X files used by =withMplabProjects= and =withMdb=.
 
 The measurements below are from MPLAB-X 6.35 on 2026-10-23. Each device-pack row includes =othermcu= and =arm/CMSIS=. The DFP count does not include =arm/CMSIS=. The installer also installs 15 tool packs on every run; =toolPacks= keeps those 15 packs and is 2.69 GiB.
 
@@ -136,6 +136,8 @@ These closure-size measurements use =nix path-info -S= on realised paths on 2026
 | =xc-cli= with =xc32= and default device packs                |         13.93 | 14,955,809,008  |
 | =xc-cli= with =xc-dsc= and default device packs              |          4.11 | 4,415,098,128   |
 | =xc-cli= with =xc16= and dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 |          2.50 | 2,683,095,400   |
+| =xc16_1_61=, 1.7.401 DFP, =withMplabProjects= (2026-11-25)   |          2.77 | 2,969,485,992   |
+| =xc16_1_61=, 1.7.401 DFP, =withMdb= (2026-11-25)             |          2.77 | 2,971,293,288   |
 | =xc-cli= with no compiler                                    |          0.36 | 386,383,872     |
 | Default =mplab-x=                                            |          6.14 | 6,596,188,896   |
 

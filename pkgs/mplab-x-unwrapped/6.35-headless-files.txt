@@ -3,6 +3,7 @@ mplab_platform/bin/extractobjectdependencies.jar
 mplab_platform/bin/fixDeps
 mplab_platform/bin/hexmate
 mplab_platform/bin/make
+mplab_platform/bin/mdb.sh
 mplab_platform/bin/prjMakefilesGenerator.sh
 mplab_platform/bin/xclm
 mplab_platform/cnd/modules/docs/org-netbeans-modules-cnd.jar
@@ -34,6 +35,7 @@ mplab_platform/ide/modules/org-netbeans-modules-xml-catalog.jar
 mplab_platform/ide/modules/org-openidex-util.jar
 mplab_platform/lib/PrjMakefilesGenerator.jar
 mplab_platform/lib/junit_4/junit-4.5.jar
+mplab_platform/lib/mdb.jar
 mplab_platform/mdbcore/modules/com-microchip-mplab-mdbcore-AtmelIceScripting.jar
 mplab_platform/mdbcore/modules/com-microchip-mplab-mdbcore-CodeGuardMediator.jar
 mplab_platform/mdbcore/modules/com-microchip-mplab-mdbcore-ConfigBitsChecker.jar
@@ -323,6 +325,7 @@ mplab_platform/platform/modules/org-openide-loaders.jar
 mplab_platform/platform/modules/org-openide-nodes.jar
 mplab_platform/platform/modules/org-openide-text.jar
 mplab_platform/platform/modules/org-openide-windows.jar
+mplab_platform/thirdparty/libSEGGERAccessLink.so
 sys/java/zulu8.86.0.25-ca-fx-jre8.0.452-linux_x64/bin/java
 sys/java/zulu8.86.0.25-ca-fx-jre8.0.452-linux_x64/lib/amd64/jli/libjli.so
 sys/java/zulu8.86.0.25-ca-fx-jre8.0.452-linux_x64/lib/amd64/jvm.cfg

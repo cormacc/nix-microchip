@@ -169,6 +169,11 @@ let
         ${ideDir}/mplab_platform/${command} "$@"
     '';
   };
+  mdb = (callPackage ./mdb.nix { }) {
+    inherit (environment) run;
+    inherit ideDir;
+  };
+
   ipe = ipeCommand { name = "mplab_ipe"; command = "bin/mplab_ipe"; };
   ipecmd = ipeCommand { name = "ipecmd"; command = "mplab_ipe/ipecmd.sh"; };
 
@@ -186,5 +191,6 @@ runCommand "mplab-x" {
   ln -s ${lib.getExe environment.run} $out/bin/mplab-x-run
   ln -s ${lib.getExe environment.make} $out/bin/mplab-make
   ln -s ${lib.getExe generator} $out/bin/mplab-gen
+  ln -s ${lib.getExe mdb} $out/bin/mdb
 
 ''

@@ -128,11 +128,14 @@ With this devshell, MPLAB-X can use both versions. =xc16-gcc= from =xc-cli= runs
 
 Set =withMplabProjects = true= on =xc-cli= to add the command-line MPLAB-X subset and =mplab-gen <project>@<configuration>...=. It generates MPLAB makefiles with each selected compiler. See [[#mplab-projects][MPLAB projects]] for development-shell, derivation and CI use.
 
+Set =withMdb = true= on =xc-cli= to add the command-line MPLAB-X subset, the simulator tool pack and =mdb <script>=, which runs the MPLAB-X debugger command line. See [[#simulator-mdb][Simulator (MDB)]].
+
 The =mplab-x= package also supplies these commands:
 - =mplab-x-run <command> [args...]= runs a command inside the MPLAB-X environment. In this environment, each compiler selected by =xc-cli= is at =/opt/microchip/<compiler>/v<version>=, where MPLAB-X expects it.
 - =mplab-make [args...]= runs the packaged GNU Make inside the MPLAB-X environment. It forwards arguments and preserves its exit status; ordinary =make= is unchanged.
 - =mplab-gen <project>@<configuration>...= generates MPLAB makefiles with each compiler selected by =xc-cli=. This generator uses the full IDE.
 - =mplab_ipe= starts the IPE GUI, and =ipecmd= runs the IPE command line.
+- =mdb <script>= runs the MPLAB-X debugger command line, as the =xc-cli= command does (see [[#simulator-mdb][Simulator (MDB)]]). Its simulator writes UART output only if =toolPacks= includes =Simulator_TP=; the default includes the bundled version, 1.9.939.
 
 Only =mplab-gen=, =mplab_ipe= and =ipecmd= bind the IDE or command-line subset at =/opt/microchip/mplabx/v<version>=, because the makefile generator and IPE derive their paths from their own location. The generated makefiles name =/opt/microchip/...= paths, not Nix store paths. =mplab-make=, =mplab-x-run=, =xc-make= and compiler wrappers run without this bind.
 
@@ -277,6 +280,46 @@ in pkgs.stdenvNoCC.mkDerivation {
   '';
 }
 #+end_src
+
+*** Simulator (MDB)
+
+The MPLAB simulator runs firmware without hardware, for example unit tests that write their results to a UART. =withMdb = true= adds =mdb <script>=, which runs =mplab_platform/bin/mdb.sh= of the command-line MPLAB-X subset. =mdb= passes its arguments to =mdb.sh= and returns its exit status. Its output is that of =mdb.sh=: the wrapper adds no lines.
+
+#+begin_src nix
+let
+  dfp = pkgs.fetchMplabPack {
+    name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+    version = "1.7.401";
+    hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
+  };
+in pkgs.xc-cli.override {
+  compilers = [ pkgs.xc16_1_61 ];
+  packs = [ dfp ];
+  withMdb = true;
+}
+#+end_src
+
+This script runs an ELF file for 3 seconds and writes the UART1 output to a file. MDB prints =Simulator halted= when the program stops before =quit=:
+
+#+begin_example
+device dsPIC33EP512GM710
+hwtool SIM
+set uart1io.uartioenabled true
+set uart1io.output file
+set uart1io.outputfile /abs/path/uart.txt
+program /abs/path/firmware.elf
+run
+wait 3000
+quit
+#+end_example
+
+- The simulator needs the DFP of the device in the packs (the =packs= option). With =packs = [ ]=, =program= fails because the device is not in the local packs repository.
+- The simulator writes UART output only with the =Simulator_TP= tool pack. Without it, MDB runs and halts, but writes no UART file. =withMdb= adds =Simulator_TP= 1.9.946 (1.8 MB) to the packs, whatever the =packs= value. It comes from Microchip's pack repository with =fetchMplabPack=, because the bundled version, 1.9.939, is only in the =mplab-x-unwrapped.toolPacks= output of another installer run (2.9 GB), and the repository does not serve it.
+- =mdb= sets =USER_DIR= to an empty temporary folder, so that modules of an IDE user folder are not on the MDB class path. MDB writes =~/.mchp_packs=, =~/.mplabcomm=, =~/.mplab_scripts= and =~/.java=, and exits 1 if it cannot create =~/.mchp_packs=. If =HOME= is not a writable directory, as in the Nix build sandbox, =mdb= uses a temporary home directory. =mdb= deletes its temporary folders when it exits.
+- =mdb.sh= passes its arguments unquoted, so a script path with a space does not work.
+- MDB prints Java messages that do not stop the simulator: an =UnsatisfiedLinkError= for =libUSBAccessLink.so= (=xc-cli= has no =libusb=), a jmDNS =SocketException=, and a jline "dumb terminal" warning. =xc-cli= does not support hardware debuggers or programmers.
+
+=mdb= runs in a derivation with no other setup. In a test on 2026-11-25, a derivation compiled a program with xc16 1.61, ran it with =mdb= (with =HOME=/homeless-shelter=), and found the expected UART output. =mdb= also runs in a =mkCiImage= image with no other setup.
 
 ** CI container images
 
@@ -470,7 +513,9 @@ bb pkgs/mplab-x-unwrapped/regenerate-headless-files.clj \
   generator.trace build.trace > pkgs/mplab-x-unwrapped/6.35-headless-files.txt
 #+end_src
 
-The first path is the installed payload, and the second is the IDE path in the traced environment. Give each build trace as an additional final argument. Review the generated inventory before committing it; the script retains the conservative =fixDeps=, =extractobjectdependencies.jar= and =en_msgs.txt= additions.
+The first path is the installed payload, and the second is the IDE path in the traced environment. Give each build trace as an additional final argument, including a trace of an =mdb= simulator run with UART file output. Review the generated inventory before committing it; the script retains the conservative =fixDeps=, =extractobjectdependencies.jar= and =en_msgs.txt= additions. Trace the IDE where its real path is =/opt/microchip/mplabx/v<version>= (a generator runner, such as =mplab-gen-run=, binds it there): the script keeps only the paths below that directory, so a JVM that opens a file by its store path leaves no trace of it.
+
+The 6.35 inventory is the inventory of the original generator and build traces, merged with the =mdb= trace (=LC_ALL=C sort -u=). A later generator and build trace of the example project did not open =xclm=, =hexmate=, =libjli.so= and some other files of the original inventory, so a new inventory from new traces alone can be incomplete. The subset build checks that the inventory contains each jar in the manifest =Class-Path= of =PrjMakefilesGenerator.jar= and =mdb.jar=.
 
 * Improvement opportunities
 See [[./TASKS.org]]

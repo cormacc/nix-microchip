@@ -9,6 +9,7 @@
 , packs ? null
 , ideVersion ? mplab-x-unwrapped.version
 , withMplabProjects ? false
+, withMdb ? false
 }:
 
 let
@@ -25,11 +26,20 @@ let
   selectedMcuOptions = map (compiler:
     mcuOptionByCompiler.${compiler.pname} or (throw "Unknown compiler pname: ${compiler.pname}")
   ) compilers;
-  resolvedPacks = if packs == null then
+  resolvedPacks = (if packs == null then
     lib.optional (compilers != [ ]) (mplab-x-unwrapped.devicePacks {
       mcuOptions = selectedMcuOptions ++ [ "othermcu" ];
     })
-  else packs;
+  else packs) ++ lib.optional withMdb simulatorToolPack;
+  # The simulator writes UART output to a file only with this tool pack. A download, because the
+  # bundled copy (1.9.939) is in the tool-pack output of another installer run (2.9 GB), and
+  # Microchip's pack repository does not serve that version.
+  simulatorToolPack = callPackage ../fetch-mplab-pack { } {
+    name = "Simulator_TP";
+    version = "1.9.946";
+    hash = "sha256-59DLb2o5M5r571KqKuy+LXCPtzvqV3mGkbBg92vsMF0=";
+  };
+  withSubset = withMplabProjects || withMdb;
   # sim30 and XC16 before 1.50 are 32-bit, and need libstdc++ and libgcc_s from /lib32.
   fhsMultiPkgs = [ glibc gcc.cc.lib ];
   fhsTargetPkgs = [ glibc ];
@@ -42,7 +52,7 @@ let
     makeName = "xc-make";
     generatorRunName = if withMplabProjects then "mplab-gen-run" else null;
     generatorBindSource = if withMplabProjects then subset else null;
-    extraRootfsCommands = lib.optionalString withMplabProjects ''
+    extraRootfsCommands = lib.optionalString withSubset ''
       mkdir -p $out${ideDir}
       for f in ${subset}/*; do
         [ "''${f##*/}" = sys ] || ln -s "$f" $out${ideDir}/
@@ -53,11 +63,15 @@ let
   generator = (callPackage ../mplab-x/generator.nix { }) {
     inherit environment compilers ideDir;
   };
+  mdb = (callPackage ../mplab-x/mdb.nix { }) {
+    inherit (environment) run;
+    inherit ideDir;
+  };
 in
 runCommand "xc-cli" {
   nativeBuildInputs = [ makeWrapper ];
   passthru = {
-    inherit compilers fhsMultiPkgs fhsTargetPkgs ideVersion withMplabProjects;
+    inherit compilers fhsMultiPkgs fhsTargetPkgs ideVersion withMplabProjects withMdb;
     packs = resolvedPacks;
     rootfs = environment.rootfs;
     # Lines of <source>\t<target>: the IDE entries that mplab-gen needs at real /opt paths. null
@@ -71,6 +85,9 @@ runCommand "xc-cli" {
   ln -s ${environment.make}/bin/xc-make $out/bin/xc-make
   ${lib.optionalString withMplabProjects ''
     ln -s ${lib.getExe generator} $out/bin/mplab-gen
+  ''}
+  ${lib.optionalString withMdb ''
+    ln -s ${lib.getExe mdb} $out/bin/mdb
   ''}
   ${environment.wrappers "$out"}
 ''
