@@ -84,3 +84,39 @@ Results (2026-11-13):
 - Microchip's file handler also takes a URL that does not exist (=xc8-v0.01=, 403), so the redirect message says that it cannot tell a login gate from a missing file.
 - =xc-dsc_4_00= downloaded through the fetcher to its baseline path. In =xc-cli=, =xc16_1_61= and =xc-dsc_4_00= compile and link at =-O3= with no licence diagnostic; =xc16= =xclm -status= shows =Mode: PRO=.
 - =bb package --url= (xc16 2.10) reports the pinned hash; =bb package --file= (xc16 1.61) previews the current version file. =bb test= and =nix flake check --no-build= pass.
+
+** TODO Evaluate MPLAB CLI (VS Code tooling) as a CMake-only build path
+:PROPERTIES:
+:CUSTOM_ID: 226f1ac9-50fd-4c21-b567-d043139b677f
+:CREATED: [2026-11-25 Wed 19:45]
+:END:
+:LOGBOOK:
+- Created [2026-11-25 Wed 19:45]
+:END:
+Microchip recommends that users move from MPLAB-X to MPLAB for VS Code. For CI and devshell builds, the replacement for the MPLAB-X command-line subset is the Node.js MPLAB CLI (npm =@mplab/cli=, alpha), not the VS Code extensions. The VS Code extension pack page names this CLI for CI and says that it does not need VS Code.
+
+Proposed approach (CMake-only path): add the CLI as an optional path beside the current MPLAB-X path; do not remove the MPLAB-X path.
+- Package =@mplab/cli= from its npm tarball (8.5 MB unpacked, fixed SRI hash) with =nodejs_22=.
+- Run =mplab project import= and =mplab project build -g --toolchain /opt/microchip/<family>/v<version>= once for each project, in an =xc-cli= environment, and commit the generated =cmake/= directory.
+- Build in CI and in the Nix sandbox with nixpkgs =cmake= and =ninja= inside =xc-cli= (=cmake --preset <project>_<conf>_conf -S cmake/<project>/<conf>= then =cmake --build=). Set the =PACK_REPO_PATH= cache variable to the pinned packs. No MPLAB-X derivation is needed.
+
+Evaluation results (2026-11-25, CLI 0.9.6, =examples/mplab/firmware.X=, XC16 1.61, dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401):
+- =project import= and =packs install --project= succeeded (exit 0). The DFP is 352 MB.
+- =project build= fails (exit 2). Microchip's remote app manifest (the "shelf") sets =allowPathDetection: false= for =ninja=, =make= and the XC compilers, so the CLI ignores tools on =PATH= and wants its own downloads. The downloaded =ninja= exits 127 on NixOS outside the FHS environment.
+- =project build -g --toolchain …= in =xc-run= writes the CMake files but exits 2. =project createcmake= has no =--toolchain= option and did not find XC16 in =/opt/microchip/xc16/v1.61=.
+- The generated CMake built =default.elf= and =default.hex= with nixpkgs =cmake= and =ninja= in =xc-run= (exit 0), with no licence diagnostic. That build used =-O0=, so it does not prove PRO optimisation.
+- Sizes: the CLI is 8.6 MB; =nodejs_22= closure 195.5 MiB; =cmake= 151.0 MiB; =ninja= 47.5 MiB. The MPLAB-X command-line subset is 378.8 MiB and needs the =mplab-x-unwrapped= installer run (1.97 GB).
+- Programming and debugging need =mplab_backend= (Java RCP, 231 MB tarball) and a Zulu JRE (53 MB), which the CLI downloads at runtime.
+
+Risks:
+- The CLI is alpha. Its README lists known issues: XC16 per-file options missing on Linux, and DFP =-mdfp= options sometimes not passed.
+- The CLI reads the shelf and the pack index from Microchip servers at runtime. Offline generation is not verified: the network-isolation control of the probe failed.
+- The project format changes from =nbproject/= to =.vscode/<name>.mplab.json=; import fidelity for real projects is unproven.
+- In a devshell, the VS Code extensions download dynamically linked tools, so VS Code needs an FHS environment as =mplab-x= does.
+
+Acceptance criteria:
+- A flake package provides the =mplab= command from a pinned =@mplab/cli= tarball.
+- A documented flow generates CMake files for =examples/mplab/firmware.X= and handles the false exit status by checking that the expected files exist.
+- A Nix derivation builds the example from committed CMake files with =xc-cli=, =cmake= and =ninja=, and the regression-test licence probe (=-O3=) passes.
+- Generation is tested offline with a working network-isolation control, and with XC8, XC32 and XC-DSC.
+- The README states that the path is alpha and keeps the MPLAB-X path.
