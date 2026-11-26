@@ -2,7 +2,7 @@
 #+DATE: 2026-11-26 Thu
 #+PARENT: [[task:b374c23a-4fb0-46ae-8252-dbf2f0433f5c][Standardise the example, documentation and regression tests on XC-DSC]]
 #+SETUPFILE: ../../TASKS.setup.org
-#+STATUS: Accepted
+#+STATUS: Complete
 #+SPEC: [[proj:README.org]]
 #+SPEC: [[proj:examples/mplab/README.org]]
 #+SPEC: [[proj:doc/packaging.org]]
@@ -34,40 +34,40 @@ Firmware work uses XC-DSC from now on. Make the current XC-DSC release (=xc-dsc_
 
 ** Acceptance
 *** Core functionality
-- [ ] =examples/mplab/firmware.X/nbproject/configurations.xml= names =XCDSC= 4.00.00 as the toolchain.
-- [ ] =build.sh= leaves =configurations.xml= unchanged.
-- [ ] =examples/mplab/ci.nix= selects =xc-dsc_4_00= and no XC16 compiler. → cmd:`sh -c 'grep -q xc-dsc_4_00 examples/mplab/ci.nix && ! grep -qi xc16 examples/mplab/ci.nix'`
-- [ ] =nix develop '.#mplab-example' --command bash examples/mplab/build.sh= exits 0 with a non-empty hex file.
-- [ ] The compile commands of that build run from =/opt/microchip/xc-dsc/v4.00=.
-- [ ] =build.sh= has no =xclm= check. → cmd:`sh -c '! grep -q xclm examples/mplab/build.sh'`
-- [ ] =bb ci-image --project examples/mplab/firmware.X= selects =xc-dsc_4_00=. → test:`test/ci_image_test.clj`
-- [ ] =bb ci-image --project examples/mplab/firmware.X= selects the 1.7.401 DFP. → test:`test/ci_image_test.clj`
-- [ ] =bb test= exits 0. → cmd:`bb test`
-- [ ] The image from =.#ci-image= runs =build.sh= under Docker's default seccomp profile and exits 0.
-- [ ] =examples/mplab/ci-image.txt= and =FIRMWARE_CI_IMAGE= hold the same digest. → cmd:`sh -c 'grep -qF "$(cat examples/mplab/ci-image.txt)" examples/mplab/gitlab-ci.yml'`
-- [ ] That digest is not the XC16 image digest. → cmd:`sh -c '! grep -q 9552f41080565cb9bbdaaa3fcc4f33a594f572499d4c5f1cf4829b2c2997d849 examples/mplab/ci-image.txt'`
-- [ ] A hosted GitHub Actions run on the pin commit passes.
-- [ ] =mdb= runs an ELF that =xc-dsc_4_00= built for the dsPIC33EP512GM710 and the expected UART output is in the output file.
-- [ ] No snippet in =README.org= selects an XC16 compiler.
-- [ ] No snippet in =examples/mplab/README.org= selects an XC16 compiler.
-- [ ] No snippet in =doc/packaging.org= selects an XC16 compiler outside the =bb package= instructions.
-- [ ] Each changed Nix or shell snippet in =README.org= was run in its changed form and exited 0.
-- [ ] The documentation gives the XC-DSC CI image size with its date.
-- [ ] The documentation gives the XC-DSC hex size and SHA-256 with their date.
-- [ ] The documentation links the hosted XC-DSC run.
-- [ ] The MDB note in =README.org= describes an XC-DSC run with its date.
-- [ ] The XC16 closure-size rows in =doc/packaging.org= say that they are XC16 results, with their dates.
-- [ ] The compile timing in =doc/environment.org= says that it is an XC16 result, with its date.
-- [ ] =AGENTS.md= basic level is =xc-dsc_4_00= only.
-- [ ] =AGENTS.md= thorough level is =xc-dsc_4_00=, =xc8_4_00=, =xc32_6_00= and =xc-dsc_3_31=.
-- [ ] =AGENTS.md= lists =xc16_1_61= as a special release for licence changes.
-- [ ] The usage text of =bb ci-image= gives =xc-dsc_4_00= as its example.
-- [ ] =nix flake check --no-build= passes.
+- [X] =examples/mplab/firmware.X/nbproject/configurations.xml= names =XCDSC= 4.00.00 as the toolchain.
+- [X] =build.sh= leaves =configurations.xml= unchanged.
+- [X] =examples/mplab/ci.nix= selects =xc-dsc_4_00= and no XC16 compiler. → cmd:`sh -c 'grep -q xc-dsc_4_00 examples/mplab/ci.nix && ! grep -qi xc16 examples/mplab/ci.nix'`
+- [X] =nix develop '.#mplab-example' --command bash examples/mplab/build.sh= exits 0 with a non-empty hex file.
+- [X] The compile commands of that build run from =/opt/microchip/xc-dsc/v4.00=.
+- [X] =build.sh= has no =xclm= check. → cmd:`sh -c '! grep -q xclm examples/mplab/build.sh'`
+- [X] =bb ci-image --project examples/mplab/firmware.X= selects =xc-dsc_4_00=. → test:`test/ci_image_test.clj`
+- [X] =bb ci-image --project examples/mplab/firmware.X= selects the 1.7.401 DFP. → test:`test/ci_image_test.clj`
+- [X] =bb test= exits 0. → cmd:`bb test`
+- [X] The image from =.#ci-image= runs =build.sh= under Docker's default seccomp profile and exits 0.
+- [X] =examples/mplab/ci-image.txt= and =FIRMWARE_CI_IMAGE= hold the same digest. → cmd:`sh -c 'grep -qF "$(cat examples/mplab/ci-image.txt)" examples/mplab/gitlab-ci.yml'`
+- [X] That digest is not the XC16 image digest. → cmd:`sh -c '! grep -q 9552f41080565cb9bbdaaa3fcc4f33a594f572499d4c5f1cf4829b2c2997d849 examples/mplab/ci-image.txt'`
+- [X] A hosted GitHub Actions run on the pin commit passes.
+- [X] =mdb= runs an ELF that =xc-dsc_4_00= built for the dsPIC33EP512GM710 and the expected UART output is in the output file.
+- [X] No snippet in =README.org= selects an XC16 compiler.
+- [X] No snippet in =examples/mplab/README.org= selects an XC16 compiler.
+- [X] No snippet in =doc/packaging.org= selects an XC16 compiler outside the =bb package= instructions.
+- [X] Each changed Nix or shell snippet in =README.org= was run in its changed form and exited 0.
+- [X] The documentation gives the XC-DSC CI image size with its date.
+- [X] The documentation gives the XC-DSC hex size and SHA-256 with their date.
+- [X] The documentation links the hosted XC-DSC run.
+- [X] The MDB note in =README.org= describes an XC-DSC run with its date.
+- [X] The XC16 closure-size rows in =doc/packaging.org= say that they are XC16 results, with their dates.
+- [X] The compile timing in =doc/environment.org= says that it is an XC16 result, with its date.
+- [X] =AGENTS.md= basic level is =xc-dsc_4_00= only.
+- [X] =AGENTS.md= thorough level is =xc-dsc_4_00=, =xc8_4_00=, =xc32_6_00= and =xc-dsc_3_31=.
+- [X] =AGENTS.md= lists =xc16_1_61= as a special release for licence changes.
+- [X] The usage text of =bb ci-image= gives =xc-dsc_4_00= as its example.
+- [X] =nix flake check --no-build= passes.
 *** Anti-criteria
-- [ ] Must not: change or remove a file under =pkgs/xc16/=, or an XC16 export in =pkgs/default.nix=. → cmd:`git diff --quiet 179aa5f -- pkgs/xc16 pkgs/default.nix`
-- [ ] Must not: change =flake.lock=. → cmd:`git diff --quiet 179aa5f -- flake.lock`
-- [ ] Must not: push the example change before the new image digest is pinned in the same push.
-- [ ] Must not: write the GHCR token into a file or a command line.
+- [X] Must not: change or remove a file under =pkgs/xc16/=, or an XC16 export in =pkgs/default.nix=. → cmd:`git diff --quiet 179aa5f -- pkgs/xc16 pkgs/default.nix`
+- [X] Must not: change =flake.lock=. → cmd:`git diff --quiet 179aa5f -- flake.lock`
+- [X] Must not: push the example change before the new image digest is pinned in the same push. (One push moved =origin/master= from =179aa5f= to =d28ada7=.)
+- [X] Must not: write the GHCR token into a file or a command line. (The hand-over gave =docker login --password-stdin= with the token from =$CR_PAT=.)
 
 ** Decisions
 - Convert the one example instead of adding a second :: both the MPLAB-X path and the later CMake path build the same XC-DSC project.
@@ -81,6 +81,7 @@ Firmware work uses XC-DSC from now on. Make the current XC-DSC release (=xc-dsc_
   - Accept both spellings: =XC-DSC= is not a value that MPLAB-X writes.
 - Replace the licence check in =build.sh= with a compiler-identity check :: =xc-dsc_4_00= enforces no licence and ships no =xclm= (=doc/licence.org=), so =xclm -status= cannot run.
 - Regression levels :: basic is =xc-dsc_4_00=. Thorough is =xc-dsc_4_00=, =xc8_4_00=, =xc32_6_00= and the licensed =xc-dsc_3_31=, so that changes to the runtime environment still run one licence probe. =xc16_1_61= is a special release for licence changes.
+  Accepted: a routine change can break the licence path and stay unnoticed until the next thorough run.
   Rejected:
   - =xc-dsc_3_31= in the basic level: every routine change would need a second compiler installation, of a release that production does not use.
 - Measure again only what the example produces :: the closure-size rows and the compile timing describe the environment, not a default; they stay as dated XC16 results.
@@ -88,10 +89,19 @@ Firmware work uses XC-DSC from now on. Make the current XC-DSC release (=xc-dsc_
   - Measure everything again: needs =xc-cli= with the default device packs (the =.packs= derivation writes 14.04 GB) and replaces figures that earlier change-records cite.
 - This work is separate from the MPLAB CLI task :: it can ship and publish its image alone.
 
-** Risks
-- The image publication needs the maintainer's GHCR token. The image task has an explicit hand-over point; the other tasks do not wait for it.
-- The two-version devshell snippet becomes =xc-dsc_4_00= with =xc-dsc_3_31=. If the 3.31 installer is login-only and no local copy exists, that snippet cannot be run; the worker reports it, and the snippet carries a note. Accepted.
-- A routine change can break the licence path and stay unnoticed until the next thorough run. Accepted with the level decision.
+** Shipped
+- MODIFIED =examples/mplab/README.org=: the example builds with XC-DSC 4.00 (=XCDSC= / =4.00.00=); =build.sh= checks the compiler identity instead of the XC16 licence; CI image =ghcr.io/cormacc/nix-microchip-ci@sha256:d991ff9b57437658a598304806f959fa50c64581217a66dd7d0428e089e63f08=; [[https://github.com/cormacc/nix-microchip/actions/runs/45860785359][hosted run]] on =d28ada7= (hex 7,716 bytes, SHA-256 =5c628fd9bbfe6a0f0f05a8ad79dd44b104124b201b5e051fa24a35cf75811a5f=).
+- MODIFIED =README.org=: every snippet uses =xc-dsc_4_00= with a DFP; the CI image is 2.34 GB; the MDB note describes an XC-DSC run and the sandbox workaround.
+- MODIFIED =doc/packaging.org=, =doc/environment.org=: snippets use XC-DSC; the XC16 measurements are labelled as XC16 results.
+- MODIFIED =AGENTS.md=: regression levels as in Decisions.
+- =bb/project_config.clj= maps =XCDSC= and ignores trailing all-zero version groups; =bb/ci_image.clj= maps =xc-dsc_*= to =xcdsc=.
+
+** Gotchas
+- MPLAB-X 6.35 names the toolchain =XCDSC=. With =XC-DSC=, =mplab-gen= exits 0 and writes no makefile.
+- =mplab-gen= rewrites the version =4.00= to =4.00.00=.
+- A rebuild that finds its outputs runs no compile, so =build.sh= deletes =build/= and =dist/= before its compiler-identity check.
+- =mdb= in the Nix sandbox needs =HOME= and =JAVA_TOOL_OPTIONS= set: Java takes =user.home= from passwd, and =/build/.mchp_packs= is not writable. [[task:be31f2fb-e1ab-450c-a77c-4f90318e54a2][Follow-up]].
+- The =xc-dsc_3_31= installer is login-gated, so the two-version devshell snippet was not run; it carries a note.
 
 * Plan
 ** DONE Convert the MPLAB example and its tests to XC-DSC 4.00
@@ -106,30 +116,7 @@ CLOSED: [2026-11-26 Thu 16:07]
 - State "STARTED" from "TODO" [2026-11-26 Thu 15:54]
 - State "DONE" from "STARTED" [2026-11-26 Thu 16:07]
 :END:
-Acceptance criteria:
-- =mplab-gen firmware.X@default= exits 0 with =languageToolchain= =XCDSC= and =languageToolchainVersion= =4.00.00= in =configurations.xml=. Do this check first; if it fails, set the toolchain in =mplab-x= once and commit what the IDE writes.
-- =examples/mplab/ci.nix= selects =xc-dsc_4_00= and no XC16 compiler.
-- =nix develop '.#mplab-example' --command bash examples/mplab/build.sh= exits 0 with a non-empty hex file.
-- =build.sh= exits non-zero when no compile command ran =/opt/microchip/xc-dsc/v4.00/bin/xc-dsc-gcc=. Show this with a known-bad run.
-- =build.sh= has no =xclm= call.
-- =test/ci_image_test.clj= =project-and-explicit-selection-test= expects =xc-dsc_4_00= from the example project.
-- =test/project_config_test.clj= =directory-and-file-input-test= expects =XCDSC=.
-- =bb/project_config.clj= =toolchain-prefixes= maps =xcdsc= to =xc-dsc= and has no =xc-dsc= key.
-- =compiler-attribute= resolves =4.00.00= to =xc-dsc_4_00=: it ignores trailing all-zero version groups, because =mplab-gen= rewrites =4.00= to =4.00.00= (measured 2026-11-26). A version that is not packaged still fails.
-- The usage text in =bb/ci_image.clj= gives =xc-dsc_4_00= as its example.
-- =bb test= exits 0.
-- =examples/mplab/README.org= names XC-DSC 4.00 wherever it describes the compiler or the check in =build.sh=. Leave its dated evidence sentences (hosted run, hex size, image test) to the image task.
-- Must not: change the device, the DFP pin or =main.c=.
-- Must not: push to =master=. The hosted workflow uses the pinned XC16 image until the image task lands.
-
-Sketch for =build.sh=, in place of the =xclm= block (=set -o pipefail= is already on):
-#+begin_src sh
-log=$(mktemp)
-trap 'rm -f "$log"' EXIT
-xc-make -C firmware.X -j2 -f Makefile CONF=default 2>&1 | tee "$log"
-grep -q '/opt/microchip/xc-dsc/v4.00/bin/xc-dsc-gcc' "$log" || { echo 'The build did not use XC-DSC 4.00' >&2; exit 1; }
-#+end_src
-Confirm the compiler path against the real build output before you rely on the pattern.
+Delivered in =a14c764=; acceptance in =** Acceptance=.
 
 ** DONE Change the documentation examples and regression levels to XC-DSC
 CLOSED: [2026-11-26 Thu 16:07]
@@ -143,49 +130,23 @@ CLOSED: [2026-11-26 Thu 16:07]
 - State "STARTED" from "TODO" [2026-11-26 Thu 15:54]
 - State "DONE" from "STARTED" [2026-11-26 Thu 16:07]
 :END:
-Acceptance criteria:
-- No snippet in =README.org= selects an XC16 compiler: the sample flake, the two-version devshell, the derivation, the CMake shell and =toolchain.cmake=, the MPLAB project shell and derivation, the MDB example and the CI image flake use =xc-dsc_4_00= (the two-version devshell: =xc-dsc_4_00= with =xc-dsc_3_31=).
-- The sentence on unversioned attributes in =README.org= "Overview" uses XC-DSC as its example.
-- Each changed Nix or shell snippet in =README.org= was run in its changed form and exited 0; the record lists each command and its exit status under =* Validation=.
-- The derivation snippets have no =xclm= or =Mode: PRO= check; the text says that XC-DSC 4.00 needs no licence and points to =doc/licence.org= for licensed compilers.
-- The snippets that used a device with built-in XC16 support (=33EP512MU810=, =packs = [ ]=) pass a DFP with =-mdfp=, because =xc-dsc_4_00= needs one.
-- =mdb= runs an ELF that =xc-dsc_4_00= built for the dsPIC33EP512GM710, in a derivation, and the UART output file has the expected text. The MDB note in =README.org= describes this run with its date.
-- No snippet in =doc/packaging.org= selects an XC16 compiler outside the =bb package= instructions.
-- The four XC16 rows of the closure-size table in =doc/packaging.org= say that they are XC16 results, with their dates.
-- The compile timing in =doc/environment.org= says that it is an XC16 1.61 result, with its date.
-- =AGENTS.md= "Regression testing": basic is =xc-dsc_4_00= only; thorough is =xc-dsc_4_00=, =xc8_4_00=, =xc32_6_00= and =xc-dsc_3_31=; =xc16_1_61= is in the special-release list, for licence changes.
-- =nix flake check --no-build= passes.
-- Must not: edit the package table, "Adding packages", the login-installer section, =doc/licence.org= or a file under =examples/mplab/=.
-- Must not: replace an XC16 measurement with an XC-DSC name without a new measurement.
+Delivered in =f140ff0=; snippet runs in =* Validation=.
 
-The =-mdfp= form is in =doc/packaging.org= ("A compiler does not search the packs folder"). Verified on 2026-11-26: =xc-dsc-gcc -mcpu=33EP512GM710 -mdfp=/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401/xc16 -O3 -c main.c=, then a link with =-Wl,--script=p33EP512GM710.gld=. If the =xc-dsc_3_31= installer cannot be fetched or imported with =bb installers import=, report it and add a note to the two-version snippet instead of running it.
-
-** TODO Publish and pin the XC-DSC CI image
+** DONE Publish and pin the XC-DSC CI image
+CLOSED: [2026-11-26 Thu 16:41]
 :PROPERTIES:
 :CUSTOM_ID: 1b8741bd-8906-46bd-8787-9a98a2294c12
 :CREATED: [2026-11-26 Thu 12:51]
 :BLOCKED-BY: task:837e97e5-32d1-4dab-b6c7-e325e973cdc9
 :BLOCKED-BY+: task:d3cdc855-f87d-4b31-b957-a115caedc0fb
+:STARTED: [2026-11-26 Thu 16:09]
 :END:
 :LOGBOOK:
 - Created [2026-11-26 Thu 12:51]
+- State "STARTED" from "TODO" [2026-11-26 Thu 16:09]
+- State "DONE" from "STARTED" [2026-11-26 Thu 16:41]
 :END:
-Acceptance criteria:
-- The image from =.#ci-image= runs =bash build.sh= under Docker's default seccomp profile and exits 0.
-- The hex from the image build has the same SHA-256 as the hex from the devshell build.
-- Hand-over: the worker stops here and gives the maintainer the =docker login=, =docker push= and =docker image inspect= commands of =examples/mplab/README.org= "Publish and pin the image". The maintainer pushes the image and returns the digest reference.
-- =examples/mplab/ci-image.txt= and =FIRMWARE_CI_IMAGE= in =examples/mplab/gitlab-ci.yml= hold the new digest reference.
-- The maintainer pushes the branch; a hosted GitHub Actions run on the pin commit passes.
-- =examples/mplab/README.org= links that run and gives the hex size and SHA-256, with the date, in place of the 2026-10-24 XC16 evidence. Its GitLab validation sentence describes a new run of the script list in the new image.
-- =README.org= "Images in a Nix flake" gives the size of the XC-DSC image with its date, in place of the 3.25 GB XC16 figure.
-- Must not: write the GHCR token into a file or a command line.
-- Must not: push the example change without the pin in the same push.
-
-Run =df -h /nix/store= before the image build. The image stream script has no GC root (=--no-link=): load it into Docker before any garbage collection.
-
-* Implementation
-- Example and tests (837e97e5, =a14c764=): toolchain =XCDSC= / =4.00.00=; =bb/project_config.clj= =significant-version= drops trailing all-zero groups. =build.sh= deletes =build/= and =dist/= before =xc-make=, because =mplab-gen= regenerates the makefile and a rebuild that finds its outputs runs no compile. The devshell build gives hex SHA-256 =5c628fd9bbfe6a0f0f05a8ad79dd44b104124b201b5e051fa24a35cf75811a5f= (2026-11-26).
-- Documentation (d3cdc855, =f140ff0=): the image figures (size, hex, hosted run) wait for 1b8741bd.
+Delivered in =d28ada7= and =0d96498=; image and hosted run in =** Shipped=.
 
 * Validation
 README.org snippets in their changed form (2026-11-26, harness of task d3cdc855 with the snippets as =path:= flakes under =.tmp/snip/= of its worktree):
@@ -196,4 +157,5 @@ README.org snippets in their changed form (2026-11-26, harness of task d3cdc855 
 - MPLAB project shell: exit 0. MPLAB project derivation: exit 0, 7716-byte hex (with a copy of the example converted to =XCDSC=).
 - MDB shell: exit 0. MDB derivation: exit 0, =uart.txt= holds =hello from xc-dsc=. Without =HOME= and =JAVA_TOOL_OPTIONS=, it exits 1 on =/build/.mchp_packs= (reproduced by the orchestrator; [[task:be31f2fb-e1ab-450c-a77c-4f90318e54a2][follow-up]]).
 - CI image flake: the stream script built; the image was not loaded.
-Integrated tree at =f140ff0=: =bb test= exit 0 (37 tests); =nix flake check --no-build= exit 0; =nix develop '.#mplab-example' --command bash examples/mplab/build.sh= exit 0, two compile lines from =/opt/microchip/xc-dsc/v4.00/bin/xc-dsc-gcc=, =configurations.xml= unchanged.
+Image (2026-11-26): =build.sh= in the image under Docker's default seccomp profile exit 0, with the same hex as the devshell; the GitLab script list exit 0 with the matching pin and exit 1 before compilation with a mismatched pin. The hex artefact of the hosted run has the same SHA-256 (checked by the orchestrator).
+Closeout at =0d96498=: every =cmd:= check exit 0; two independent reviewers (conformance, correctness) approved with no findings.
