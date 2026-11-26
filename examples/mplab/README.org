@@ -1,6 +1,6 @@
 #+TITLE: MPLAB-X firmware CI example
 
-=firmware.X= is a minimal XC16 1.61 project for the dsPIC33EP512GM710, with dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401. It toggles RA0; it is a build fixture, not board support firmware. [[file:ci.nix][ci.nix]] selects the compiler and DFP for both the development shell and the container image.
+=firmware.X= is a minimal XC-DSC 4.00 project for the dsPIC33EP512GM710, with dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401. It toggles RA0; it is a build fixture, not board support firmware. [[file:ci.nix][ci.nix]] selects the compiler and DFP for both the development shell and the container image.
 
 Run the commands below from the repository root.
 
@@ -10,7 +10,7 @@ Run the commands below from the repository root.
 nix develop '.#mplab-example' --command bash examples/mplab/build.sh
 #+END_SRC
 
-[[file:build.sh][build.sh]] generates the makefiles, builds configuration =default=, checks for a non-empty hex file and checks that XC16 reports PRO mode. It exits non-zero on a failed command. The output is =examples/mplab/firmware.X/dist/default/production/firmware.X.production.hex=.
+[[file:build.sh][build.sh]] generates the makefiles, builds configuration =default=, checks for a non-empty hex file and checks that a compile command ran =/opt/microchip/xc-dsc/v4.00/bin/xc-dsc-gcc=. It exits non-zero on a failed command. The output is =examples/mplab/firmware.X/dist/default/production/firmware.X.production.hex=.
 
 * Build a project-specific image with Babashka
 
@@ -33,7 +33,7 @@ bb ci-image --project examples/mplab/firmware.X/nbproject/configurations.xml \
 For explicit selection, use versioned compiler attributes and packs in =vendor/name/version= form:
 
 #+BEGIN_SRC sh
-bb ci-image --compiler xc16_1_61 \
+bb ci-image --compiler xc-dsc_4_00 \
   --pack Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401 \
   --name firmware-ci
 #+END_SRC
@@ -83,7 +83,7 @@ Rebuild and publish when =flake.lock=, the compiler/DFP selection, or the runtim
 
 * GitHub Actions
 
-[[file:../../.github/workflows/firmware.yml][.github/workflows/firmware.yml]] builds on pushes to =master=, same-repository pull requests and manual dispatch. The job skips fork pull requests because they must not receive access to the private toolchain image. Checkout and artifact upload run on the Ubuntu host. Only generation, compilation and the licence check run inside the digest-pinned image. No Nix installation, compiler download or package-write credential is needed on the runner. The artifact =firmware-hex= contains the hex file, and a missing hex makes the job fail.
+[[file:../../.github/workflows/firmware.yml][.github/workflows/firmware.yml]] builds on pushes to =master=, same-repository pull requests and manual dispatch. The job skips fork pull requests because they must not receive access to the private toolchain image. Checkout and artifact upload run on the Ubuntu host. Only generation, compilation and the XC-DSC 4.00 compile check run inside the digest-pinned image. No Nix installation, compiler download or package-write credential is needed on the runner. The artifact =firmware-hex= contains the hex file, and a missing hex makes the job fail.
 
 The registry credential is written to a temporary Docker configuration directory, which the build step removes on exit. The token is not passed to the firmware container. Checkout uses =persist-credentials: false= so its Git credential is not available through the mounted checkout.
 
@@ -102,7 +102,7 @@ include:
   - local: examples/mplab/gitlab-ci.yml
 #+END_SRC
 
-The example declares the =build= stage. If an existing pipeline declares =stages=, retain =build= in that list. =needs: []= makes the firmware job independent of unrelated test jobs. It calls =mplab-gen= and =xc-make= through =build.sh=, checks PRO mode, and saves the hex in an artifact named =firmware-$CI_COMMIT_SHORT_SHA= with a one-week expiry. This example has no submodules or tag-derived firmware version, so it needs neither recursive submodule checkout nor a full Git history.
+The example declares the =build= stage. If an existing pipeline declares =stages=, retain =build= in that list. =needs: []= makes the firmware job independent of unrelated test jobs. It calls =mplab-gen= and =xc-make= through =build.sh=, checks that a compile command ran XC-DSC 4.00, and saves the hex in an artifact named =firmware-$CI_COMMIT_SHORT_SHA= with a one-week expiry. This example has no submodules or tag-derived firmware version, so it needs neither recursive submodule checkout nor a full Git history.
 
 ** Runner and private-image access
 

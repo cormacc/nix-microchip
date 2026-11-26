@@ -7,7 +7,7 @@ let
     hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
   };
   xc-cli = microchip.xc-cli.override {
-    compilers = [ microchip.xc16_1_61 ];
+    compilers = [ microchip.xc-dsc_4_00 ];
     packs = [ dfp ];
     withMplabProjects = true;
   };

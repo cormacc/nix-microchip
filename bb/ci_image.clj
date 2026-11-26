@@ -8,7 +8,7 @@
 (def usage
   (str "Usage: bb ci-image --project <directory-or-configurations.xml>\n"
        "                   [--configuration <name>] [--name <image-repository>]\n"
-       "       bb ci-image --compiler <xc16_1_61> [--compiler <attribute> ...]\n"
+       "       bb ci-image --compiler <xc-dsc_4_00> [--compiler <attribute> ...]\n"
        "                   [--pack <vendor/name/version> ...] [--name <image-repository>]\n\n"
        "Builds an MPLAB-capable image and prints its stream script path.\n"
        "Run the script to write a Docker image archive to stdout; loading and publishing are separate.\n"
@@ -71,8 +71,9 @@
 (defn- compiler-attribute [attribute]
   (if-let [[_ family version]
            (re-matches #"(xc8|xc16|xc32|xc-dsc)_([0-9]+(?:_[0-9]+)+)" attribute)]
-    (project/compiler-attribute family (str/replace version "_" "."))
-    (throw (ex-info (str "Use a versioned compiler attribute, e.g. xc16_1_61: " attribute) {}))))
+    ;; The project file names the toolchain XCDSC; the package family is xc-dsc.
+    (project/compiler-attribute (if (= family "xc-dsc") "xcdsc" family) (str/replace version "_" "."))
+    (throw (ex-info (str "Use a versioned compiler attribute, e.g. xc-dsc_4_00: " attribute) {}))))
 
 (defn validate-pack [{:keys [vendor name version] :as pack}]
   (when-not (and (string? vendor) (re-matches #"[A-Za-z0-9_][A-Za-z0-9_.+-]*" vendor)

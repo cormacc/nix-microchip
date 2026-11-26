@@ -9,7 +9,7 @@
   {"xc8" "xc8"
    "xc16" "xc16"
    "xc32" "xc32"
-   "xc-dsc" "xc-dsc"})
+   "xcdsc" "xc-dsc"})
 
 (defn command-result [& args]
   (apply process/shell {:out :string :err :string :continue true} args))
@@ -56,9 +56,17 @@
       (json/parse-string out)
       (throw (ex-info "Cannot list packaged compiler versions." {:error err})))))
 
+(defn- significant-version
+  "Drops trailing all-zero groups beyond the first two: MPLAB-X writes 4.00.00 for 4.00."
+  [version]
+  (loop [parts (str/split version #"\.")]
+    (if (and (> (count parts) 2) (re-matches #"0+" (last parts)))
+      (recur (butlast parts))
+      (str/join "." parts))))
+
 (defn compiler-attribute [toolchain version]
   (let [prefix (get toolchain-prefixes (str/lower-case toolchain))
-        attribute (str prefix "_" (str/replace version "." "_"))]
+        attribute (str prefix "_" (str/replace (significant-version version) "." "_"))]
     (when-not prefix
       (throw (ex-info (str "Unsupported language toolchain: " toolchain) {})))
     (let [available (packaged-attributes prefix)]

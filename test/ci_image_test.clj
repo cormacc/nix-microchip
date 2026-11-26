@@ -61,17 +61,17 @@
   (let [pack {:vendor "Microchip" :name "dsPIC33E-GM-GP-MC-GU-MU_DFP"
               :version "1.7.401"}
         calls (atom [])]
-    (with-redefs [project/packaged-attributes (fn [_] ["xc16_1_61"])
+    (with-redefs [project/packaged-attributes (fn [_] ["xc-dsc_4_00"])
                   project/pack-hash (fn [_ selected] (swap! calls conj selected) "hash")]
       (let [directory (image/selection "/repo" (image/parse-args ["--project" "examples/mplab/firmware.X"]))
             file (image/selection "/repo" (image/parse-args ["--project" "examples/mplab/firmware.X/nbproject/configurations.xml"
                                                             "--configuration" "default"]))
-            explicit (image/selection "/repo" (image/parse-args ["--compiler" "xc16_1_61"
-                                                                "--compiler" "xc16_1_61"
+            explicit (image/selection "/repo" (image/parse-args ["--compiler" "xc-dsc_4_00"
+                                                                "--compiler" "xc-dsc_4_00"
                                                                 "--pack" "Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401"
                                                                 "--pack" "Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401"]))]
         (is (= directory file explicit))
-        (is (= {:name "xc-cli" :compilers ["xc16_1_61"]
+        (is (= {:name "xc-cli" :compilers ["xc-dsc_4_00"]
                 :packs [(assoc pack :hash "hash")]} directory))
         (is (= [pack pack pack] @calls))))))
 

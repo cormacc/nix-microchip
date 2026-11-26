@@ -8,7 +8,7 @@
         configurations (project/project-configurations directory)]
     (is (= configurations (project/project-configurations file)))
     (is (= ["default"] (mapv #(get-in % [:attrs :name]) configurations)))
-    (is (= "XC16" (project/element-text (first configurations) :languageToolchain)))
+    (is (= "XCDSC" (project/element-text (first configurations) :languageToolchain)))
     (is (= [{:vendor "Microchip" :name "dsPIC33E-GM-GP-MC-GU-MU_DFP"
              :version "1.7.401"}]
            (vec (project/configuration-packs (first configurations)))))))
@@ -23,7 +23,10 @@
                                "xc16" ["xc16_1_61" "xc16_2_10"]
                                "xc-dsc" ["xc-dsc_4_00"]))]
     (is (= "xc16_1_61" (project/compiler-attribute "XC16" "1.61")))
-    (is (= "xc-dsc_4_00" (project/compiler-attribute "XC-DSC" "4.00")))
+    (is (= "xc-dsc_4_00" (project/compiler-attribute "XCDSC" "4.00")))
+    (is (= "xc-dsc_4_00" (project/compiler-attribute "XCDSC" "4.00.00")))
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not packaged"
+                         (project/compiler-attribute "XCDSC" "4.01.00")))
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"not packaged"
                          (project/compiler-attribute "XC16" "9.99")))
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"Unsupported"
