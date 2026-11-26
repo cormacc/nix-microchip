@@ -37,13 +37,16 @@ Microchip recommends that users move from MPLAB-X to MPLAB for VS Code. For CI a
 
 Package the CLI as =mplab-cli=, generate and commit CMake files for =examples/mplab/firmware.X=, and build them in a Nix derivation with =xc-cli=, =cmake= and =ninja=. The MPLAB-X path stays. CLI 0.9.6 emits a debug build only, so release hex files still come from the MPLAB-X path. The change-record holds the scope, the acceptance criteria, the decisions and the 2026-11-25 evaluation results.
 
-** TODO Standardise the example, documentation and regression tests on XC-DSC
+** STARTED Standardise the example, documentation and regression tests on XC-DSC
 :PROPERTIES:
 :CUSTOM_ID: b374c23a-4fb0-46ae-8252-dbf2f0433f5c
 :CREATED: [2026-11-26 Thu 12:39]
+:STARTED: [2026-11-26 Thu 15:54]
+:HANDOFF: org-execute 2026-11-26: base 81e8164. 837e97e5: review found 2 P2 (build.sh link-only match, README licence wording); fix round 88966d9a-cb53-4ae1-aaa7-2d4a45b28e62 (worktree .tmp/herdr-orch/worktrees/f58c651e-..., branch orch/f58c651e). d3cdc855: worker COMPLETE at orch/2220d367 tip 085a7b8 (round 2220d367-3c1a-4dc9-8933-1c7c6da6207b, open); review round d8621a40-b7b9-443c-b1fe-f08e0ed3257c. Follow-up be31f2fb. Policy: questions raised immediately; local merge to master authorised, no push. Next: collect, re-review 837e fix, merge, then 1b8741bd (needs user GHCR push).
 :END:
 :LOGBOOK:
 - Created [2026-11-26 Thu 12:39]
+- State "STARTED" from "TODO" [2026-11-26 Thu 15:54]
 :END:
 #+IMPORT: [[plan:2026-11-26-xc-dsc-default.org]]
 Firmware work uses XC-DSC from now on. Change the MPLAB example (=examples/mplab/firmware.X=), its CI image, the documentation examples and the regression-test levels in =AGENTS.md= from XC16 1.61 to the current XC-DSC release. Keep every XC16 package. Prerequisite of the MPLAB CLI CMake task, which uses the same example.
@@ -60,3 +63,13 @@ Firmware work uses XC-DSC from now on. Change the MPLAB example (=examples/mplab
 - State "WAITING" from "TODO" [2026-11-26 Thu 14:44]
 :END:
 The CMake path of the MPLAB CLI task builds a debug image only: =@mplab/cli= 0.9.6 passes the constant build type =debug= at both of its CMake call sites (=dist/main.js=: =const t="debug"= in =project build=, and =buildType:"debug"=), so the generated rules have =-D__DEBUG= and =--defsym=__MPLAB_DEBUG=1=. The CMake generator library inside the CLI has a =production= build type (output in a =production= folder, file name suffix =-production=), but no command-line option selects it. When a CLI release adds a production build, generate the production CMake files for =examples/mplab/firmware.X=, build them in the Nix derivation, and compare the hex with the hex of the MPLAB-X path. Check =https://www.npmjs.com/package/@mplab/cli= and the package =CHANGELOG.md= for the release. Alternative without a new release, not tested: patch the build type in the pinned package.
+
+** TODO Make mdb run in the Nix build sandbox without extra setup
+:PROPERTIES:
+:CUSTOM_ID: be31f2fb-e1ab-450c-a77c-4f90318e54a2
+:CREATED: [2026-11-26 Thu 16:03]
+:END:
+:LOGBOOK:
+- Created [2026-11-26 Thu 16:03]
+:END:
+In a Nix derivation, =mdb= (=xc-cli= =withMdb=, =xc-dsc_4_00=) exits 1: MDB cannot create =/build/.mchp_packs= ("Read-only file system"), although the wrapper gives it a temporary =HOME=. Java takes =user.home= from the passwd entry of the build user (=/build=), not from =HOME=. With =HOME= set to a writable folder and =JAVA_TOOL_OPTIONS="-Duser.home=$HOME"=, the same derivation passes (measured 2026-11-26, =.tmp/mdbprobe/=). The 2026-11-25 MDB task recorded a passing derivation test, but did not rerun it after the =Simulator_TP= change. README.org "MDB" documents the workaround. Possible fix: the =mdb= wrapper in =pkgs/mplab-x/mdb.nix= passes =-Duser.home= of its temporary home to Java. Acceptance: the README MDB derivation passes without the =HOME= and =JAVA_TOOL_OPTIONS= lines, and the README drops the workaround.
