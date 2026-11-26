@@ -50,7 +50,7 @@ Currently this provides packages for the following:
 | =xc32=                        | 6.00 (=xc32_6_00=)   | 5.19 (=xc32_5_19=), 5.10 (=xc32_5_10=) | <= 5.10        |
 | =mplab-x= (=mplab-x-unwrapped=) | 6.35               | none                               | not applicable |
 
-The unversioned attribute of a compiler (e.g. =xc16=) gives its latest version. Select a versioned attribute (e.g. =xc16_1_61=) to keep a firmware build on one compiler version. A licensed version checks the shipped Microchip licence and runs in PRO mode; a later version needs no licence. See [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]].
+The unversioned attribute of a compiler (e.g. =xc-dsc=) gives its latest version. Select a versioned attribute (e.g. =xc-dsc_4_00=) to keep a firmware build on one compiler version. A licensed version checks the shipped Microchip licence and runs in PRO mode; a later version needs no licence. See [[#compiler-licence-pro-optimisations][Compiler licence (PRO optimisations)]].
 
 Only the latest verified MPLAB-X version is retained. Legacy compiler versions are retained for reproducible firmware builds; compiler-version requirements do not require us to retain older IDE packages.
 
@@ -63,7 +63,7 @@ Pull requests adding additional packages and/or addressing any of the [[./TASKS.
 The Microchip compilers and MPLAB-X are dynamically linked binaries, so they need an FHS environment on NixOS.
 The compiler packages are unwrapped. =xc-cli= wraps selected compilers in an FHS environment without the IDE. =mplab-x= wraps the IDE and the compiler selection from =xc-cli= in its FHS environment. I have not tested Microchip programmers because my development flow does not need them (hex image programming via a bootloader and debugging via log trace rather than ICD).
 
-Here's a sample flake illustrating use from a microchip project. This installs MPLAB-X and XC16 in a bubble-wrapped environment. The packages are for =x86_64-linux= only.
+Here's a sample flake illustrating use from a microchip project. This installs MPLAB-X and XC-DSC in a bubble-wrapped environment. The packages are for =x86_64-linux= only.
 
 #+begin_src nix
   {
@@ -82,7 +82,7 @@ Here's a sample flake illustrating use from a microchip project. This installs M
           overlays = [ microchip.overlays.default ];
         };
         xc-cli = pkgs.xc-cli.override {
-          compilers = with pkgs; [ xc16_1_61 ];
+          compilers = with pkgs; [ xc-dsc_4_00 ];
         };
         mplab-x = pkgs.mplab-x.override {
           inherit xc-cli;
@@ -91,8 +91,8 @@ Here's a sample flake illustrating use from a microchip project. This installs M
       {
         devShells.x86_64-linux.default = pkgs.mkShell {
           buildInputs = with pkgs; [
-            xc-cli # XC16 1.61 and its default device packs
-            mplab-x # IDE with the same XC16 and bundled tool packs
+            xc-cli # XC-DSC 4.00 and its default device packs
+            mplab-x # IDE with the same XC-DSC and bundled tool packs
             cmake clang-tools #editor support (emacs/lsp)
           ];
         };
@@ -109,7 +109,7 @@ Set the compiler and device-pack selection on =xc-cli=, then pass that package t
 #+begin_src nix
   let
     xc-cli = pkgs.xc-cli.override {
-      compilers = with pkgs; [ xc16_1_61 xc16_2_10 ];
+      compilers = with pkgs; [ xc-dsc_4_00 xc-dsc_3_31 ];
       packs = [
         (pkgs.fetchMplabPack {
           name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
@@ -124,7 +124,7 @@ Set the compiler and device-pack selection on =xc-cli=, then pass that package t
   ]
 #+end_src
 
-With this devshell, MPLAB-X can use both versions. =xc16-gcc= from =xc-cli= runs v1.61, and =xc-run /opt/microchip/xc16/v2.10/bin/xc16-gcc= or =mplab-x-run /opt/microchip/xc16/v2.10/bin/xc16-gcc= runs v2.10. The selected DFP is at =/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258/xc16= for =-mdfp=.
+With this devshell, MPLAB-X can use both versions. =xc-dsc-gcc= from =xc-cli= runs v4.00, and =xc-run /opt/microchip/xc-dsc/v3.31/bin/xc-dsc-gcc= or =mplab-x-run /opt/microchip/xc-dsc/v3.31/bin/xc-dsc-gcc= runs v3.31. The 3.31 installer needs a Microchip login and was not in the Nix store on 2026-11-26, so this two-version selection was not built; the selection with only =xc-dsc_4_00= was built. See [[#installers-that-need-a-microchip-login][Installers that need a Microchip login]]. The selected DFP is at =/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.5.258/xc16= for =-mdfp=.
 
 Set =withMplabProjects = true= on =xc-cli= to add the command-line MPLAB-X subset and =mplab-gen <project>@<configuration>...=. It generates MPLAB makefiles with each selected compiler. See [[#mplab-projects][MPLAB projects]] for development-shell, derivation and CI use.
 
@@ -153,25 +153,29 @@ See [[file:doc/environment.org][Runtime environment]] for the set-up cost of eac
 
 *** Nix derivations and CMake
 
-A derivation can use =xc-cli= as a native build input. This example compiles, links and produces =main.hex= in the Nix build sandbox; =xclm -status= confirms PRO mode. Its device needs no DFP, so =packs = [ ]= keeps the default device packs out of the build.
+A derivation can use =xc-cli= as a native build input. This example compiles, links and produces =main.hex= in the Nix build sandbox. XC-DSC 4.00 needs no licence, so the build has no licence check; see [[file:doc/licence.org][Compiler licence]] for the checks of a licensed compiler. XC-DSC 4.00 needs a DFP for every device, so the selection gives the DFP of the device as the only pack, and =-mdfp= names it.
 
 #+begin_src nix
 let
-  xc-cli = pkgs.xc-cli.override {
-    compilers = with pkgs; [ xc16_1_61 ];
-    packs = [ ];
+  dfp = pkgs.fetchMplabPack {
+    name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+    version = "1.7.401";
+    hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
   };
+  xc-cli = pkgs.xc-cli.override {
+    compilers = with pkgs; [ xc-dsc_4_00 ];
+    packs = [ dfp ];
+  };
+  dfpDir = "/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401/xc16";
 in pkgs.stdenvNoCC.mkDerivation {
-  pname = "xc16-firmware";
+  pname = "xc-dsc-firmware";
   version = "1";
   src = ./.;
   nativeBuildInputs = [ xc-cli ];
   buildPhase = ''
-    xc16-gcc -mcpu=33EP512MU810 -O3 -c main.c -o main.o
-    xc16-gcc -mcpu=33EP512MU810 main.o -Wl,-Tp33EP512MU810.gld -o main.elf
-    xc16-bin2hex main.elf
-    xclm -status > licence-status.txt
-    grep -F 'Mode: PRO' licence-status.txt
+    xc-dsc-gcc -mcpu=33EP512GM710 -mdfp=${dfpDir} -O3 -c main.c -o main.o
+    xc-dsc-gcc -mcpu=33EP512GM710 -mdfp=${dfpDir} main.o -Wl,--script=p33EP512GM710.gld -o main.elf
+    xc-dsc-bin2hex main.elf
   '';
   installPhase = ''
     install -Dm444 main.hex $out/main.hex
@@ -183,9 +187,14 @@ For a CMake project, put =xc-cli=, =cmake= and =gnumake= in the development shel
 
 #+begin_src nix
 let
+  dfp = pkgs.fetchMplabPack {
+    name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+    version = "1.7.401";
+    hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
+  };
   xc-cli = pkgs.xc-cli.override {
-    compilers = with pkgs; [ xc16_1_61 ];
-    packs = [ ];
+    compilers = with pkgs; [ xc-dsc_4_00 ];
+    packs = [ dfp ];
   };
 in pkgs.mkShell {
   packages = [ xc-cli pkgs.cmake pkgs.gnumake ];
@@ -199,14 +208,15 @@ cmake_minimum_required(VERSION 3.20)
 project(xc_cli_cmake C)
 
 add_executable(probe main.c)
-target_compile_options(probe PRIVATE -mcpu=33EP512MU810)
-target_link_options(probe PRIVATE -Wl,-Tp33EP512MU810.gld)
+set(DFP /opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401/xc16)
+target_compile_options(probe PRIVATE -mcpu=33EP512GM710 -mdfp=${DFP})
+target_link_options(probe PRIVATE -mcpu=33EP512GM710 -mdfp=${DFP} -Wl,--script=p33EP512GM710.gld)
 #+end_src
 
 #+begin_src cmake
 set(CMAKE_SYSTEM_NAME Generic)
 set(CMAKE_SYSTEM_PROCESSOR dspic)
-set(CMAKE_C_COMPILER xc16-gcc)
+set(CMAKE_C_COMPILER xc-dsc-gcc)
 #+end_src
 
 #+begin_src sh
@@ -214,7 +224,7 @@ cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE="$PWD/toolchain.cmake"
 cmake --build build
 #+end_src
 
-CMake 4.4.4 configured and built the ELF with these settings. It recognised the compiler as GNU 4.5.1, and needed no compiler-detection workaround.
+CMake 4.4.4 configured and built the ELF with these settings (measured 2026-11-26). It recognised the compiler as GNU 8.3.1, and needed no compiler-detection workaround.
 
 *** MPLAB projects
 
@@ -228,7 +238,7 @@ let
     hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
   };
   xc-cli = pkgs.xc-cli.override {
-    compilers = [ pkgs.xc16_1_61 ];
+    compilers = [ pkgs.xc-dsc_4_00 ];
     packs = [ dfp ];
     withMplabProjects = true;
   };
@@ -256,7 +266,7 @@ let
     hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
   };
   xc-cli = pkgs.xc-cli.override {
-    compilers = [ pkgs.xc16_1_61 ];
+    compilers = [ pkgs.xc-dsc_4_00 ];
     packs = [ dfp ];
     withMplabProjects = true;
   };
@@ -272,8 +282,6 @@ in pkgs.stdenvNoCC.mkDerivation {
     rm -f firmware.X/nbproject/Makefile-*.mk
     JAVA_TOOL_OPTIONS="-Duser.home=$HOME" mplab-gen firmware.X@default
     xc-make -C firmware.X -j"$NIX_BUILD_CORES" -f Makefile CONF=default
-    xclm -status > licence-status.txt
-    grep -F 'Mode: PRO' licence-status.txt
   '';
   installPhase = ''
     install -Dm444 firmware.X/dist/default/production/firmware.X.production.hex "$out/firmware.hex"
@@ -293,7 +301,7 @@ let
     hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
   };
 in pkgs.xc-cli.override {
-  compilers = [ pkgs.xc16_1_61 ];
+  compilers = [ pkgs.xc-dsc_4_00 ];
   packs = [ dfp ];
   withMdb = true;
 }
@@ -315,11 +323,75 @@ quit
 
 - The simulator needs the DFP of the device in the packs (the =packs= option). With =packs = [ ]=, =program= fails because the device is not in the local packs repository.
 - The simulator writes UART output only with the =Simulator_TP= tool pack. Without it, MDB runs and halts, but writes no UART file. =withMdb= adds =Simulator_TP= 1.9.946 (1.8 MB) to the packs, whatever the =packs= value. It comes from Microchip's pack repository with =fetchMplabPack=, because the bundled version, 1.9.939, is only in the =mplab-x-unwrapped.toolPacks= output of another installer run (2.9 GB), and the repository does not serve it.
-- =mdb= sets =USER_DIR= to an empty temporary folder, so that modules of an IDE user folder are not on the MDB class path. MDB writes =~/.mchp_packs=, =~/.mplabcomm=, =~/.mplab_scripts= and =~/.java=, and exits 1 if it cannot create =~/.mchp_packs=. If =HOME= is not a writable directory, as in the Nix build sandbox, =mdb= uses a temporary home directory. =mdb= deletes its temporary folders when it exits.
+- =mdb= sets =USER_DIR= to an empty temporary folder, so that modules of an IDE user folder are not on the MDB class path. MDB writes =~/.mchp_packs=, =~/.mplabcomm=, =~/.mplab_scripts= and =~/.java=, and exits 1 if it cannot create =~/.mchp_packs=. If =HOME= is not a writable directory, as in the Nix build sandbox, =mdb= uses a temporary home directory. =mdb= deletes its temporary folders when it exits. In a derivation on 2026-11-26, MDB still tried to create =/build/.mchp_packs= (read-only) with that default; set =HOME= to a writable directory and =JAVA_TOOL_OPTIONS="-Duser.home=$HOME"=, as the MPLAB project derivation does.
 - =mdb.sh= passes its arguments unquoted, so a script path with a space does not work.
 - MDB prints Java messages that do not stop the simulator: an =UnsatisfiedLinkError= for =libUSBAccessLink.so= (=xc-cli= has no =libusb=), a jmDNS =SocketException=, and a jline "dumb terminal" warning. =xc-cli= does not support hardware debuggers or programmers.
 
-=mdb= runs in a derivation with no other setup. In a test on 2026-11-25, a derivation compiled a program with xc16 1.61, ran it with =mdb= (with =HOME=/homeless-shelter=), and found the expected UART output. =mdb= also runs in a =mkCiImage= image with no other setup.
+This derivation builds a program for the dsPIC33EP512GM710 that writes =hello from xc-dsc= to UART1, runs it with =mdb=, and checks the UART output file. =main.c= is:
+
+#+begin_src c
+#include <xc.h>
+
+int main(void)
+{
+    const char *text = "hello from xc-dsc\n";
+
+    U1MODE = 0x8000;      // UART1 on
+    U1STA = 0x0400;       // transmitter on
+    while (*text) {
+        while (U1STAbits.UTXBF) {
+        }
+        U1TXREG = *text++;
+    }
+    for (;;) {
+    }
+}
+#+end_src
+
+#+begin_src nix
+let
+  dfp = pkgs.fetchMplabPack {
+    name = "dsPIC33E-GM-GP-MC-GU-MU_DFP";
+    version = "1.7.401";
+    hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
+  };
+  xc-cli = pkgs.xc-cli.override {
+    compilers = [ pkgs.xc-dsc_4_00 ];
+    packs = [ dfp ];
+    withMdb = true;
+  };
+  dfpDir = "/opt/microchip/mplabx/v6.35/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401/xc16";
+in pkgs.stdenvNoCC.mkDerivation {
+  pname = "mdb-uart-test";
+  version = "1";
+  src = ./.;
+  nativeBuildInputs = [ xc-cli ];
+  buildPhase = ''
+    xc-dsc-gcc -mcpu=33EP512GM710 -mdfp=${dfpDir} -O1 -c main.c -o main.o
+    xc-dsc-gcc -mcpu=33EP512GM710 -mdfp=${dfpDir} main.o -Wl,--script=p33EP512GM710.gld -o firmware.elf
+    cat > run.mdb <<MDB
+    device dsPIC33EP512GM710
+    hwtool SIM
+    set uart1io.uartioenabled true
+    set uart1io.output file
+    set uart1io.outputfile $PWD/uart.txt
+    program $PWD/firmware.elf
+    run
+    wait 3000
+    quit
+    MDB
+    export HOME=/tmp/mdb-home
+    mkdir -p "$HOME"
+    JAVA_TOOL_OPTIONS="-Duser.home=$HOME" mdb run.mdb
+    grep -F 'hello from xc-dsc' uart.txt
+  '';
+  installPhase = ''
+    install -Dm444 uart.txt $out/uart.txt
+  '';
+}
+#+end_src
+
+In a test on 2026-11-26, this derivation built with xc-dsc 4.00, =mdb= ran the ELF, and =uart.txt= held =hello from xc-dsc=. =mdb= also ran in a =mkCiImage= image with no other setup (tested with xc16 1.61 on 2026-11-25).
 
 ** CI container images
 
@@ -339,7 +411,7 @@ stream=$(bb ci-image --project examples/mplab/firmware.X --name firmware-ci)
 "$stream" | docker load
 #+end_src
 
-The task accepts a project directory or its =nbproject/configurations.xml=. It detects the exact compiler version and packs from one configuration; use =--configuration <name>= if the project has more than one. Alternatively, pass =--compiler xc16_1_61= and repeatable =--pack Microchip/<name>/<version>= arguments. The task builds an MPLAB-capable image and prints its stream script path; it does not load or publish the image. See [[file:examples/mplab/README.org][the image-task instructions]] for both forms and =bb ci-image --help= for the options.
+The task accepts a project directory or its =nbproject/configurations.xml=. It detects the exact compiler version and packs from one configuration; use =--configuration <name>= if the project has more than one. Alternatively, pass =--compiler xc-dsc_4_00= and repeatable =--pack Microchip/<name>/<version>= arguments. The task builds an MPLAB-capable image and prints its stream script path; it does not load or publish the image. See [[file:examples/mplab/README.org][the image-task instructions]] for both forms and =bb ci-image --help= for the options.
 
 *** Images in a Nix flake
 
@@ -353,7 +425,7 @@ let
     hash = "sha256-NSLRbSv/UQcvVhFLhqc+eQixQupAA5aFuCwdoHyVEyc=";
   };
   xc-cli = pkgs.xc-cli.override {
-    compilers = [ pkgs.xc16_1_61 ];
+    compilers = [ pkgs.xc-dsc_4_00 ];
     packs = [ dfp ];
     withMplabProjects = true;
   };
@@ -378,7 +450,7 @@ docker run --rm -v "$PWD:/src" -w /src xc-cli:<tag> \
   sh -c 'mplab-gen firmware.X@default && xc-make -C firmware.X -j8 -f Makefile CONF=default'
 #+end_src
 
-With xc16 1.61, the 1.7.401 DFP and =withMplabProjects = true=, the image was 3.25 GB. It built an MPLAB project under Docker's default seccomp profile, without =--privileged=, to a hex file byte-identical to the development-shell build (measured 2026-10-23, Docker 29.9.1). For =mplab-gen=, the image contains a real copy of the command-line IDE files (274 MB), because the makefile generator derives its paths from its own location. The image runs commands as =root=; a non-root container user is not tested. See [[file:doc/environment.org][Runtime environment]] for the differences from the bubblewrap environment.
+With xc16 1.61 (an XC16 result), the 1.7.401 DFP and =withMplabProjects = true=, the image was 3.25 GB. It built an MPLAB project under Docker's default seccomp profile, without =--privileged=, to a hex file byte-identical to the development-shell build (measured 2026-10-23, Docker 29.9.1). For =mplab-gen=, the image contains a real copy of the command-line IDE files (274 MB), because the makefile generator derives its paths from its own location. The image runs commands as =root=; a non-root container user is not tested. See [[file:doc/environment.org][Runtime environment]] for the differences from the bubblewrap environment.
 
 ** Device packs
 

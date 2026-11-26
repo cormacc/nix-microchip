@@ -50,11 +50,12 @@ The Microchip packages fill the Nix store quickly. `mplab-x-unwrapped` 6.35 writ
 
 Test compilers in `xc-cli`, and also in `mplab-x` when the change affects it. For each compiler, compile and link one test file, and run the `doc/licence.org` licence probe for a licensed compiler. Choose one level:
 
-- Basic, for most changes: one licensed compiler, the production XC16 (`xc16_1_61`), and one licence-free compiler, the latest XC-DSC (`xc-dsc_4_00`, which needs a DFP).
-- Thorough, for changes to `pkgs/mplab-x/rootfs.nix`, `run.sh`, the FHS library lists or `flake.lock`: one version of each compiler: the production XC16 (`xc16_1_61`, used in place of the latest XC16), and the latest `xc8_4_00`, `xc32_6_00` and `xc-dsc_4_00`.
+- Basic, for most changes: the latest XC-DSC (`xc-dsc_4_00`), which is licence-free and needs a DFP.
+- Thorough, for changes to `pkgs/mplab-x/rootfs.nix`, `run.sh`, the FHS library lists or `flake.lock`: `xc-dsc_4_00`, `xc8_4_00`, `xc32_6_00` and the licensed `xc-dsc_3_31`, so that the change still runs one licence probe.
 
 Do not test every packaged version. Also test each release below whose concern the change touches. Add a release to this list, with its reason, when it needs special treatment.
 
+- `xc16_1_61`: the production XC16 and a licensed compiler, for licence changes. Its `xclm -status` shows `Mode: PRO`.
 - `xc16_1_21`: the only 32-bit compiler, so it tests `/lib32` and the 32-bit FHS libraries. Its `xclm -status` has no `Mode: PRO` line, so use the `-O3` probe.
 - `xc8_3_10`: a licensed XC8 for licence changes. Its Free-mode diagnostic `(2051)` does not change the exit status. It needs a DFP.
 - `xc32_5_10`: the only licensed XC32, for licence changes. `xclm -status` shows `Mode: cpp`, not `Mode: PRO`.
