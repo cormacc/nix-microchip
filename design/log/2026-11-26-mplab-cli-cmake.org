@@ -1,0 +1,250 @@
+#+TITLE: Add an MPLAB CLI (VS Code tooling) CMake-only build path
+#+DATE: 2026-11-26 Thu
+#+PARENT: [[task:226f1ac9-50fd-4c21-b567-d043139b677f][Add an MPLAB CLI (VS Code tooling) CMake-only build path]]
+#+SETUPFILE: ../../TASKS.setup.org
+#+STATUS: Accepted
+#+SPEC: [[proj:README.org]]
+#+SPEC: [[proj:examples/mplab/README.org]]
+#+SPEC: [[proj:AGENTS.md]]
+
+* Intent
+Microchip recommends that users move from MPLAB-X to MPLAB for VS Code, and names the Node.js MPLAB CLI (npm =@mplab/cli=, alpha) for CI. Let a firmware project build in the Nix sandbox and in CI from committed CMake files, with a closure that has no MPLAB-X installer run. The =mplab= package is the means to make those files, not the goal. The MPLAB-X path stays.
+
+* Summary
+*Level:* MVP · *Tests:* smoke · *Docs:* README
+
+** Scope
+*** In scope
+- =pkgs/mplab-cli/default.nix=: the =mplab= command from the pinned =@mplab/cli= 0.9.6 npm tarball, registered as =mplab-cli= in =pkgs/default.nix=.
+- =examples/mplab/generate-cmake.sh=: import, pack install and CMake generation for =examples/mplab/firmware.X=, with a check of the expected files.
+- The generated =.vscode/firmware.mplab.json= and =cmake/firmware/default/= in =examples/mplab/firmware.X=, beside =nbproject/=.
+- =examples/mplab/cmake.nix=: =packages.mplab-example-cmake= (the sandbox build with =xc-cli=, =cmake= and =ninja=) and =devShells.mplab-example-cmake=, wired in =flake.nix=.
+- One =mdb= run of the CMake-built ELF, and one offline generation test.
+- Relevant contracts: =README.org= (a section for the path), =examples/mplab/README.org=, and the layout list in =AGENTS.md=.
+*** Out of scope
+- Production (release) images: CLI 0.9.6 emits a debug build only. Follow-up [[task:22fb28f1-04c4-4bda-9fb3-4f7ba2684d63][Build production images on the MPLAB CLI CMake path]].
+- Programming and debugging (=mplab_backend=, Zulu JRE).
+- VS Code and an FHS environment for its extensions.
+- Making =mplab project build= compile: the CLI is a generator only.
+- The CI image, the GitHub workflow and the GitLab example: they stay on the MPLAB-X path.
+- A reusable generation command in =xc-cli=.
+- XC8, XC16 and XC32 projects, and import fidelity for real downstream projects.
+
+** Acceptance
+*** Core functionality
+- [ ] =nix build '.#mplab-cli'= gives =bin/mplab=.
+- [ ] =mplab --version= prints 0.9.6.
+- [ ] The package source is the npm tarball with a fixed hash.
+- [ ] In the devshell =.#mplab-example-cmake=, =bash examples/mplab/generate-cmake.sh= exits 0.
+- [ ] That run writes =examples/mplab/firmware.X/.vscode/firmware.mplab.json=. → cmd:`test -s examples/mplab/firmware.X/.vscode/firmware.mplab.json`
+- [ ] That run writes =CMakeLists.txt= and =CMakePresets.json= in =examples/mplab/firmware.X/cmake/firmware/default/=, and the =.cmake= files in its =.generated/= folder. → cmd:`sh -c 'd=examples/mplab/firmware.X/cmake/firmware/default; test -s $d/CMakeLists.txt && test -s $d/CMakePresets.json && test -s $d/.generated/toolchain.cmake && test -s $d/.generated/rule.cmake && test -s $d/.generated/main.cmake && test -s $d/.generated/file.cmake'`
+- [ ] The script exits non-zero when an expected file is missing.
+- [ ] No committed generated file contains a path under =/home= or =/nix/store=. → cmd:`sh -c '! git grep -nE "/home/|/nix/store/" -- examples/mplab/firmware.X/cmake examples/mplab/firmware.X/.vscode'`
+- [ ] =nix build '.#mplab-example-cmake'= builds =default.elf= and =default.hex= from the committed files in the sandbox, with =xc-cli=, =cmake= and =ninja=.
+- [ ] The build closure of that derivation has no =mplab-x-unwrapped= path.
+- [ ] The compile commands of that build pass =-mdfp== with the pinned pack under =/opt/microchip/mplabx/=.
+- [ ] With =withMdb = true=, =mdb= loads the CMake-built =default.elf= and runs it without an error.
+- [ ] The record states whether generation works without a network, from a test whose control shows that the network was unreachable.
+- [ ] The README section says that the path is alpha.
+- [ ] The README section says that the path builds a debug image only and that release hex files come from the MPLAB-X path.
+- [ ] The README section says that generation needs the network and downloads its own copy of the DFP.
+- [ ] The MPLAB-X path still works: =nix develop '.#mplab-example' --command bash examples/mplab/build.sh= exits 0.
+- [ ] =nix flake check --no-build= passes.
+*** Edge cases
+- [ ] A second generation run changes no committed file.
+*** Anti-criteria
+- [ ] Must not: add the CLI, =cmake= or =ninja= to the CI image. → cmd:`sh -c '! grep -qE "cmake|ninja|mplab-cli" examples/mplab/ci.nix pkgs/mk-ci-image/default.nix'`
+- [ ] Must not: change the workflows. → cmd:`sh -c 'git diff --quiet 179aa5f -- .github && ! grep -qE "cmake|ninja" examples/mplab/gitlab-ci.yml'`
+- [ ] Must not: remove =nbproject/= or the =mplab-gen= flow.
+- [ ] Must not: commit =_build/= or =out/=. → cmd:`sh -c 'test -z "$(git ls-files examples/mplab/firmware.X/_build examples/mplab/firmware.X/out)"'`
+
+** Decisions
+- The CLI is a generator; nixpkgs =cmake= and =ninja= build :: Microchip's remote app manifest (the "shelf") sets =allowPathDetection: false= for =ninja=, =make= and the XC compilers, so =mplab project build= ignores tools on =PATH=. =project build -g= writes correct files and exits 2; the script checks the files, not the status.
+- Thin package, example script, committed files :: the package has no npm dependencies (="dependencies": {}=), so it is an unpacked tarball with a =nodejs_22= wrapper.
+  Rejected:
+  - A reusable =mplab-cmake-gen= command in =xc-cli=: a public interface on the false exit status and file layout of an alpha tool.
+  - Generation inside the Nix build: it needs the network (shelf, pack download), and the generated target name has a suffix that prevents a fixed output hash.
+- Generated files live in =examples/mplab/firmware.X=, beside =nbproject/= :: one source tree serves both paths and shows a migration.
+  Rejected:
+  - A separate =examples/mplab-cmake/=: duplicate source.
+- The path is a compile-check and simulator-test path :: CLI 0.9.6 passes the constant build type =debug= at both CMake call sites (=dist/main.js=), so the rules have =-D__DEBUG=, =-O0= and =--defsym=__MPLAB_DEBUG=1=. The generator library inside the CLI has a =production= build type that no command-line option selects.
+  Rejected:
+  - Removing the debug flags from the generated =rule.cmake=: depends on the internal layout of files marked "do not modify", and nobody has shown that it gives the production options.
+- The build sets =-DPACK_REPO_PATH= to the pinned packs; generation uses the CLI's own pack copy in a fixed folder under =/tmp= :: with =--pack-folder= at the read-only =/opt/microchip/mplabx/v6.35/packs=, the CLI reports "No devices found when parsing available packs" and fails. The fixed folder makes the committed =PACK_REPO_PATH= default the same on every machine.
+- =.generated/cmake-hash.json= is not committed :: it holds the checkout path (=workspacePath=).
+- No licence criterion :: =xc-dsc_4_00= enforces no licence.
+- XC-DSC only :: the repository standardises on XC-DSC ([[task:b374c23a-4fb0-46ae-8252-dbf2f0433f5c][XC-DSC task]]); XC8 and XC32 generation is not tested.
+
+** Risks
+- The CLI is alpha. Its README lists known issues: XC16 per-file options missing on Linux, DFP =-mdfp= options sometimes not passed, intermittent pack download failures.
+- Generation reads the shelf and the pack index from Microchip servers. A server change can break generation with the same pinned CLI. Accepted: the committed files still build.
+- The DFP copy that the CLI downloads is not covered by a Nix hash. Accepted: the build uses the pinned pack, and the diff of the generated files is reviewed at commit.
+- The generated target name has a suffix (=firmware_default_image_cNCS0vI6=). If it changes on each run, the edge criterion fails; the worker reports it and the owner decides.
+- The project has two descriptions, =nbproject/= and =.mplab.json= with =cmake/=. They drift unless the script runs after each =nbproject/= change.
+
+** Follow-ups
+- [[task:22fb28f1-04c4-4bda-9fb3-4f7ba2684d63][Build production images on the MPLAB CLI CMake path]] (=WAITING= on a CLI release).
+
+* Context
+Evaluation, 2026-11-25, CLI 0.9.6, XC16 1.61, dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401:
+- =project import= and =packs install --project= exit 0. The DFP download is 352 MB.
+- =project build= exits 2: the CLI wants its own tool downloads, and the downloaded =ninja= exits 127 on NixOS outside the FHS environment.
+- =project createcmake= has no =--toolchain= option and did not find the compiler in =/opt/microchip=.
+- Sizes: CLI 8.6 MB; =nodejs_22= closure 195.5 MiB; =cmake= 151.0 MiB; =ninja= 47.5 MiB. The MPLAB-X command-line subset is 378.8 MiB and needs the =mplab-x-unwrapped= installer run (1.97 GB).
+- Programming and debugging need =mplab_backend= (Java RCP, 231 MB tarball) and a Zulu JRE (53 MB), which the CLI downloads at runtime.
+
+Planning probe, 2026-11-26, CLI 0.9.6, =xc-dsc_4_00=, same device and DFP, in =xc-run= (=nodejs= 22.23.3, =cmake= 4.4.4, =ninja= 1.13.2):
+- =project import .= exits 0 and writes =.vscode/firmware.mplab.json= with provider =microchip.toolchains:xc-dsc@4.00=.
+- =packs install --project= then =project build .vscode/firmware.mplab.json --configuration default -g --toolchain /opt/microchip/xc-dsc/v4.00= writes =cmake/firmware/default/{CMakeLists.txt,CMakePresets.json}= and =.generated/{toolchain,main,file,rule,exported,overrides}.cmake=, then exits 2 ("Applications environment not initialized").
+- =xc-run cmake --preset firmware_default_conf -S cmake/firmware/default -DPACK_REPO_PATH=/opt/microchip/mplabx/v6.35/packs= and =xc-run cmake --build _build/firmware/default= exit 0, and write =out/firmware/default.elf= and =default.hex=. The build directory is =_build/firmware/default= beside =cmake/=.
+- The generated =toolchain.cmake= has the absolute compiler path =/opt/microchip/xc-dsc/v4.00/bin/xc-dsc-gcc=, so CMake must run inside =xc-run=.
+- The CLI has no simulator command. Its GDB server is for AVR and ARM Cortex devices only.
+
+* Plan
+** TODO Package @mplab/cli as mplab-cli
+:PROPERTIES:
+:CUSTOM_ID: 945eb150-886f-4da5-a660-8353f6fedc3d
+:CREATED: [2026-11-26 Thu 15:43]
+:END:
+:LOGBOOK:
+- Created [2026-11-26 Thu 15:43]
+:END:
+Acceptance criteria:
+- =nix build '.#mplab-cli'= gives =bin/mplab=.
+- =mplab --version= prints 0.9.6.
+- =mplab project import --help= exits 0 outside an FHS environment.
+- The source is =https://registry.npmjs.org/@mplab/cli/-/cli-0.9.6.tgz= with a fixed hash.
+- =meta.license= follows =package/license= in the tarball (a Microchip non-exclusive licence: unfree), and =meta.mainProgram= is =mplab=.
+- =pkgs/default.nix= registers =mplab-cli=; =nix flake check --no-build= passes.
+- Must not: use =buildNpmPackage= or add a lock file. The package declares no dependencies.
+- Must not: patch the files under =dist/=.
+
+Sketch, not evaluated. The hash is that of the tarball file, measured on 2026-11-26 with =nix hash file --sri=; the CLI needs Node.js 22.19 or later (=engines= in =package.json=).
+#+begin_src nix
+{ lib, stdenvNoCC, fetchurl, makeWrapper, nodejs_22 }:
+stdenvNoCC.mkDerivation rec {
+  pname = "mplab-cli";
+  version = "0.9.6";
+  src = fetchurl {
+    url = "https://registry.npmjs.org/@mplab/cli/-/cli-${version}.tgz";
+    hash = "sha256-mg/VGT+3fYVHMahKvxljURpEhFjIh7iH9fk7LRF3HUI=";
+  };
+  nativeBuildInputs = [ makeWrapper ];
+  installPhase = ''
+    mkdir -p $out/lib/mplab-cli $out/bin
+    cp -r . $out/lib/mplab-cli
+    makeWrapper ${lib.getExe nodejs_22} $out/bin/mplab --add-flags $out/lib/mplab-cli/resources/mplab.js
+  '';
+  meta = { license = lib.licenses.unfree; mainProgram = "mplab"; };
+}
+#+end_src
+See =pkgs/xclm-license/default.nix= for a single-file package of this size.
+
+** TODO Generate and commit the CMake files for the example
+:PROPERTIES:
+:CUSTOM_ID: f2596629-8aa8-45ac-9bc8-8e4c39cca00e
+:CREATED: [2026-11-26 Thu 15:43]
+:BLOCKED-BY: task:945eb150-886f-4da5-a660-8353f6fedc3d
+:BLOCKED-BY+: task:837e97e5-32d1-4dab-b6c7-e325e973cdc9
+:END:
+:LOGBOOK:
+- Created [2026-11-26 Thu 15:43]
+:END:
+Acceptance criteria:
+- =devShells.mplab-example-cmake= (from a new =examples/mplab/cmake.nix=, wired in =flake.nix= as =examples/mplab/ci.nix= is) has =xc-cli= with =xc-dsc_4_00=, the 1.7.401 DFP and no =withMplabProjects=, plus =mplab-cli=, =cmake= and =ninja=.
+- In that devshell, =bash examples/mplab/generate-cmake.sh= exits 0.
+- The run writes =.vscode/firmware.mplab.json=, =cmake/firmware/default/CMakeLists.txt=, =CMakePresets.json= and =.generated/{toolchain,main,file,rule,exported,overrides}.cmake= in =examples/mplab/firmware.X=; these files are committed.
+- The script exits non-zero when an expected file is missing. Show this with a known-bad run.
+- The script does not write to =~/.mplab= or =~/.mchp_packs=.
+- No committed generated file contains a path under =/home= or =/nix/store=.
+- A second generation run changes no committed file. Test this first for the target-name suffix (=firmware_default_image_<suffix>=); if it changes on each run, stop and report.
+- =examples/mplab/firmware.X/.gitignore= ignores =/_build/=, =/out/= and =/cmake/**/.generated/cmake-hash.json=.
+- =xc-run cmake --preset firmware_default_conf -S cmake/firmware/default -DPACK_REPO_PATH=/opt/microchip/mplabx/v<ideVersion>/packs= then =xc-run cmake --build _build/firmware/default= exit 0 in the devshell, from =examples/mplab/firmware.X=, without =cmake-hash.json=.
+- Offline test: run the script with the network isolated, with a control in the same run that shows the network is unreachable (for example a failed fetch of =https://packs.download.microchip.com/index.idx.gz=). Record the result under =* Validation=; success is not required.
+- The MPLAB-X path still works: =nix develop '.#mplab-example' --command bash examples/mplab/build.sh= exits 0.
+- Must not: edit a generated file by hand or by script.
+- Must not: change =nbproject/=, =examples/mplab/ci.nix= or =build.sh=.
+
+Sketch of =generate-cmake.sh=. The commands and their results are in =* Context= (planning probe); the fixed folders are the new part and are not tested.
+#+begin_src sh
+#!/usr/bin/env bash
+set -euo pipefail
+cd -- "$(dirname -- "$0")/firmware.X"
+# Fixed folders: the CLI writes the pack folder into rule.cmake as the PACK_REPO_PATH default.
+opts=(--pack-folder /tmp/mplab-cli/packs --app-folder /tmp/mplab-cli/apps)
+xc-run mplab project import . --force "${opts[@]}"
+xc-run mplab packs install --project .vscode/firmware.mplab.json "${opts[@]}"
+# The CLI writes the CMake files, then exits 2 because it does not accept cmake and ninja from PATH.
+xc-run mplab project build .vscode/firmware.mplab.json --configuration default -g \
+  --toolchain /opt/microchip/xc-dsc/v4.00 "${opts[@]}" || true
+for f in CMakeLists.txt CMakePresets.json .generated/toolchain.cmake .generated/rule.cmake \
+         .generated/main.cmake .generated/file.cmake; do
+  test -s "cmake/firmware/default/$f" || { echo "Not generated: $f" >&2; exit 1; }
+done
+#+end_src
+The pack download is 352 MB. A stale file from an earlier run can hide a failed generation: remove =cmake/firmware/default= before the build step, or compare modification times.
+
+** TODO Build the example from the committed CMake files in a Nix derivation
+:PROPERTIES:
+:CUSTOM_ID: 7d08229c-628f-4c72-b61e-212d591def81
+:CREATED: [2026-11-26 Thu 15:43]
+:BLOCKED-BY: task:f2596629-8aa8-45ac-9bc8-8e4c39cca00e
+:END:
+:LOGBOOK:
+- Created [2026-11-26 Thu 15:43]
+:END:
+Acceptance criteria:
+- =nix build '.#mplab-example-cmake'= exits 0 in the sandbox and its output has =default.elf= and a non-empty =default.hex=.
+- The derivation uses the committed files only: it does not run =mplab=, and =mplab-cli= is not in its inputs.
+- The build log shows compile commands with =-mdfp=/opt/microchip/mplabx/v<ideVersion>/packs/Microchip/dsPIC33E-GM-GP-MC-GU-MU_DFP/1.7.401/xc16=.
+- =nix-store -qR= of the =.drv= lists no =mplab-x-unwrapped= path; the same command on =.#mplab-example='s =xc-cli= lists one (positive control).
+- With an =xc-cli= that adds =withMdb = true=, an =mdb= script with =device dsPIC33EP512GM710=, =hwtool SIM=, =program <default.elf>=, =run=, =wait 1000=, =quit= loads the ELF and ends without an error line. Run it under =.tmp/=; do not export it. Record the output under =* Validation=.
+- =nix flake check --no-build= passes.
+- Must not: add =cmake=, =ninja= or =mplab-cli= to =examples/mplab/ci.nix= or the CI image.
+
+Sketch for =examples/mplab/cmake.nix=, not evaluated. =xc-cli= and =dfp= are as in =examples/mplab/ci.nix= without =withMplabProjects=. CMake runs in =xc-run= because the generated =toolchain.cmake= has the compiler path =/opt/microchip/xc-dsc/v4.00=.
+#+begin_src nix
+stdenvNoCC.mkDerivation {
+  pname = "mplab-example-cmake";
+  version = "1";
+  src = ./firmware.X;
+  nativeBuildInputs = [ xc-cli cmake ninja ];
+  dontUseCmakeConfigure = true;
+  buildPhase = ''
+    xc-run cmake --preset firmware_default_conf -S cmake/firmware/default \
+      -DPACK_REPO_PATH=/opt/microchip/mplabx/v${xc-cli.ideVersion}/packs
+    xc-run cmake --build _build/firmware/default -v
+  '';
+  installPhase = ''
+    install -Dm444 -t $out out/firmware/default.elf out/firmware/default.hex
+  '';
+}
+#+end_src
+The MDB script form and its home-directory behaviour are in =README.org= "Simulator (MDB)". Run =df -h /nix/store= before the =withMdb= build: it needs =mplab-x-unwrapped=.
+
+** TODO Document the MPLAB CLI CMake path
+:PROPERTIES:
+:CUSTOM_ID: 46810264-8880-4f06-9d60-3b7b6c053322
+:CREATED: [2026-11-26 Thu 15:43]
+:BLOCKED-BY: task:7d08229c-628f-4c72-b61e-212d591def81
+:END:
+:LOGBOOK:
+- Created [2026-11-26 Thu 15:43]
+:END:
+Acceptance criteria:
+- =README.org= has a section for the path under "Command-line use", after "MPLAB projects", with the generation command, the two =cmake= commands and the derivation.
+- The section says that the CLI is alpha.
+- The section says that the path builds a debug image only (=-D__DEBUG=, =-O0=) and that release hex files come from the MPLAB-X path.
+- The section says that generation needs the network, downloads its own 352 MB copy of the DFP, and exits 2 after it writes correct files.
+- The section says to run the script again after a change to =nbproject/=.
+- The section gives the offline-test result and the =mdb= result with their dates.
+- Each command and Nix snippet in the section was run in its written form and exited 0.
+- =README.org= "MPLAB projects" keeps the =mplab-gen= flow unchanged.
+- =examples/mplab/README.org= names =generate-cmake.sh=, =cmake.nix= and the committed folders.
+- The layout list in =AGENTS.md= names =pkgs/mplab-cli/default.nix=, =examples/mplab/cmake.nix= and =examples/mplab/generate-cmake.sh=.
+- The =README.org= table of contents has the new heading.
+- Must not: describe the path as a replacement for the MPLAB-X path.
+
+Take the measured statements from =* Context= and =* Validation= of this record; do not restate a figure that this work did not measure.
+
+* Implementation

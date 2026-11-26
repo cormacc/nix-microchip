@@ -613,3 +613,119 @@ Results (2026-11-13):
 - The user confirmed on the real display: the IDE (Start Page, project tabs, toolbar) and the IPE render correctly, from the downstream devshell with =--override-input= to this checkout.
 - Thorough regression repeated after these changes: same results.
 - The plain =.#mplab-x= has no device packs, so a project for a device without a DFP (e.g. dsPIC33EP512GM710) closes after it opens. Use an =xc-cli= with the device's compilers, as the README examples do.
+
+** DONE Give login-gated installers a manual-download message
+CLOSED: [2026-11-13 Fri 19:28]
+:PROPERTIES:
+:CUSTOM_ID: 00db1175-3f9f-4c85-aabb-4f8ea631cef8
+:CREATED: [2026-11-13 Fri 18:43]
+:STARTED: [2026-11-13 Fri 19:23]
+:ARCHIVED: [2026-11-13 Fri 19:28]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-11-13 Fri 18:43]
+- State "STARTED" from "TODO" [2026-11-13 Fri 19:23]
+- State "DONE" from "STARTED" [2026-11-13 Fri 19:28]
+:END:
+On 2026-11-13, the package URLs of =xc16_1_61=, =xc8_2_50= and =xc-dsc_3_31= redirect (301) to =www.microchip.com/filehandler/redirect?<url>=, which returns 403; Microchip's archive page links =ww1.microchip.com/downloads/secure/...=, which redirects to the account login. =fetchurl= then retries and fails with a 403 log. The other nine packaged installers still download. =bb installers import= (README "Installers that need a Microchip login") is the interim route.
+
+Acceptance criteria:
+- A build that needs a login-gated installer that is not in the store fails with a message that names the file and =bb installers import=, not a curl retry log.
+- A build with the installer in the store does not change its output path.
+- =bb package= can hash a local installer file for a new login-gated version.
+
+Inline plan:
+- Approach: a version file sets =loginRequired = true=; its family's =common.nix= then replaces the =fetchurl= source with =requireFile= (same name and hash, so the same fixed-output path), whose message names the file and =bb installers import=. A shared =pkgs/login-installer.nix= holds the message. =bb package --file <installer>= hashes a local file, adds it to the store, checks that the store path is the one the candidate package expects, and writes =loginRequired = true=.
+- Verify: installer source paths of all 11 versioned compilers unchanged against a baseline; a build of a gated source that is not in the store fails with the message (on a nixpkgs path not in the store, not by deleting the real installer); =bb test= with new tests; =nix flake check --no-build=.
+- Must not: delete or re-download an installer from the store to test the message.
+
+Results (2026-11-13):
+- The installer source paths of all 11 versioned compilers equal the baseline. The derivations of =xc16_1_61=, =xc8_2_50= and =xc-dsc_3_31= change (their source is a =requireFile= derivation), so each builds once more from the same installer. =xc16_1_61= builds from the installer in the store with no download attempt.
+- =nix build '.#xc8_2_50.src'= (installer not in the store) stops with the =pkgs/login-installer.nix= message; its log has no curl or 403 line.
+- =bb package --file= with the xc16 1.61 installer previews the current =pkgs/xc16/1.61.nix=; with a non-matching installer name it stops (exit 1). =verify!= mirrors =pkgs/= in its scratch directory, because =common.nix= imports =../login-installer.nix=; the old flat layout fails to evaluate.
+- =bb test= (37 tests) and =nix flake check --no-build= pass. The README and =doc/packaging.org= examples use the xc16 2.10 URL, which downloads.
+
+** DONE Detect login-gated installers at download time
+CLOSED: [2026-11-13 Fri 20:54]
+:PROPERTIES:
+:CUSTOM_ID: 72abe28d-f13a-44b1-aa83-55a280d56fb6
+:CREATED: [2026-11-13 Fri 20:48]
+:STARTED: [2026-11-13 Fri 20:48]
+:ARCHIVED: [2026-11-13 Fri 20:54]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-11-13 Fri 20:48]
+- State "STARTED" from "TODO" [2026-11-13 Fri 20:48]
+- State "DONE" from "STARTED" [2026-11-13 Fri 20:54]
+:END:
+Microchip moved three installers behind a login without notice (see the archived task "Give login-gated installers a manual-download message"). A version that is downloadable today can be gated later, and =fetchurl= then fails with a 403 log and no instructions.
+
+Acceptance criteria:
+- A compiler installer that redirects to =www.microchip.com/filehandler/redirect= or =login.microchip.com= fails with the manual-download instructions, without a repository change.
+- A download that fails for another reason gives a normal download error, not the instructions.
+- A =loginRequired= version gives the same instructions without a download attempt.
+- The installer source path of each versioned compiler does not change.
+
+Inline plan:
+- Approach: one fixed-output fetcher, =pkgs/installer-source.nix= (curl, flat SHA-256, same name as =fetchurl=), used by the four compiler =common.nix= files for every version; it holds the instructions and replaces =pkgs/login-installer.nix=. =mplab-x-unwrapped= keeps =fetchurl=: changing its source rebuilds the IDE and its 14 GB packs.
+- Verify: source paths of all 11 versions against a baseline; a downloadable source that is not in the store downloads; =xc8_2_50= (gated, not in store) gives the instructions; an unreachable URL gives the normal error; full build plus compile/link of =xc-dsc_4_00=; full build plus licence probe of =xc16_1_61=; =bb test=; =nix flake check --no-build=.
+- Must not: rebuild compilers other than =xc16_1_61= and =xc-dsc_4_00=.
+
+Results (2026-11-13):
+- The installer source paths of all 11 versions equal the baseline; every compiler derivation changes, so each compiler rebuilds once when it is next used.
+- Fetcher cases (=.tmp/fetcher/cases.nix=): =xc8= 2.50 without =loginRequired= (redirect to the file handler, 403) gives the instructions; a host that does not resolve and an HTTP 404 from another host give the normal error; =xc8_2_50= (=loginRequired=) gives the instructions with no download attempt.
+- Microchip's file handler also takes a URL that does not exist (=xc8-v0.01=, 403), so the redirect message says that it cannot tell a login gate from a missing file.
+- =xc-dsc_4_00= downloaded through the fetcher to its baseline path. In =xc-cli=, =xc16_1_61= and =xc-dsc_4_00= compile and link at =-O3= with no licence diagnostic; =xc16= =xclm -status= shows =Mode: PRO=.
+- =bb package --url= (xc16 2.10) reports the pinned hash; =bb package --file= (xc16 1.61) previews the current version file. =bb test= and =nix flake check --no-build= pass.
+
+** DONE Add MDB to the MPLAB-X command-line tools for simulator runs in CI
+CLOSED: [2026-11-25 Wed 20:01]
+:PROPERTIES:
+:CUSTOM_ID: 7e7ddd3f-f9c6-4263-9e5b-397b4fcf5857
+:CREATED: [2026-11-25 Wed 19:47]
+:STARTED: [2026-11-25 Wed 19:52]
+:ARCHIVED: [2026-11-25 Wed 20:01]
+:ARCHIVE_OLPATH: Improvements
+:END:
+:LOGBOOK:
+- Created [2026-11-25 Wed 19:47]
+- State "STARTED" from "TODO" [2026-11-25 Wed 19:52]
+- State "DONE" from "STARTED" [2026-11-25 Wed 20:01]
+:END:
+Add the MPLAB-X debugger command line (=mdb.sh=) to =xc-cli= and =mkCiImage=, so that a development shell and CI can run firmware in the MPLAB simulator. Consumer: a Ceedling simulator fixture in a downstream firmware framework. It runs =$MDB <script>= (=device=, =hwtool SIM=, =set uart1io.*= with output to a file, =program=, =run=, =wait=, =quit=), needs exit 0 when the script completes, reads UART1 output from the file, and detects a halt by the text =Simulator halted= before the echoed =quit=.
+
+Spike results (2026-11-25, =.tmp/mdb-spike/=, =xc-cli= with =xc16_1_61=, dsPIC33E-GM-GP-MC-GU-MU_DFP 1.7.401 and the full IDE in place of the subset):
+- =xc-run /opt/microchip/mplabx/v6.35/mplab_platform/bin/mdb.sh <script>= runs the simulator (exit 0, =Simulator halted=). No bind is necessary: =mdb.jar= resolves its manifest =Class-Path= from its real path, and the subset keeps the IDE layout in one store path.
+- UART1 file output needs the bundled =Simulator_TP= tool pack (1.8 MB). Without it, MDB runs and halts, but writes no UART file. With only the DFP and =Simulator_TP=, the downstream =test_probe.elf= writes Unity output that ends =2 Tests 1 Failures 0 Ignored=.
+- With =HOME= not writable (=/homeless-shelter=, as in the Nix build sandbox), MDB exits 1: the pack library cannot create =/root/.mchp_packs=. With a writable =HOME=, MDB writes =~/.mplabcomm= and =~/.java/.userPrefs=.
+- Expected noise: =UnsatisfiedLinkError= for =libUSBAccessLink.so= (no =libusb-1.0.so.0=), a jmDNS =SocketException=, and the jline dumb-terminal warning.
+
+Acceptance criteria:
+- =xc-cli.override { withMdb = true; … }= provides =bin/mdb=; =mdb <script>= forwards its arguments to =mdb.sh= and returns its exit status.
+- =withMdb= adds =Simulator_TP= to the packs, with =packs = [ ]= as well as with the default packs.
+- =mdb= gives exit 0 with a script that completes, in a Nix build (=HOME= not writable) and in a development shell. Its stdout and stderr are those of =mdb.sh=, with no extra lines.
+- An =mkCiImage= image of that =xc-cli= runs =mdb= with no extra setup.
+- The downstream fixture, with =MDB=mdb=, prints =2 Tests 1 Failures 0 Ignored= for =test_probe.elf= and exits 0, in its development shell and in its CI image. With =--timeout-ms 2000= and =loop.elf=, it exits 1.
+- =mplab-gen= still generates and builds =examples/mplab/firmware.X=.
+- =mplab-x= also provides =mdb=.
+- README and =doc/packaging.org= describe =withMdb=, =mdb=, the =Simulator_TP= requirement, and the =mdb.sh= limitation for paths with spaces.
+
+Inline plan:
+- Inventory: record =strace -f -e trace=%file,%process= traces of =mplab-gen=, an =xc-make= build and an =mdb= simulator run (UART file output) of the example, then regenerate =pkgs/mplab-x-unwrapped/6.35-headless-files.txt= with =regenerate-headless-files.clj= and all three traces. In =pkgs/mplab-x-unwrapped/6.35.nix=, check the =mdb.jar= manifest =Class-Path= against the inventory, as for =PrjMakefilesGenerator.jar=. Report the subset size before and after.
+- =pkgs/xc-cli/default.nix=: add =withMdb ? false=. When it or =withMplabProjects= is true, link the subset into the root filesystem. When =withMdb= is true, append =Simulator_TP= (selected from =mplab-x-unwrapped.toolPacks=, as in =pkgs/mplab-x/default.nix= =selectedToolPacks=) to the resolved packs, and add =bin/mdb=.
+- =mdb= wrapper: run =xc-run <ideDir>/mplab_platform/bin/mdb.sh "$@"= with =USER_DIR= set to a temporary directory. If =HOME= is not a writable directory, set =HOME= to a temporary directory too. Remove the temporary directories at exit, and return the exit status of =mdb.sh=. Make the same command in =mplab-x= with =mplab-x-run=.
+- =mkCiImage=: no change expected; =MPLAB_X_ENV= makes the wrapper run directly. Confirm with a =docker load= of the example image.
+- Docs: README sections "Compilers" and "MPLAB projects" (or a new "Simulator" section), =doc/packaging.org= options, and the MPLAB-X inventory procedure with the MDB trace.
+- Verify: a derivation runs =mdb= on a small ELF in the Nix sandbox and checks the UART file and exit status; the downstream fixture in a development shell and in a =docker load= image; the =mplab-gen= example build; the basic regression level (=xc16_1_61=, =xc-dsc_4_00=); =bb test=; =nix flake check --no-build=. Run =df -h /nix/store= before each build.
+- Must not: change =pkgs/mplab-x/rootfs.nix= or =run.sh= (each change requires the thorough regression level). Must not: add =libusb= or hardware-tool support to =xc-cli=. Must not: patch =mdb.sh= or any IDE payload file.
+- Out of scope: hardware debuggers and programmers, MDB on the MPLAB CLI path (task "Evaluate MPLAB CLI"), and a simulator for other device families. The consumer must test those device families.
+
+Results (2026-11-25):
+- Inventory: new traces of =mplab-gen= and =xc-make= on the example did not open some files of the committed inventory (e.g. =xclm=, =hexmate=, =libjli.so=), so the 6.35 inventory is the committed inventory merged with the =mdb= trace. MDB adds =mdb.sh=, =mdb.jar= and =libSEGGERAccessLink.so=. The subset grows from 397,239,960 to 397,702,904 bytes. The =mdb.jar= =Class-Path= is a subset of the generator's in 6.35; with one of its jars removed from the inventory, the subset build fails (exit 1).
+- =xc-cli= closure with =xc16_1_61= and the 1.7.401 DFP: 2,969,485,992 bytes with =withMplabProjects=, 2,971,293,288 with =withMdb=.
+- =Simulator_TP= comes from =fetchMplabPack= (1.9.946, 1,808,976 bytes), not from =mplab-x-unwrapped.toolPacks=: Microchip does not serve the bundled 1.9.939, and the tool-pack output is a second installer run (149 s in a rebuild, 2,884,996,024 bytes). The =withMdb= derivation graph has no =mplab-x-tool-packs= derivation. Rerun with 1.9.946: =mdb= with =HOME=/homeless-shelter= (outside a derivation), the downstream fixture in a shell and in the CI image; the results are the same as below. The Nix-derivation test was not rerun.
+- =mdb= (=withMdb=, =xc16_1_61=): exit 0, =Simulator halted= and the UART file with a writable =HOME= and with =HOME=/homeless-shelter=. A missing script gives exit 255 and the MDB error. No temporary folder remains. A Nix derivation compiled and simulated with =HOME=/homeless-shelter= and found =MDB-SIM result=55=. =mplab-x= =mdb= gives the same result.
+- Downstream fixture with =MDB= set to the =xc-dsc_4_00= =withMdb= =mdb=: =test_probe.elf= exits 0 with =2 Tests 1 Failures 0 Ignored=; =--timeout-ms 2000 loop.elf= exits 1. The same results come from a =docker load= =mkCiImage= image (=withMdb= only, with =MDB=mdb=).
+- Regression (basic): =xc16_1_61= =-O3= compiles and links with no licence diagnostic, and =xclm -status= shows =Mode: PRO=; =xc-dsc_4_00= compiles and links with the DFP; =mplab-gen= and =xc-make= build =examples/mplab/firmware.X=. =nix flake check --no-build= and =bb test= pass. =bb test= does not test the Nix packages.
