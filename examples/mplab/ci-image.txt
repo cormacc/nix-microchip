@@ -1,1 +1,1 @@
-ghcr.io/cormacc/nix-microchip-ci@sha256:9552f41080565cb9bbdaaa3fcc4f33a594f572499d4c5f1cf4829b2c2997d849
+ghcr.io/cormacc/nix-microchip-ci@sha256:d991ff9b57437658a598304806f959fa50c64581217a66dd7d0428e089e63f08

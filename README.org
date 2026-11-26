@@ -450,7 +450,7 @@ docker run --rm -v "$PWD:/src" -w /src xc-cli:<tag> \
   sh -c 'mplab-gen firmware.X@default && xc-make -C firmware.X -j8 -f Makefile CONF=default'
 #+end_src
 
-With xc16 1.61 (an XC16 result), the 1.7.401 DFP and =withMplabProjects = true=, the image was 3.25 GB. It built an MPLAB project under Docker's default seccomp profile, without =--privileged=, to a hex file byte-identical to the development-shell build (measured 2026-10-23, Docker 29.9.1). For =mplab-gen=, the image contains a real copy of the command-line IDE files (274 MB), because the makefile generator derives its paths from its own location. The image runs commands as =root=; a non-root container user is not tested. See [[file:doc/environment.org][Runtime environment]] for the differences from the bubblewrap environment.
+With xc-dsc 4.00, the 1.7.401 DFP and =withMplabProjects = true=, the image was 2.34 GB (2,343,982,120 bytes). It built an MPLAB project under Docker's default seccomp profile, without =--privileged=, to a hex file byte-identical to the development-shell build (measured 2026-11-26, Docker 29.9.2). For =mplab-gen=, the image contains a real copy of the command-line IDE files (274 MB), because the makefile generator derives its paths from its own location. The image runs commands as =root=; a non-root container user is not tested. See [[file:doc/environment.org][Runtime environment]] for the differences from the bubblewrap environment.
 
 ** Device packs
 
